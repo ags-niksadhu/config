@@ -1,3 +1,47 @@
+
+sudo mkdir -p /root/.ssh
+sudo cp ~/.ssh/config /root/.ssh/config
+sudo cp ~/.ssh/careernavigator-frontend-deploy /root/.ssh/
+sudo cp ~/.ssh/careernavigator-backend-deploy /root/.ssh/
+sudo chmod 600 /root/.ssh/careernavigator-frontend-deploy
+sudo chmod 600 /root/.ssh/careernavigator-backend-deploy
+
+
+sudo git clone git@github-frontend:pwc-me-adv-careernavigator/careernavigator-frontend.git /var/www/careernavigator-frontend
+
+sudo git clone git@github-backend:pwc-me-adv-careernavigator/careernavigator-backend.git /var/www/careernavigator-backend
+
+
+
+
+
+
+
+
+
+sudo ssh -T git@github-frontend
+sudo ssh -T git@github-backend
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Host github-frontend
     HostName github.com
     User git
