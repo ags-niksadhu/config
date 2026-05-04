@@ -1,0 +1,9 @@
+Host github-frontend
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/careernavigator-frontend-deploy
+
+Host github-backend
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/careernavigator-backend-deploy
