@@ -1,4 +1,72 @@
 
+
+
+
+
+
+
+
+
+
+
+
+
+.github/workflows/deploy-staging.yml
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Pull latest code
+        working-directory: /var/www/your-app   # ← change this to your app path
+        run: git pull origin staging
+
+      - name: Install dependencies
+        working-directory: /var/www/your-app   # ← same path
+        run: npm install --production
+
+      - name: Restart PM2
+        run: pm2 restart your-app-name         # ← change to your PM2 app name
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 sudo mkdir -p /root/.ssh
 sudo cp ~/.ssh/config /root/.ssh/config
 sudo cp ~/.ssh/careernavigator-frontend-deploy /root/.ssh/
