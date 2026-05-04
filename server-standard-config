@@ -1,0 +1,227 @@
+
+Detect os related all info 
+
+sudo apt-get update
+sudo apt-get upgrade
+sudo apt-get dist-upgrade
+
+Below part is install Apache2
+
+sudo apt install apache2
+sudo systemctl enable apache2
+sudo systemctl restart apache2
+
+Below for basic need for php and all
+
+sudo apt-get install software-properties-common
+sudo add-apt-repository ppa:ondrej/php
+sudo add-apt-repository ppa:ondrej/apache2
+sudo apt-get update
+sudo apt-get upgrade
+
+Below for php install 
+
+sudo apt install php8.2-fpm php8.2-common php8.2-opcache  php8.2-cli php8.2-gd php8.2-curl php8.2-mysql php8.2-xml php8.2-mbstring php8.2-zip -y
+sudo a2enconf php8.2-fpm
+
+sudo systemctl enable php8.2-fpm
+sudo systemctl restart php8.2-fpm
+
+sudo a2enmod proxy_fcgi setenvif
+sudo a2enmod cache
+sudo a2enmod expires
+
+sudo a2enmod cache_disk
+
+sudo a2enmod headers
+sudo systemctl start apache-htcacheclean
+sudo a2enmod http2
+
+sudo a2enmod ssl
+
+sudo a2enmod rewrite
+sudo a2enmod proxy_http
+sudo apt install zip unzip
+sudo systemctl restart apache2
+
+sudo a2enmod proxy
+sudo a2enmod proxy_http
+sudo a2enmod proxy_ftp
+sudo a2enmod proxy_connect
+
+sudo systemctl restart apache2
+
+sudo apt install php8.2-grpc -y
+sudo systemctl restart php8.2-fpm
+sudo systemctl restart apache2
+php -m | grep grpc
+
+Below is for install composer
+
+php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+php -r "if (hash_file('sha384', 'composer-setup.php') === 'c8b085408188070d5f52bcfe4ecfbee5f727afa458b2573b8eaaf77b3419b0bf2768dc67c86944da1544f06fa544fd47') { echo 'Installer verified'.PHP_EOL; } else { echo 'Installer corrupt'.PHP_EOL; unlink('composer-setup.php'); exit(1); }"
+php composer-setup.php
+php -r "unlink('composer-setup.php');"
+
+sudo mv composer.phar /usr/local/bin/composer
+sudo chmod +x /usr/local/bin/composer
+composer -v
+which composer
+
+Below is for node installation
+
+sudo apt update
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+source ~/.bashrc
+nvm list-remote
+
+Then select version which need to install and command is below for that version install
+
+nvm install v22.21.1
+nvm list
+nvm use v22.21.1
+node -v
+npm -v
+nvm -v
+
+For multiple node version default command 
+nvm alias default v22.21.1
+
+
+below is for pm2 install
+
+npm install pm2 -g
+
+
+below is CodeDeploy agent on Ubuntu Server
+
+sudo apt update
+sudo apt install ruby-full -y
+sudo apt install wget -y
+cd /home/ubuntu
+This is a exapmle URL wget https://bucket-name.s3.region-identifier.amazonaws.com/latest/install
+
+wget https://aws-codedeploy-eu-west-2.s3.eu-west-2.amazonaws.com/latest/install
+chmod +x ./install
+sudo ./install auto
+systemctl status codedeploy-agent
+sudo systemctl start codedeploy-agent
+sudo systemctl enable codedeploy-agent
+sudo systemctl restart codedeploy-agent
+
+
+
+
+For secuirty 
+
+For Enable automatic security updates
+sudo apt install unattended-upgrades apt-listchanges -y
+sudo dpkg-reconfigure unattended-upgrades
+
+Verify:
+cat /etc/apt/apt.conf.d/50unattended-upgrades
+
+Enable firewall
+
+sudo apt install ufw -y
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+
+Allow required services only
+
+sudo ufw allow OpenSSH
+sudo ufw allow 80
+sudo ufw allow 443
+sudo ufw enable
+
+sudo ufw status verbose
+
+
+update below on this path: sudo nano /etc/ssh/sshd_config
+
+AllowTcpForwarding no
+MaxAuthTries 3
+
+sudo systemctl restart ssh
+
+Fail2Ban (Stops Brute Force Attacks)
+
+sudo apt install fail2ban -y
+
+Create config:
+
+sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
+
+update in this file below settings: sudo nano /etc/fail2ban/jail.local
+
+[sshd]
+enabled = true
+port = ssh
+maxretry = 3
+bantime = 1h
+
+sudo systemctl restart fail2ban
+fail2ban-client status sshd
+
+-------------------------------------
+Apache Security Hardening
+Disable Apache version leaks
+
+
+sudo nano /etc/apache2/conf-available/security.conf
+
+Set:
+ServerTokens Prod
+ServerSignature Off
+
+Enable:
+sudo a2enconf security
+sudo systemctl reload 
+
+
+Disable directory listing
+sudo nano /etc/apache2/apache2.conf
+
+
+Ensure:
+<Directory /var/www/>
+    Options -Indexes
+</Directory>
+
+
+Enable HTTP security headers
+
+sudo nano /etc/apache2/conf-available/headers.conf
+
+Add:
+Header always set X-Frame-Options "SAMEORIGIN"
+Header always set X-XSS-Protection "1; mode=block"
+Header always set X-Content-Type-Options "nosniff"
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+
+Restart:
+sudo systemctl restart apache2
+
+
+For Laravel Project permission for storage folder
+
+go to project path
+cd /var/www/html/stagingapi
+
+sudo chown -R www-data:www-data storage
+sudo chown -R ubuntu:www-data storage
+sudo chmod -R 775 storage
+
+
+For Growy only PDF work related
+sudo apt install -y wkhtmltopdf
+
+
+NPM Install safe command 
+
+npm install --omit=dev --ignore-scripts
+
+Disable npm scripts globally (optional but strong)
+npm config set ignore-scripts true
