@@ -40,7 +40,7 @@
 
     # ── Legacy HTML Directory ─────────────────────────────────
     <Directory /var/www/html>
-        Options -Indexes FollowSymLinks
+        Options -Indexes +FollowSymLinks
         AllowOverride All
         Require all granted
     </Directory>
@@ -54,6 +54,11 @@
     <DirectoryMatch "^/.*/\.git/">
         Order 'deny,allow'
         Deny from all
+
+    <LimitExcept GET POST PUT DELETE OPTIONS PATCH>
+        Require all denied
+    </LimitExcept>
+
     </DirectoryMatch>
 
     # ── Security Headers ──────────────────────────────────────
@@ -67,10 +72,7 @@
     Header always unset X-Powered-By
     Header always unset Server
 
-    # ── Hide Apache Info ──────────────────────────────────────
-    ServerTokens Prod
-    ServerSignature Off
-    TraceEnable Off
+   
 
     # ── Timeout & Connection Settings ────────────────────────
     Timeout 60
@@ -88,10 +90,8 @@
         Require all denied
     </Location>
 
-    # ── Limit HTTP Methods ────────────────────────────────────
-    <LimitExcept GET POST PUT DELETE OPTIONS PATCH>
-        Require all denied
-    </LimitExcept>
+    
+    
 
     # ── Proxy to App (Node.js port 3333) ─────────────────────
     ProxyRequests off
