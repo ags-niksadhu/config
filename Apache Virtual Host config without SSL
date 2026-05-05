@@ -1,0 +1,113 @@
+# ============================================================
+# Enterprise Grade Apache2 Virtual Host
+# Project: ABC - Stage
+# Environment: Staging
+# ============================================================
+
+# vim: syntax=apache ts=4 sw=4 sts=4 sr noet
+
+<VirtualHost *:80>
+    ServerName staging.yourdomain.com
+    ServerAlias www.staging.yourdomain.com
+
+    # ── Protocol Support ──────────────────────────────────────
+    Protocols h2 http/1.1
+
+    # ── Document Root ────────────────────────────────────────
+    DocumentRoot /var/www/ABC/public
+
+    # ── Logging ──────────────────────────────────────────────
+    ErrorLog  /var/log/apache2/ABC-staging-error.log
+    CustomLog /var/log/apache2/ABC-staging-access.log combined
+    LogLevel warn
+
+    # ── URL Rewriting ─────────────────────────────────────────
+    RewriteEngine On
+
+    # ── GCP LB HTTPS Detection ────────────────────────────────
+    SetEnvIf X-Forwarded-Proto https HTTPS=on
+
+    # ── Directory Config ─────────────────────────────────────
+    <Directory /var/www/ABC/public>
+        Options -Indexes -ExecCGI
+        AllowOverride All
+        Require all granted
+
+        <FilesMatch "^\.">
+            Require all denied
+        </FilesMatch>
+    </Directory>
+
+    # ── Legacy HTML Directory ─────────────────────────────────
+    <Directory /var/www/html>
+        Options -Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    # ── Block Sensitive Files ─────────────────────────────────
+    <FilesMatch "\.(env|git|gitignore|sh|sql|json|lock|md|log|bak|swp|orig)$">
+        Require all denied
+    </FilesMatch>
+
+    # ── Block .git Directory ──────────────────────────────────
+    <DirectoryMatch "^/.*/\.git/">
+        Order 'deny,allow'
+        Deny from all
+    </DirectoryMatch>
+
+    # ── Security Headers ──────────────────────────────────────
+    Header always set X-Content-Type-Options        "nosniff"
+    Header always unset X-Frame-Options
+    Header set X-Frame-Options                      "SAMEORIGIN"
+    Header always set X-XSS-Protection              "1; mode=block"
+    Header always set Referrer-Policy               "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy            "geolocation=(), microphone=(), camera=()"
+    Header always set Content-Security-Policy       "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';"
+    Header always unset X-Powered-By
+    Header always unset Server
+
+    # ── Hide Apache Info ──────────────────────────────────────
+    ServerTokens Prod
+    ServerSignature Off
+    TraceEnable Off
+
+    # ── Timeout & Connection Settings ────────────────────────
+    Timeout 60
+    KeepAlive On
+    KeepAliveTimeout 15
+    MaxKeepAliveRequests 100
+
+    # ── Block Bad Bots ────────────────────────────────────────
+    <If "%{HTTP_USER_AGENT} =~ /sqlmap|nikto|nessus|masscan|zgrab|nmap|dirbuster|hydra|havij/">
+        Require all denied
+    </If>
+
+    # ── Block XML-RPC ─────────────────────────────────────────
+    <Location /xmlrpc.php>
+        Require all denied
+    </Location>
+
+    # ── Limit HTTP Methods ────────────────────────────────────
+    <LimitExcept GET POST PUT DELETE OPTIONS PATCH>
+        Require all denied
+    </LimitExcept>
+
+    # ── Proxy to App (Node.js port 3333) ─────────────────────
+    ProxyRequests off
+    ProxyPreserveHost on
+    ProxyVia Full
+
+    <Proxy *>
+        Require all granted
+    </Proxy>
+
+    ProxyPass / http://localhost:3333
+    ProxyPassReverse / http://localhost:3333
+
+    # ── GCP Load Balancer Real IP ─────────────────────────────
+    RemoteIPHeader X-Forwarded-For
+    RemoteIPInternalProxy 130.211.0.0/22
+    RemoteIPInternalProxy 35.191.0.0/16
+
+</VirtualHost>
