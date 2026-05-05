@@ -2,26 +2,69 @@
 
 
 
+sudo nano /var/www/careernavigator-backend/deploy.sh
+
+#!/bin/bash
+cd /var/www/careernavigator-backend
+git fetch origin staging
+LOCAL=$(git rev-parse HEAD)
+REMOTE=$(git rev-parse origin/staging)
+
+if [ "$LOCAL" != "$REMOTE" ]; then
+  echo "$(date) - New changes detected, deploying..."
+  git pull origin staging
+  npm install --production
+  pm2 restart careernavigator-backend
+  echo "$(date) - Deploy done"
+else
+  echo "$(date) - No changes"
+fi
 
 
+chmod +x /var/www/careernavigator-backend/deploy.sh
 
 
+sudo nano /var/www/careernavigator-frontend/deploy.sh
 
+#!/bin/bash
+cd /var/www/careernavigator-frontend
+git fetch origin staging
+LOCAL=$(git rev-parse HEAD)
+REMOTE=$(git rev-parse origin/staging)
+
+if [ "$LOCAL" != "$REMOTE" ]; then
+  echo "$(date) - New changes detected, deploying..."
+  git pull origin staging
+  npm install --production
+  pm2 restart careernavigator-frontend
+  echo "$(date) - Deploy done"
+else
+  echo "$(date) - No changes"
+fi
+
+chmod +x /var/www/careernavigator-frontend/deploy.sh
+
+
+bash /var/www/careernavigator-backend/deploy.sh
+bash /var/www/careernavigator-frontend/deploy.sh
+
+crontab -e
+
+*/2 * * * * /bin/bash /var/www/careernavigator-backend/deploy.sh >> /var/log/deploy-backend.log 2>&1
+*/2 * * * * /bin/bash /var/www/careernavigator-frontend/deploy.sh >> /var/log/deploy-frontend.log 2>&1
+
+crontab -l
+
+# Watch backend log live
+tail -f /var/log/deploy-backend.log
+
+# Watch frontend log live
+tail -f /var/log/deploy-frontend.log
 
 
 
 
 .github/workflows/deploy-staging.yml
-
-
-
-
-
-
-
-
-
-
 
 
 
