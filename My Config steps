@@ -1,4 +1,83 @@
+----------------- Enable Required Apache Modules -----------------
 
+sudo a2enmod headers
+sudo a2enmod rewrite
+sudo a2enmod remoteip
+sudo a2enmod expires
+sudo a2enmod deflate
+sudo a2enmod ssl
+
+----------------- Enable Required Apache Modules -----------------
+
+----------------- Create Application Directory -----------------
+
+sudo mkdir -p /var/www/cn-staging/public
+sudo chown -R www-data:www-data /var/www/cn-staging
+sudo chmod -R 755 /var/www/cn-staging
+
+----------------- Create Application Directory -----------------
+
+----------------- Update Apache2 Global Security Settings -----------------
+
+sudo nano /etc/apache2/conf-available/security.conf
+
+ServerTokens Prod
+ServerSignature Off
+TraceEnable Off
+
+----------------- Update Apache2 Global Security Settings -----------------
+
+----------------- Enable Security Config -----------------
+sudo a2enconf security
+sudo systemctl reload apache2
+----------------- Enable Security Config -----------------
+
+----------------- Verify Everything Working -----------------
+
+# Check Apache config
+sudo apache2ctl -S
+
+# Check your site is enabled
+ls -la /etc/apache2/sites-enabled/
+
+# Check modules enabled
+apache2ctl -M | grep -E "headers|rewrite|remoteip|expires|deflate"
+
+# Check error log
+sudo tail -f /var/log/apache2/cn-staging-error.log
+
+----------------- Verify Everything Working -----------------
+
+
+----------------- Enable Proxy Modules -----------------
+
+sudo a2enmod proxy
+sudo a2enmod proxy_http
+sudo a2enmod headers
+sudo a2enmod rewrite
+sudo a2enmod remoteip
+sudo a2enmod http2
+sudo a2enmod env
+sudo a2enmod deflate
+sudo a2enmod expires
+sudo apache2ctl configtest
+sudo systemctl reload apache2
+
+----------------- Enable Proxy Modules -----------------
+
+
+----------------- Verify Proxy Working -----------------
+
+# Check all enabled modules
+apache2ctl -M | grep proxy
+
+# Check your app is running on 3333
+sudo ss -tlnp | grep 3333
+
+# Test proxy locally on VM
+curl http://localhost
+
+----------------- Verify Proxy Working -----------------
 
 One Line command
 
