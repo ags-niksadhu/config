@@ -1,5 +1,13 @@
 
-
+# Test one secret fetch
+node -e "
+const {SecretManagerServiceClient} = require('@google-cloud/secret-manager');
+const client = new SecretManagerServiceClient();
+client.accessSecretVersion({
+  name: 'projects/pg-ae-n-app-125609/secrets/cn-staging-db-password/versions/latest'
+}).then(([v]) => console.log('Secret fetched:', v.payload.data.toString()))
+  .catch(console.error);
+"
 
 
 sudo nano /var/www/careernavigator-backend/deploy.sh
