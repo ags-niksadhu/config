@@ -1,172 +1,36 @@
-
-# Test one secret fetch
-node -e "
-const {SecretManagerServiceClient} = require('@google-cloud/secret-manager');
-const client = new SecretManagerServiceClient();
-client.accessSecretVersion({
-  name: 'projects/pg-ae-n-app-125609/secrets/cn-staging-db-password/versions/latest'
-}).then(([v]) => console.log('Secret fetched:', v.payload.data.toString()))
-  .catch(console.error);
-"
-
-
-sudo nano /var/www/careernavigator-backend/deploy.sh
-
-#!/bin/bash
-cd /var/www/careernavigator-backend
-git fetch origin staging
-LOCAL=$(git rev-parse HEAD)
-REMOTE=$(git rev-parse origin/staging)
-
-if [ "$LOCAL" != "$REMOTE" ]; then
-  echo "$(date) - New changes detected, deploying..."
-  git pull origin staging
-  npm install --production
-  pm2 restart careernavigator-backend
-  echo "$(date) - Deploy done"
-else
-  echo "$(date) - No changes"
-fi
-
-
-chmod +x /var/www/careernavigator-backend/deploy.sh
-
-
-sudo nano /var/www/careernavigator-frontend/deploy.sh
-
-#!/bin/bash
-cd /var/www/careernavigator-frontend
-git fetch origin staging
-LOCAL=$(git rev-parse HEAD)
-REMOTE=$(git rev-parse origin/staging)
-
-if [ "$LOCAL" != "$REMOTE" ]; then
-  echo "$(date) - New changes detected, deploying..."
-  git pull origin staging
-  npm install --production
-  pm2 restart careernavigator-frontend
-  echo "$(date) - Deploy done"
-else
-  echo "$(date) - No changes"
-fi
-
-chmod +x /var/www/careernavigator-frontend/deploy.sh
-
-
-bash /var/www/careernavigator-backend/deploy.sh
-bash /var/www/careernavigator-frontend/deploy.sh
-
-crontab -e
-
-*/2 * * * * /bin/bash /var/www/careernavigator-backend/deploy.sh >> /var/log/deploy-backend.log 2>&1
-*/2 * * * * /bin/bash /var/www/careernavigator-frontend/deploy.sh >> /var/log/deploy-frontend.log 2>&1
-
-crontab -l
-
-# Watch backend log live
-tail -f /var/log/deploy-backend.log
-
-# Watch frontend log live
-tail -f /var/log/deploy-frontend.log
-
-
-
-
-.github/workflows/deploy-staging.yml
-
-
-
-
-name: Deploy to Staging
-
-on:
-  push:
-    branches:
-      - staging
-
-jobs:
-  deploy:
-    runs-on: self-hosted
-
-    steps:
-      - name: Pull latest code
-        working-directory: /var/www/your-app   # ← change this to your app path
-        run: git pull origin staging
-
-      - name: Install dependencies
-        working-directory: /var/www/your-app   # ← same path
-        run: npm install --production
-
-      - name: Restart PM2
-        run: pm2 restart your-app-name         # ← change to your PM2 app name
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-sudo mkdir -p /root/.ssh
-sudo cp ~/.ssh/config /root/.ssh/config
-sudo cp ~/.ssh/careernavigator-frontend-deploy /root/.ssh/
-sudo cp ~/.ssh/careernavigator-backend-deploy /root/.ssh/
-sudo chmod 600 /root/.ssh/careernavigator-frontend-deploy
-sudo chmod 600 /root/.ssh/careernavigator-backend-deploy
-
-
-sudo git clone git@github-frontend:pwc-me-adv-careernavigator/careernavigator-frontend.git /var/www/careernavigator-frontend
-
-sudo git clone git@github-backend:pwc-me-adv-careernavigator/careernavigator-backend.git /var/www/careernavigator-backend
-
-
-
-
-
-
-
-
-
-sudo ssh -T git@github-frontend
-sudo ssh -T git@github-backend
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Host github-frontend
-    HostName github.com
-    User git
-    IdentityFile ~/.ssh/careernavigator-frontend-deploy
-
-Host github-backend
-    HostName github.com
-    User git
-    IdentityFile ~/.ssh/careernavigator-backend-deploy
+TASK: Set up a one-time script + optional cron job that mirrors two branches from 
+a source GitHub repo to a destination GitHub repo, running on this machine.
+
+SOURCE REPO (read from): https://github.com/ags-org/cpms-backend.git (public/no-auth clone)
+DEST REPO (push to):     https://github.com/pwc-me-adv-careernavigator/careernavigator-backend.git
+BRANCHES TO SYNC:        staging -> staging, main -> main (independent, no cross-branch mixing)
+
+AUTH: I have a GitHub Personal Access Token with write access to the destination repo. 
+Do NOT hardcode it in the script — store it in a separate file with chmod 600, 
+read it into the script at runtime, and set the script itself to chmod 700.
+
+REQUIREMENTS:
+1. Create folder ~/mirror-sync
+2. Save my token into ~/mirror-sync/token.txt (chmod 600) — I will paste the token myself
+3. Clone the source repo once into ~/mirror-sync/source-repo
+4. Write ~/mirror-sync/mirror-sync.sh that, for each branch (staging, main):
+   - fetches latest from source repo's origin
+   - checks out and hard-resets local branch to match origin
+   - pushes that branch to the destination repo using the token 
+     (URL format: https://x-access-token:<TOKEN>@github.com/...)
+5. Script must use `set -euo pipefail`, log all output with UTC timestamps to 
+   ~/mirror-sync/mirror-sync.log, and exit non-zero + log a clear FAILED line 
+   if any step fails (don't let one branch's failure silently skip logging)
+6. chmod 700 on the script and 600 on the token file — this machine may not be 
+   fully trusted, treat the token as sensitive
+7. Do NOT force-push destructively without checking first if this is a fresh 
+   destination clone — confirm with me before any action that could overwrite 
+   existing commits I haven't seen
+8. After writing everything, run the script once manually, show me the log 
+   output, and tell me explicitly whether the sync succeeded or failed — do 
+   not just say "done"
+9. Only after I confirm the manual run worked, offer to set up a cron job 
+   (I'll tell you the interval) — do not add cron automatically
+
+Ask me for the token now, then proceed step by step, confirming each step's 
+output before moving to the next. Do not skip the manual verification step.
