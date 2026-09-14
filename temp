@@ -1,8 +1,8 @@
 TASK: Set up a one-time script + optional cron job that mirrors two branches from 
 a source GitHub repo to a destination GitHub repo, running on this machine.
 
-SOURCE REPO (read from): https://github.com/ags-org/cpms-backend.git (public/no-auth clone)
-DEST REPO (push to):     https://github.com/pwc-me-adv-careernavigator/careernavigator-backend.git
+SOURCE REPO (read from): rer
+DEST REPO (push to):     ere
 BRANCHES TO SYNC:        staging -> staging, main -> main (independent, no cross-branch mixing)
 
 AUTH: I have a GitHub Personal Access Token with write access to the destination repo. 
