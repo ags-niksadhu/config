@@ -1,36 +1,352 @@
-TASK: Set up a one-time script + optional cron job that mirrors two branches from 
-a source GitHub repo to a destination GitHub repo, running on this machine.
 
-SOURCE REPO (read from): rer
-DEST REPO (push to):     ere
-BRANCHES TO SYNC:        staging -> staging, main -> main (independent, no cross-branch mixing)
 
-AUTH: I have a GitHub Personal Access Token with write access to the destination repo. 
-Do NOT hardcode it in the script — store it in a separate file with chmod 600, 
-read it into the script at runtime, and set the script itself to chmod 700.
+**Goal:** Build a fully automated, enterprise-grade CI/CD pipeline on GCP for a Node.js application, with zero-downtime deployment, automatic rollback on failure, deployment history retention, and post-deploy health verification. No manual intervention.
 
-REQUIREMENTS:
-1. Create folder ~/mirror-sync
-2. Save my token into ~/mirror-sync/token.txt (chmod 600) — I will paste the token myself
-3. Clone the source repo once into ~/mirror-sync/source-repo
-4. Write ~/mirror-sync/mirror-sync.sh that, for each branch (staging, main):
-   - fetches latest from source repo's origin
-   - checks out and hard-resets local branch to match origin
-   - pushes that branch to the destination repo using the token 
-     (URL format: https://x-access-token:<TOKEN>@github.com/...)
-5. Script must use `set -euo pipefail`, log all output with UTC timestamps to 
-   ~/mirror-sync/mirror-sync.log, and exit non-zero + log a clear FAILED line 
-   if any step fails (don't let one branch's failure silently skip logging)
-6. chmod 700 on the script and 600 on the token file — this machine may not be 
-   fully trusted, treat the token as sensitive
-7. Do NOT force-push destructively without checking first if this is a fresh 
-   destination clone — confirm with me before any action that could overwrite 
-   existing commits I haven't seen
-8. After writing everything, run the script once manually, show me the log 
-   output, and tell me explicitly whether the sync succeeded or failed — do 
-   not just say "done"
-9. Only after I confirm the manual run worked, offer to set up a cron job 
-   (I'll tell you the interval) — do not add cron automatically
+**Current state:**
+- Cloud: GCP (single project)
+- Compute: 1 standalone Compute Engine VM (Ubuntu), **not** in a managed instance group
+- Load balancer: GCP Load Balancer already in front of the VM
+- Runtime: Node.js, processes managed by PM2
+- Apps: two — NestJS backend (`careernavigator-backend`, port 3024, `dist/main.js`) and a frontend (`npm start`, port 3027)
+- Both PM2 apps currently `exec_mode: fork`, `instances: 1`
+- Source: GitHub
+- Secrets: GCP Secret Manager already in use
+- Database: already provisioned
+- **Constraint: GitHub self-hosted runners are prohibited by company policy — CI/CD must run inside GCP**
+- Target: managed instance group with autoscaling (starting at 2 instances)
 
-Ask me for the token now, then proceed step by step, confirming each step's 
-output before moving to the next. Do not skip the manual verification step.
+**Non-goals:** cost optimisation (enterprise-grade correctness prioritised over price).
+
+---
+
+# ARCHITECTURE DECISION
+
+## Deploy model options
+
+| Option | Downtime | Autoscaling-safe | Rollback | Complexity |
+|---|---|---|---|---|
+| A. SSH into VM, `git pull` + `pm2 reload` | Near-zero | ❌ No — new autoscaled instances boot with stale code | Manual | Low |
+| B. Startup script pulls versioned artifact from GCS on boot, MIG rolling restart | Zero | ✅ Yes | Fast (repoint version pointer) | Medium |
+| C. Immutable golden image → new instance template → MIG rolling update | Zero | ✅ Yes | Instant (repoint to previous template) | High |
+
+**Recommendation: Option C (immutable images).** Rationale:
+
+- **Pros:** every deploy is a versioned, immutable artifact; autoscaler-spawned instances are always identical to deployed state; rollback is a metadata change, not a rebuild; supports vulnerability scanning and supply-chain controls; is the standard enterprise/immutable-infrastructure pattern.
+- **Cons:** slowest deploy cycle (image bake adds 4–8 min); more moving parts; requires Packer or an image-bake step in the pipeline.
+- **Why not B:** faster, but application state and OS state drift apart over time; "what is actually running" becomes ambiguous — unacceptable for an audited enterprise environment.
+- **Why not A:** fundamentally incompatible with autoscaling.
+
+## Orchestration options
+
+| Option | Rollback | Audit trail | Complexity |
+|---|---|---|---|
+| Cloud Build only (rollback scripted by hand in YAML) | Custom scripting | Cloud Build history only | Medium |
+| **Cloud Build (CI) + Cloud Deploy (CD)** | Built-in, first-class | Full release/rollout records, native | Medium-High |
+
+**Recommendation: Cloud Build for CI, Cloud Deploy for CD.** Cloud Deploy gives native release objects, rollout history, automated rollback, and optional approval gates — you do not hand-roll rollback logic. Cloud Build alone would require you to script and maintain the rollback path yourself, which is exactly the kind of bespoke logic that fails during a real incident.
+
+## Final pipeline flow
+
+```
+GitHub push (main)
+  → Cloud Build trigger (native GitHub App connection; no runner needed)
+      1. npm ci, lint, build, unit tests            [fail fast — no image baked on test failure]
+      2. Package build output to GCS (versioned by commit SHA)
+      3. Packer bakes golden image from Ubuntu LTS base
+         (Node + PM2 + app + systemd unit, secrets NOT baked)
+      4. Image published to image family: cn-backend / cn-frontend
+      5. Create instance template: cn-backend-tmpl-<SHORT_SHA>
+      6. Create Cloud Deploy release
+  → Cloud Deploy rollout
+      7. MIG rolling update onto new template
+         (maxSurge=1, maxUnavailable=0 → zero downtime)
+      8. Wait for instance health: MIG health check + LB backend health
+      9. Post-deploy verification: HTTP probe of /health via the LB
+  → PASS: write deployment record to BigQuery; mark rollout SUCCEEDED
+  → FAIL: Cloud Deploy automatic rollback to previous release
+          + Cloud Monitoring alert + BigQuery record with FAILED status
+```
+
+---
+
+# BLOCKER — MUST BE FIXED BEFORE ANYTHING ELSE
+
+⚠️ **PM2 is in `fork` mode with 1 instance on both apps. Zero-downtime is impossible in this configuration.** PM2's graceful reload works by cycling cluster workers one at a time; with a single fork process there is nothing to cycle — the port goes down during restart.
+
+Two fixes:
+
+**Quick patch** — keep fork mode, add graceful-shutdown signalling:
+```js
+wait_ready: true,
+listen_timeout: 10000,
+kill_timeout: 5000,
+```
+Requires the app to call `process.send('ready')` after the HTTP server is listening. Reduces the gap to roughly 0.5–1s, does not eliminate it.
+
+**Correct long-term fix (recommended for production)** — cluster mode, ≥2 instances:
+```js
+exec_mode: 'cluster',
+instances: 2,          // or 'max'
+wait_ready: true,
+listen_timeout: 10000,
+kill_timeout: 5000,
+```
+
+⚠️ **Cluster mode prerequisite check.** Cluster mode forks multiple independent processes. It will break the application if it currently relies on:
+- In-memory sessions or in-memory caches assumed to be shared
+- WebSockets without sticky sessions or a Redis adapter
+- In-process schedulers (`@nestjs/schedule`, `node-cron`) — these will fire once per worker, causing duplicate job execution
+- In-memory rate limiting or locks
+- SQLite or any local-file state
+
+**Action required:** audit the NestJS backend for the above before switching. If schedulers exist, either move them to Cloud Scheduler + an authenticated HTTP endpoint, or gate them to a single worker via `process.env.NODE_APP_INSTANCE === '0'`.
+
+**Note on architecture:** once you are running a MIG with 2+ VMs, per-VM PM2 clustering matters less for availability — the MIG rolling update plus LB draining provides zero downtime at the fleet level. PM2 cluster mode is still recommended for CPU utilisation and in-VM resilience, but it is not the sole mechanism.
+
+---
+
+# IMPLEMENTATION PHASES
+
+## Phase 0 — Capture current state
+
+Run these and record the output; every later phase depends on these values.
+
+```bash
+# Project / region
+gcloud config get-value project
+gcloud config get-value compute/region
+
+# Existing VM
+gcloud compute instances list
+gcloud compute instances describe INSTANCE_NAME --zone=ZONE \
+  --format="yaml(name,machineType,networkInterfaces,serviceAccounts,disks,tags,metadata)"
+
+# Existing load balancer chain
+gcloud compute forwarding-rules list
+gcloud compute target-http-proxies list
+gcloud compute target-https-proxies list
+gcloud compute url-maps list
+gcloud compute backend-services list
+gcloud compute backend-services describe BACKEND_SERVICE_NAME --global
+gcloud compute health-checks list
+
+# Network
+gcloud compute networks list
+gcloud compute networks subnets list
+gcloud compute firewall-rules list
+
+# What exists already
+gcloud compute instance-templates list
+gcloud compute instance-groups list
+gcloud artifacts repositories list
+gcloud secrets list
+gcloud services list --enabled
+
+# On the VM
+pm2 list
+pm2 show careernavigator-backend
+pm2 show testnftapp.com_app_cpms
+node -v && npm -v
+```
+
+## Phase 1 — Enable APIs and create foundational resources
+
+```bash
+gcloud services enable \
+  compute.googleapis.com \
+  cloudbuild.googleapis.com \
+  clouddeploy.googleapis.com \
+  artifactregistry.googleapis.com \
+  secretmanager.googleapis.com \
+  logging.googleapis.com \
+  monitoring.googleapis.com \
+  iap.googleapis.com \
+  bigquery.googleapis.com \
+  containerscanning.googleapis.com
+```
+
+Create:
+- Artifact Registry repo (generic/apt) for build artifacts
+- GCS bucket for build tarballs, versioning enabled, object retention 90 days
+- BigQuery dataset `deployments` + table `deployment_history` (schema below)
+- Dedicated service accounts (Phase 2)
+
+**BigQuery deployment history schema:**
+
+| Field | Type | Notes |
+|---|---|---|
+| deployment_id | STRING | Cloud Deploy rollout ID |
+| app | STRING | backend / frontend |
+| commit_sha | STRING | |
+| commit_author | STRING | |
+| branch | STRING | |
+| image_name | STRING | baked image |
+| instance_template | STRING | |
+| build_id | STRING | Cloud Build ID |
+| started_at | TIMESTAMP | |
+| completed_at | TIMESTAMP | |
+| status | STRING | SUCCEEDED / FAILED / ROLLED_BACK |
+| rollback_from | STRING | nullable |
+| triggered_by | STRING | |
+
+## Phase 2 — IAM (least privilege)
+
+Create four service accounts; do **not** reuse the default Compute SA.
+
+| Service account | Purpose | Roles |
+|---|---|---|
+| `sa-cloudbuild-ci` | Runs builds, bakes images | `roles/logging.logWriter`, `roles/storage.objectAdmin` (build bucket only), `roles/artifactregistry.writer`, `roles/compute.instanceAdmin.v1` (image + template creation), `roles/iam.serviceAccountUser`, `roles/clouddeploy.releaser` |
+| `sa-clouddeploy` | Executes rollouts | `roles/clouddeploy.jobRunner`, `roles/compute.instanceAdmin.v1`, `roles/iam.serviceAccountUser` |
+| `sa-app-runtime` | Attached to MIG instances | `roles/secretmanager.secretAccessor` (scoped to specific secrets), `roles/logging.logWriter`, `roles/monitoring.metricWriter`, Cloud SQL client if applicable |
+| `sa-packer-build` | Temp VM during image bake | minimal: logging writer only |
+
+**Security requirements:**
+- Grant `secretmanager.secretAccessor` per-secret, never project-wide
+- VM instances must have **no external IP** — use Cloud NAT for egress and IAP for administrative SSH
+- Firewall: allow 3024/3027 **only** from the Google LB health-check ranges `130.211.0.0/22` and `35.191.0.0/16`, plus the LB proxy; never `0.0.0.0/0`
+- SSH (22) allowed only from IAP range `35.235.240.0/20`
+- Database: private IP only, no public access, authorised networks restricted to the VPC
+
+## Phase 3 — Health endpoints
+
+⚠️ MIG autohealing and LB health checks require a real health endpoint. If one does not exist, the rolling update cannot verify success and autohealing will behave unpredictably.
+
+Add to backend (NestJS) and frontend:
+- `GET /health` → 200 only when the process is fully initialised (DB connection established, migrations applied). Must not merely return 200 from a bare route handler.
+- `GET /ready` (optional) → readiness distinct from liveness
+
+Create GCP health checks against these paths on 3024 and 3027. Tune: check interval 10s, timeout 5s, healthy threshold 2, unhealthy threshold 3.
+
+## Phase 4 — Golden image pipeline
+
+Packer template per app, base image `ubuntu-2404-lts` (Ubuntu latest LTS, per default).
+
+Image contents:
+- Node.js (pinned to the version the app is tested on)
+- PM2 installed globally, PM2 configured to run under **systemd** (`pm2 startup systemd`) so it survives reboots and MIG instance replacement
+- Application build output at `/opt/app/current`
+- Ops Agent for Cloud Logging/Monitoring
+- A startup script that fetches secrets from Secret Manager at boot and writes them to the process environment, then starts PM2
+
+**Secrets must not be baked into the image.** They are fetched at boot by `sa-app-runtime`. Rationale: baked secrets cannot be rotated without a rebuild, and they persist in image snapshots.
+
+Published to image families `cn-backend` and `cn-frontend` so instance templates can reference `--image-family` and always get the latest, while previous images are retained for rollback.
+
+## Phase 5 — Migrate single VM → MIG (the risky step)
+
+⚠️ **This phase touches live production traffic.** Sequence to avoid an outage:
+
+1. Bake an image from the current running configuration first (safety net)
+2. Create an instance template from that image
+3. Create a **new** MIG with size 2, in a **new** backend service, initially receiving no traffic
+4. Verify the MIG instances pass health checks independently
+5. Add the MIG backend to the existing URL map / backend service **alongside** the existing standalone VM
+6. Drain traffic to the old VM, confirm the MIG is serving correctly
+7. Remove the standalone VM from the backend service
+8. ⚠️ **Irreversible:** delete the standalone VM only after a soak period (recommend 48h) — take a disk snapshot first
+
+MIG configuration:
+- Regional MIG (not zonal) — survives a single-zone failure
+- `--size 2`, autoscaler min 2 / max per capacity planning
+- Autoscaling signal: CPU target 60% + LB utilisation; add a custom metric later if request-latency-driven scaling is needed
+- Autohealing: attach the health check with `--initial-delay 180` (must exceed app cold-start time, or healthy instances will be killed during boot)
+- Update policy: `--type proactive --max-surge 1 --max-unavailable 0 --min-ready-sec 60`
+
+**`maxUnavailable=0` is what guarantees zero downtime** — a new instance is created and passes health checks before an old one is removed.
+
+## Phase 6 — Cloud Build + GitHub trigger
+
+Connect GitHub via **GUI** (Cloud Build → Repositories → Connect Repository → GitHub (Cloud Build GitHub App) → authorise → select repo). This is an OAuth flow and cannot be done cleanly from CLI.
+
+Trigger config:
+- Event: push to `main` (and a separate trigger for `staging` if you have that environment)
+- Included files filter — if monorepo, scope backend/frontend triggers to their respective paths so a frontend commit does not rebuild the backend
+- Service account: `sa-cloudbuild-ci`
+- Build steps as per the pipeline flow above
+- Timeout: 2400s (image bake is slow)
+
+## Phase 7 — Cloud Deploy
+
+- Delivery pipeline per app
+- Targets: `staging` → `production` (add staging even if it does not exist yet; promoting through an environment is an enterprise expectation and cheap to add now)
+- Production target: require approval **off** (you specified no manual intervention) — but note the trade-off below
+- Automated rollback: enabled on rollout failure
+- Verification job: a Cloud Deploy verify step that probes `/health` through the LB and checks MIG `instanceStatus` — this is what makes "check node service is running before marking complete" a pipeline gate rather than a hope
+
+**Trade-off on no-approval production deploys:**
+- **Pro:** true continuous deployment, no human bottleneck, matches your requirement
+- **Con:** a bad commit reaching `main` reaches production automatically; your only safety net is test coverage and the health verification gate
+- **Mitigation:** branch protection on `main` (required PR review, required status checks), plus canary rollout (see Phase 8)
+
+## Phase 8 — Progressive delivery (recommended for enterprise)
+
+Cloud Deploy canary strategy: route 10% → verify → 50% → verify → 100%. Verification between phases uses error-rate and latency from Cloud Monitoring. Auto-rollback on SLO breach.
+
+**Trade-off:** adds 5–10 minutes to each deploy; significantly reduces blast radius of a bad release. Recommended for production, skip for staging.
+
+## Phase 9 — Observability and alerting
+
+- Ops Agent on all instances → Cloud Logging, Cloud Monitoring
+- Log-based metric on PM2 crash/restart events
+- Alert policies: rollout failure, autohealing triggered, backend unhealthy instance count > 0, 5xx rate spike, MIG at max size (capacity warning)
+- Notification channel: email + Slack/Teams webhook
+- Uptime check against the LB frontend from multiple regions
+
+## Phase 10 — Rollback and verification runbook
+
+**Automatic rollback** (no human action): Cloud Deploy detects rollout or verification failure → rolls out the previous successful release → MIG rolling-updates back to the previous instance template → alert fires → BigQuery record written with `status=ROLLED_BACK`.
+
+**Manual rollback** (if automation fails), via **GUI**: Cloud Deploy → Delivery pipelines → select pipeline → Releases → select last known-good release → **Rollback** → confirm target `production`.
+
+**Post-deploy verification checklist** (automated in the pipeline, also usable manually):
+```bash
+# MIG instance health
+gcloud compute instance-groups managed list-instances MIG_NAME --region=REGION
+
+# LB backend health
+gcloud compute backend-services get-health BACKEND_SERVICE_NAME --global
+
+# App health through the LB
+curl -fsS https://YOUR_DOMAIN/health
+
+# PM2 status on an instance (via IAP)
+gcloud compute ssh INSTANCE_NAME --zone=ZONE --tunnel-through-iap --command="pm2 list && pm2 describe careernavigator-backend"
+
+# Recent deployment history
+bq query --use_legacy_sql=false \
+  'SELECT commit_sha, status, completed_at FROM deployments.deployment_history ORDER BY completed_at DESC LIMIT 10'
+```
+
+---
+
+# IMPLEMENTATION ORDER
+
+1. Phase 0 — capture state
+2. Phase 3 — add `/health` endpoints (code change, deploy manually first)
+3. Blocker — audit and fix PM2 cluster-mode compatibility
+4. Phase 1 — enable APIs, create bucket/BQ/Artifact Registry
+5. Phase 2 — IAM and service accounts
+6. Phase 4 — Packer image pipeline, bake first image manually and validate
+7. Phase 5 — ⚠️ MIG migration (schedule a maintenance window even though it is designed to be zero-downtime)
+8. Phase 6 — Cloud Build trigger
+9. Phase 7 — Cloud Deploy pipeline
+10. Phase 9 — observability
+11. Phase 8 — canary (after the pipeline is proven stable for ~2 weeks)
+
+---
+
+# OPEN QUESTIONS — MUST BE ANSWERED BEFORE WRITING CONFIGS
+
+1. GCP project ID, region, zone; existing VM name
+2. Repo layout — monorepo or separate repos for backend/frontend?
+3. Are backend and frontend on the **same** VM currently? (they have different ports, which suggests yes — this determines one MIG or two)
+4. Backend build command — `npm ci && npm run build`? Frontend framework — Next.js?
+5. Do `/health` endpoints exist on either app today?
+6. Does the backend use `@nestjs/schedule`, WebSockets, or in-memory sessions? (blocks cluster mode)
+7. Secret Manager — names of secrets currently used (names only, not values)
+8. Is infra managed via Terraform today, or Console/`gcloud` ad-hoc? (determines whether you receive Terraform modules or GUI steps)
+9. Database type — Cloud SQL, self-managed, or external? Does deployment need to run migrations? If so, migrations must run as a **separate pre-deploy job**, not per-instance on boot, or 2+ instances will race.
+10. Existing LB — HTTP or HTTPS? Managed certificate in place?
+11. Compliance framework in scope (SOC2 / ISO 27001 / client-mandated)? Determines whether Binary Authorization and Cloud Armor are mandatory.
+
+Answer 1–11 and I can produce the exact Packer templates, `cloudbuild.yaml`, Cloud Deploy `clouddeploy.yaml`, MIG/autoscaler commands, and IAM bindings with real names — no placeholders.
