@@ -1,6 +1,3 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instances describe cn-backend-3h09 --zone=me-central2-c --format="value(metadata.items.filter('key:serial-port-enable
-'))"
-
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute connect-to-serial-port cn-backend-3h09 --zone=me-central2-c
-channel 0: open failed: connect failed: The serial-port-enable metadata attribute is not set on this VM. It should be set to 'true' to enable serial port access.
-Connection to me-central2-ssh-serialport.googleapis.com closed.
+gcloud compute instances add-metadata cn-backend-3h09 \
+  --zone=me-central2-c \
+  --metadata=serial-port-enable=true
