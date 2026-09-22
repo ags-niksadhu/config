@@ -1,17 +1,22 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instances list
-NAME                       ZONE           MACHINE_TYPE  PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP  STATUS
-cn-backend-3h09            me-central2-c  e2-medium                  10.216.0.12               RUNNING
-cn-backend-jsdj            me-central2-c  e2-medium                  10.216.0.11               RUNNING
-cn-backend-s4m0            me-central2-c  e2-medium                  10.216.0.13               RUNNING
-cn-staging-app-vm-01       me-central2-c  e2-medium                  10.216.0.5                TERMINATED
-cn-staging-backapp-vm-01   me-central2-c  e2-medium                  10.216.0.7                RUNNING
-cn-staging-frontapp-vm-01  me-central2-c  e2-medium                  10.216.0.6                RUNNING
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute backend-services list
-NAME                 BACKENDS                                  PROTOCOL
-app-backend-service  me-central2-c/instanceGroups/backend-ig   HTTP
-frontend-service     me-central2-c/instanceGroups/frontend-ig  HTTP
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud config get-value compute
-ERROR: (gcloud.config.get-value) Section [core] has no property [compute].
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud config get-value compute/region
-me-central2
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+echo "=== INSTANCE GROUPS (managed + unmanaged) ==="
+gcloud compute instance-groups managed list
+gcloud compute instance-groups list
+
+echo "=== IS backend-ig OUR MIG OR SOMETHING ELSE ==="
+gcloud compute instance-groups managed describe backend-ig --zone=me-central2-c --format="yaml(name,instanceTemplate,targetSize,status)"
+
+echo "=== DOES cn-backend-mig EXIST SEPARATELY ==="
+gcloud compute instance-groups managed describe cn-backend-mig --region=me-central2 --format="yaml(name,instanceTemplate,targetSize,status)" 2>&1 || echo "cn-backend-mig not found in region me-central2"
+
+echo "=== WHICH INSTANCES BELONG TO backend-ig ==="
+gcloud compute instance-groups managed list-instances backend-ig --zone=me-central2-c
+
+echo "=== TEMPLATES ==="
+gcloud compute instance-templates list
+
+echo "=== HEALTH CHECKS ==="
+gcloud compute health-checks list
+
+echo "=== BACKEND SERVICE DETAIL ==="
+gcloud compute backend-services describe app-backend-service --global --format="yaml(portName,protocol,healthChecks,backends)" 2>&1 || \
+gcloud compute backend-services describe app-backend-service --region=me-central2 --format="yaml(portName,protocol,healthChecks,backends)"
