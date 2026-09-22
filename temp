@@ -1,3 +1,51 @@
-gcloud compute instances add-metadata cn-backend-3h09 \
-  --zone=me-central2-c \
-  --metadata=serial-port-enable=true
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute ssh cn-backend-3h09 --zone=me-central2-c --tunnel-through-iap
+WARNING:
+
+To increase the performance of the tunnel, consider installing NumPy. For instructions,
+please see https://cloud.google.com/iap/docs/using-tcp-forwarding#increasing_the_tcp_upload_bandwidth
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
+Someone could be eavesdropping on you right now (man-in-the-middle attack)!
+It is also possible that a host key has just been changed.
+The fingerprint for the ED25519 key sent by the remote host is
+SHA256:0eCKfM1FUyK2EhBYoy831L1Ph3FnPyKBb2L9JF4yq1E.
+Please contact your system administrator.
+Add correct host key in /home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_known_hosts to get rid of this message.
+Offending ED25519 key in /home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_known_hosts:2
+  remove with:
+  ssh-keygen -f '/home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_known_hosts' -R 'compute.8359800300158043210'
+Host key for compute.8359800300158043210 has changed and you have requested strict checking.
+Host key verification failed.
+
+Recommendation: To check for possible causes of SSH connectivity issues and get
+recommendations, rerun the ssh command with the --troubleshoot option.
+
+gcloud compute ssh cn-backend-3h09 --project=pg-ae-n-app-125609 --zone=me-central2-c --troubleshoot
+
+Or, to investigate an IAP tunneling issue:
+
+gcloud compute ssh cn-backend-3h09 --project=pg-ae-n-app-125609 --zone=me-central2-c --troubleshoot --tunnel-through-iap
+
+ERROR: (gcloud.compute.ssh) [/usr/bin/ssh] exited with return code [255].
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute connect-to-serial-port cn-backend-3h09 --zone=me-central2-c
+2026-09-22T13:56:49.771915+00:00 cn-backend-3h09 runsvc.sh[821]: √ Connected to GitHub
+2026-09-22T13:56:49.842977+00:00 cn-backend-3h09 runsvc.sh[824]: √ Connected to GitHub
+2026-09-22T13:56:51.007899+00:00 cn-backend-3h09 runsvc.sh[821]: A session for this runner already exists.
+2026-09-22T13:56:51.099362+00:00 cn-backend-3h09 runsvc.sh[824]: A session for this runner already exists.
+2026-09-22T13:56:54.421222+00:00 cn-backend-3h09 kernel: [UFW BLOCK] IN=ens4 OUT= MAC=42:01:0a:d8:00:0c:42:01:0a:d8:00:01:08:00 SRC=35.191.219.133 DST=10.216.0.12 LEN=60 TOS=0x00 PREC=0x80 TTL=127 ID=0 DF PROTO=TCP SPT=39070 DPT=3024 WINDOW=65535 RES=0x00 SYN URGP=0
+2026-09-22T13:57:14.389707+00:00 cn-backend-3h09 kernel: [UFW BLOCK] IN=ens4 OUT= MAC=42:01:0a:d8:00:0c:42:01:0a:d8:00:01:08:00 SRC=35.191.219.133 DST=10.216.0.12 LEN=60 TOS=0x00 PREC=0x80 TTL=127 ID=0 DF PROTO=TCP SPT=44792 DPT=3024 WINDOW=65535 RES=0x00 SYN URGP=0
+2026-09-22T13:57:21.719481+00:00 cn-backend-3h09 runsvc.sh[821]: √ Connected to GitHub
+serialport: Connected to pg-ae-n-app-125609.me-central2-c.cn-backend-3h09 port 1 (session ID: 99b93d8e57fa173df0882a7eae087dbb57be9886ad590f63c08c230b46ee30f0, active connections: 1).
+2026-09-22T13:57:21.823810+00:00 cn-backend-3h09 runsvc.sh[824]: √ Connected to GitHub
+2026-09-22T13:57:22.969902+00:00 cn-backend-3h09 runsvc.sh[821]: A session for this runner already exists.
+2026-09-22T13:57:23.082772+00:00 cn-backend-3h09 runsvc.sh[824]: A session for this runner already exists.
+2026-09-22T13:57:34.421212+00:00 cn-backend-3h09 kernel: [UFW BLOCK] IN=ens4 OUT= MAC=42:01:0a:d8:00:0c:42:01:0a:d8:00:01:08:00 SRC=35.191.219.133 DST=10.216.0.12 LEN=60 TOS=0x00 PREC=0x80 TTL=127 ID=0 DF PROTO=TCP SPT=41812 DPT=3024 WINDOW=65535 RES=0x00 SYN URGP=0
+2026-09-22T13:57:53.684416+00:00 cn-backend-3h09 runsvc.sh[821]: √ Connected to GitHub
+2026-09-22T13:57:53.896662+00:00 cn-backend-3h09 runsvc.sh[824]: √ Connected to GitHub
+2026-09-22T13:57:54.389673+00:00 cn-backend-3h09 kernel: [UFW BLOCK] IN=ens4 OUT= MAC=42:01:0a:d8:00:0c:42:01:0a:d8:00:01:08:00 SRC=35.191.219.133 DST=10.216.0.12 LEN=60 TOS=0x00 PREC=0x80 TTL=127 ID=0 DF PROTO=TCP SPT=44156 DPT=3024 WINDOW=65535 RES=0x00 SYN URGP=0
+2026-09-22T13:57:54.925405+00:00 cn-backend-3h09 runsvc.sh[821]: A session for this runner already exists.
+2026-09-22T13:57:55.132966+00:00 cn-backend-3h09 runsvc.sh[824]: A session for this runner already exists.
+2026-09-22T13:58:14.421777+00:00 cn-backend-3h09 kernel: [UFW BLOCK] IN=ens4 OUT= MAC=42:01:0a:d8:00:0c:42:01:0a:d8:00:01:08:00 SRC=35.191.219.133 DST=10.216.0.12 LEN=60 TOS=0x00 PREC=0x80 TTL=127 ID=0 DF PROTO=TCP SPT=47290 DPT=3024 WINDOW=65535 RES=0x00 SYN URGP=0
