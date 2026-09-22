@@ -1,19 +1,16 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute ssh cn-backend-79d0 --zone=me-central2-c --tunnel-through-iap --command="curl -sf http://localhost:3024/health; echo;
- pm2 list"
-WARNING:
+echo "=== TRIGGER LIST ==="
+gcloud builds triggers list
 
-To increase the performance of the tunnel, consider installing NumPy. For instructions,
-please see https://cloud.google.com/iap/docs/using-tcp-forwarding#increasing_the_tcp_upload_bandwidth
+echo "=== TRIGGER DETAIL (branch filter, repo, included files) ==="
+gcloud builds triggers describe TRIGGER_NAME --format="yaml(triggerTemplate,github,substitutions,filename,includedFiles)"
+# ⬅ replace TRIGGER_NAME with the actual name from the list above
 
-Warning: Permanently added 'compute.1725019681261040369' (ED25519) to the list of known hosts.
-{"status":"healthy","timestamp":"2026-09-22T14:30:56.298Z"}
-bash: line 1: pm2: command not found
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute ssh cn-backend-79d0 --zone=me-central2-c --tunnel-through-iap --command="curl -sf http://localhost:3024/health; echo; pm2 list"
-WARNING:
+echo "=== RECENT BUILD HISTORY — has it ever actually run? ==="
+gcloud builds list --limit=10 --format="table(id,status,createTime,substitutions.SHORT_SHA)"
 
-To increase the performance of the tunnel, consider installing NumPy. For instructions,
-please see https://cloud.google.com/iap/docs/using-tcp-forwarding#increasing_the_tcp_upload_bandwidth
+echo "=== BIGQUERY TABLE CHECK ==="
+bq show deployments.deployment_history 2>&1
 
-{"status":"healthy","timestamp":"2026-09-22T14:31:51.942Z"}
-bash: line 1: pm2: command not found
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+echo "=== CONFIRM cloudbuild.yaml IS ON THE PUSHED BRANCH ==="
+git log --oneline -5
+git branch --show-current
