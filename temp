@@ -1,9 +1,17 @@
-# 1. Find the URL map for this domain (lists all URL maps in the project)
-gcloud compute url-maps list
- 
-# 2. Describe it — look for "hostRules" (the hostname) and which
-#    "pathMatcher"/"defaultService" it routes to (that's your backend service name)
-gcloud compute url-maps describe YOUR_URL_MAP_NAME --format=yaml
- 
-# 3. Confirm the backend service names
-gcloud compute backend-services list
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instances list
+NAME                       ZONE           MACHINE_TYPE  PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP  STATUS
+cn-backend-3h09            me-central2-c  e2-medium                  10.216.0.12               RUNNING
+cn-backend-jsdj            me-central2-c  e2-medium                  10.216.0.11               RUNNING
+cn-backend-s4m0            me-central2-c  e2-medium                  10.216.0.13               RUNNING
+cn-staging-app-vm-01       me-central2-c  e2-medium                  10.216.0.5                TERMINATED
+cn-staging-backapp-vm-01   me-central2-c  e2-medium                  10.216.0.7                RUNNING
+cn-staging-frontapp-vm-01  me-central2-c  e2-medium                  10.216.0.6                RUNNING
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute backend-services list
+NAME                 BACKENDS                                  PROTOCOL
+app-backend-service  me-central2-c/instanceGroups/backend-ig   HTTP
+frontend-service     me-central2-c/instanceGroups/frontend-ig  HTTP
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud config get-value compute
+ERROR: (gcloud.config.get-value) Section [core] has no property [compute].
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud config get-value compute/region
+me-central2
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
