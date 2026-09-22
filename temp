@@ -1,19 +1,157 @@
-echo "=== cn-backend-mig DETAIL ==="
-gcloud compute instance-groups managed describe cn-backend-mig --zone=me-central2-c --format="yaml(status,updatePolicy,autoHealingPolicies)"
-gcloud compute instance-groups managed list-instances cn-backend-mig --zone=me-central2-c
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ echo "=== cn-backend-mig DETAIL ==="
+=== cn-backend-mig DETAIL ===
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed describe cn-backend-mig --zone=me-central2-c --format="yaml(status,updatePolicy,autoHealingPolicies)"
+autoHealingPolicies:
+- healthCheck: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/healthChecks/backend-health-3024
+  initialDelaySec: 300
+status:
+  allInstancesConfig:
+    effective: true
+  autoscaler: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/autoscalers/cn-backend-mig
+  isStable: false
+  stateful:
+    hasStatefulConfig: false
+    perInstanceConfigs:
+      allEffective: true
+  versionTarget:
+    isReached: true
+updatePolicy:
+  maxSurge:
+    calculated: 0
+    fixed: 0
+  maxUnavailable:
+    calculated: 1
+    fixed: 1
+  minimalAction: REPLACE
+  mostDisruptiveAllowedAction: REPLACE
+  replacementMethod: SUBSTITUTE
+  type: PROACTIVE
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed list-instances cn-backend-mig --zone=me-central2-c
+NAME             ZONE           STATUS   HEALTH_STATE  ACTION     INSTANCE_TEMPLATE       VERSION_NAME  LAST_ERROR
+cn-backend-3h09  me-central2-c  RUNNING  TIMEOUT       VERIFYING  cn-backend-template-v2
+cn-backend-jsdj  me-central2-c  RUNNING  TIMEOUT       VERIFYING  cn-backend-template-v2                Error WAITING_FOR_HEALTHY_TIMEOUT_EXCEEDED: Waiting for HEALTHY state timed out (autohealingPolicy.initialDelay=300 sec) for instance projects/pg-ae-n-app-125609/zones/me-central2-c/instances/cn-backend-jsdj and health check projects/pg-ae-n-app-125609/global/healthChecks/backend-health-3024.
+cn-backend-s4m0  me-central2-c  RUNNING  TIMEOUT       VERIFYING  cn-backend-template-v2                Error WAITING_FOR_HEALTHY_TIMEOUT_EXCEEDED: Waiting for HEALTHY state timed out (autohealingPolicy.initialDelay=300 sec) for instance projects/pg-ae-n-app-125609/zones/me-central2-c/instances/cn-backend-s4m0 and health check projects/pg-ae-n-app-125609/global/healthChecks/backend-health-3024.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ echo "=== TEMPLATE v2 DETAIL (confirm image + service account + no external IP) ==="
+=== TEMPLATE v2 DETAIL (confirm image + service account + no external IP) ===
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-templates describe cn-backend-template-v2 --format="yaml(properties.disks,properties.networkInterfaces,properties.serviceAccounts,properties.metadata)"
+properties:
+  disks:
+  - autoDelete: true
+    boot: true
+    deviceName: persistent-disk-0
+    index: 0
+    initializeParams:
+      sourceImage: https://compute.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-backend-os-image-v1
+    kind: compute#attachedDisk
+    mode: READ_WRITE
+    type: PERSISTENT
+  metadata:
+    fingerprint: c4nV5JF9Ock=
+    kind: compute#metadata
+  networkInterfaces:
+  - kind: compute#networkInterface
+    name: nic0
+    network: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/networks/default
+    subnetwork: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/subnetworks/default
+  serviceAccounts:
+  - email: 765297732608-compute@developer.gserviceaccount.com
+    scopes:
+    - https://www.googleapis.com/auth/cloud-platform
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ echo "=== HEALTH OF MIG INSTANCES (are they actually passing app-health-check equivalent) ==="
+=== HEALTH OF MIG INSTANCES (are they actually passing app-health-check equivalent) ===
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute backend-services describe app-backend-service --global --format="yaml(backends,healthChecks)"
+backends:
+- balancingMode: UTILIZATION
+  capacityScaler: 1.0
+  group: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroups/backend-ig
+  maxUtilization: 0.8
+healthChecks:
+- https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/healthChecks/app-health-check
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ echo "=== PM2 + APP PATH ON A RUNNING MIG INSTANCE (SSH into one, e.g. cn-backend-3h09) ==="
+=== PM2 + APP PATH ON A RUNNING MIG INSTANCE (SSH into one, e.g. cn-backend-3h09) ===
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute ssh cn-backend-3h09 --zone=me-central2-c --tunnel-through-iap --command="pm2 jlist"
+WARNING:
 
-echo "=== TEMPLATE v2 DETAIL (confirm image + service account + no external IP) ==="
-gcloud compute instance-templates describe cn-backend-template-v2 --format="yaml(properties.disks,properties.networkInterfaces,properties.serviceAccounts,properties.metadata)"
+To increase the performance of the tunnel, consider installing NumPy. For instructions,
+please see https://cloud.google.com/iap/docs/using-tcp-forwarding#increasing_the_tcp_upload_bandwidth
 
-echo "=== HEALTH OF MIG INSTANCES (are they actually passing app-health-check equivalent) ==="
-gcloud compute backend-services describe app-backend-service --global --format="yaml(backends,healthChecks)"
+Warning: Permanently added 'compute.8359800300158043210' (ED25519) to the list of known hosts.
+bash: line 1: pm2: command not found
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ pm2 list
+┌────┬────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                       │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 1  │ careernavigator-backend    │ default     │ 0.0.1   │ fork    │ 1886273  │ 26h    │ 2    │ online    │ 0%       │ 180.8mb  │ nik… │ disabled │
+└────┴────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Module
+┌────┬──────────────────────────────┬───────────────┬──────────┬──────────┬──────┬──────────┬──────────┬──────────┐
+│ id │ module                       │ version       │ pid      │ status   │ ↺    │ cpu      │ mem      │ user     │
+├────┼──────────────────────────────┼───────────────┼──────────┼──────────┼──────┼──────────┼──────────┼──────────┤
+│ 2  │ pm2-logrotate                │ 3.0.0         │ 310885   │ online   │ 2    │ 0%       │ 52.8mb   │ nik… │
+└────┴──────────────────────────────┴───────────────┴──────────┴──────────┴──────┴──────────┴──────────┴──────────┘
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ pm2 show 1
+ Describing process with id 1 - name careernavigator-backend
+┌────────────────────┬─────────────────────────────────────────────────────────────────────────────┐
+│ status             │ online                                                                      │
+│ name               │ careernavigator-backend                                                     │
+│ namespace          │ default                                                                     │
+│ version            │ 0.0.1                                                                       │
+│ restarts           │ 2                                                                           │
+│ max memory restart │ 1073741824                                                                  │
+│ uptime             │ 26h                                                                         │
+│ script path        │ /var/www/careernavigator-backend/dist/main.js                               │
+│ script args        │ N/A                                                                         │
+│ error log path     │ /home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-backend-error-3.log │
+│ out log path       │ /home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-backend-out-3.log   │
+│ pid path           │ /home/nikul_sadhu_gcp_pwc_com/.pm2/pids/careernavigator-backend-1.pid       │
+│ interpreter        │ node                                                                        │
+│ interpreter args   │ N/A                                                                         │
+│ script id          │ 1                                                                           │
+│ exec cwd           │ /var/www/careernavigator-backend                                            │
+│ exec mode          │ fork_mode                                                                   │
+│ node.js version    │ 22.22.2                                                                     │
+│ node env           │ staging                                                                     │
+│ watch & reload     │ ✘                                                                           │
+│ unstable restarts  │ 0                                                                           │
+│ created at         │ 2026-09-21T11:01:55.037Z                                                    │
+└────────────────────┴─────────────────────────────────────────────────────────────────────────────┘
+ Actions available
+┌────────────────────────┐
+│ km:heapdump            │
+│ km:cpu:profiling:start │
+│ km:cpu:profiling:stop  │
+│ km:heap:sampling:start │
+│ km:heap:sampling:stop  │
+└────────────────────────┘
+ Trigger via: pm2 trigger careernavigator-backend <action_name>
 
-echo "=== PM2 + APP PATH ON A RUNNING MIG INSTANCE (SSH into one, e.g. cn-backend-3h09) ==="
-gcloud compute ssh cn-backend-3h09 --zone=me-central2-c --tunnel-through-iap --command="pm2 jlist"
+ Code metrics value
+┌────────────────────────┬──────────────┐
+│ Heap Size              │ 106.71 MiB   │
+│ Heap Usage             │ 92.47 %      │
+│ Used Heap Size         │ 98.67 MiB    │
+│ Active requests        │ 0            │
+│ Active handles         │ 8            │
+│ Event Loop Latency     │ 0.39 ms      │
+│ Event Loop Latency p95 │ 1.29 ms      │
+│ HTTP Mean Latency      │ 1 ms         │
+│ HTTP P95 Latency       │ 41 ms        │
+│ HTTP                   │ 1.09 req/min │
+└────────────────────────┴──────────────┘
+ Divergent env variables from local env
+┌────────────────┬────────────────────────────────────┐
+│ PWD            │ /var/www/careernavigator-backend   │
+│ SSH_CONNECTION │ 35.235.244.154 42513 10.216.0.5 22 │
+│ XDG_SESSION_ID │ 2204                               │
+│ SSH_CLIENT     │ 35.235.244.154 42513 22            │
+│ SSH_TTY        │ /dev/pts/0                         │
+└────────────────┴────────────────────────────────────┘
 
-echo "=== BUCKET IAM ==="
-gsutil iam get gs://cn-staging-pg-ae-n-app-125609/
-
-echo "=== REPO CHECK ==="
-git ls-files | grep package-lock.json
-cat package.json | grep -i migration
+ Add your own code metrics: http://bit.ly/code-metrics
+ Use `pm2 logs careernavigator-backend [--lines 1000]` to display logs
+ Use `pm2 env 1` to display environment variables
+ Use `pm2 monit` to monitor CPU and Memory usage careernavigator-backend
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
