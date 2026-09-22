@@ -1,38 +1,34 @@
-cat > startup-script-v3.sh << 'EOF'
-#!/bin/bash
-set -e
+gcloud compute instance-templates create cn-backend-template-v3 \
+  --machine-type=e2-medium \
+  --image=cn-backend-os-image-v1 \
+  --service-account=765297732608-compute@developer.gserviceaccount.com \
+  --scopes=cloud-platform \
+  --no-address \
+  --network=default \
+  --subnet=default \
+  --region=me-central2 \
+  --tags=cn-backend,lb-health-check \
+  --metadata-from-file=startup-script=startup-script-v3.sh
 
-echo "=== Removing GitHub Actions self-hosted runner ==="
-RUNNER_SERVICE=$(systemctl list-units --type=service --all | grep -i "actions.runner" | awk '{print $1}' || true)
-if [ -n "$RUNNER_SERVICE" ]; then
-  systemctl stop "$RUNNER_SERVICE" || true
-  systemctl disable "$RUNNER_SERVICE" || true
-  echo "Stopped and disabled: $RUNNER_SERVICE"
-else
-  echo "No actions.runner systemd service found — checking for manual runsvc.sh process"
-  pkill -f "runsvc.sh" || true
-fi
 
-echo "=== Opening UFW for app port ==="
-ufw allow 3024/tcp || true
-ufw allow from 130.211.0.0/22 to any port 3024 proto tcp || true
-ufw allow from 35.191.0.0/16 to any port 3024 proto tcp || true
-ufw reload || true
 
-echo "=== Pulling latest release ==="
-BUCKET="cn-staging-pg-ae-n-app-125609"
-APP_DIR="/var/www/careernavigator-backend"
 
-LATEST_SHA=$(gsutil cat gs://${BUCKET}/releases/backend/latest.txt)
-mkdir -p /opt/releases
-gsutil cp gs://${BUCKET}/releases/backend/backend-${LATEST_SHA}.tar.gz /tmp/
-rm -rf /opt/releases/${LATEST_SHA}
-mkdir -p /opt/releases/${LATEST_SHA}
-tar -xzf /tmp/backend-${LATEST_SHA}.tar.gz -C /opt/releases/${LATEST_SHA}
-ln -sfn /opt/releases/${LATEST_SHA} ${APP_DIR}
 
-echo "=== Starting PM2 ==="
-cd ${APP_DIR}
-su - nikul_sadhu_gcp_pwc_com -c "cd ${APP_DIR} && pm2 start ecosystem.config.js --env staging && pm2 save"
-env PM2_HOME="/home/nikul_sadhu_gcp_pwc_com/.pm2" pm2 startup systemd -u nikul_sadhu_gcp_pwc_com --hp /home/nikul_sadhu_gcp_pwc_com
-EOF
+and
+
+
+
+gcloud compute instance-groups managed rolling-action start-update cn-backend-mig \
+  --zone=me-central2-c \
+  --version=template=cn-backend-template-v3 \
+  --max-surge=1 \
+  --max-unavailable=0 \
+  --min-ready=60
+
+
+
+and
+
+
+
+gcloud compute instance-groups managed list-instances cn-backend-mig --zone=me-central2-c
