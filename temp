@@ -1,54 +1,19 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed list-instances cn-backend-mig --zone=me-central2-c
-NAME             ZONE           STATUS   HEALTH_STATE  ACTION     INSTANCE_TEMPLATE       VERSION_NAME  LAST_ERROR
-cn-backend-79d0  me-central2-c  RUNNING  UNKNOWN       VERIFYING  cn-backend-template-v3
-cn-backend-c32r  me-central2-c  RUNNING  UNKNOWN       VERIFYING  cn-backend-template-v3
-cn-backend-k2rc  me-central2-c  STAGING  UNKNOWN       CREATING   cn-backend-template-v3
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed list-instances cn-backend-mig --zone=me-central2-c
-NAME             ZONE           STATUS   HEALTH_STATE  ACTION     INSTANCE_TEMPLATE       VERSION_NAME  LAST_ERROR
-cn-backend-79d0  me-central2-c  RUNNING  HEALTHY       NONE       cn-backend-template-v3
-cn-backend-c32r  me-central2-c  RUNNING  HEALTHY       NONE       cn-backend-template-v3
-cn-backend-k2rc  me-central2-c  RUNNING  TIMEOUT       VERIFYING  cn-backend-template-v3
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed list-instances cn-backend-mig --zone=me-central2-c
-NAME             ZONE           STATUS   HEALTH_STATE  ACTION  INSTANCE_TEMPLATE       VERSION_NAME  LAST_ERROR
-cn-backend-79d0  me-central2-c  RUNNING  HEALTHY       NONE    cn-backend-template-v3
-cn-backend-c32r  me-central2-c  RUNNING  HEALTHY       NONE    cn-backend-template-v3
-cn-backend-k2rc  me-central2-c  RUNNING  HEALTHY       NONE    cn-backend-template-v3
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute backend-services get-health-service --global
-ERROR: (gcloud.compute.backend-services) Invalid choice: 'get-health-service'.
-Maybe you meant:
-  gcloud compute backend-services add-backend
-  gcloud compute backend-services add-iam-policy-binding
-  gcloud compute backend-services add-service-bindings
-  gcloud compute backend-services add-signed-url-key
-  gcloud compute backend-services create
-  gcloud compute backend-services delete
-  gcloud compute backend-services delete-signed-url-key
-  gcloud compute backend-services describe
-  gcloud compute backend-services edit
-  gcloud compute backend-services export
-  gcloud compute backend-services get-health
-  gcloud compute backend-services get-iam-policy
-  gcloud compute backend-services import
-  gcloud compute backend-services list
-  gcloud compute backend-services list-usable
-  gcloud compute backend-services remove-backend
-  gcloud compute backend-services remove-iam-policy-binding
-  gcloud compute backend-services remove-service-bindings
-  gcloud compute backend-services set-iam-policy
-  gcloud compute backend-services test-iam-permissions
-  gcloud compute backend-services update
-  gcloud compute backend-services update-backend
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute ssh cn-backend-79d0 --zone=me-central2-c --tunnel-through-iap --command="curl -sf http://localhost:3024/health; echo;
+ pm2 list"
+WARNING:
 
-To search the help text of gcloud commands, run:
-  gcloud help -- SEARCH_TERMS
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute backend-services get-health app-backend-service --global
----
-backend: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroups/backend-ig
-status:
-  healthStatus:
-  - healthState: HEALTHY
-    instance: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instances/cn-staging-backapp-vm-01
-    ipAddress: 10.216.0.7
-    port: 80
-  kind: compute#backendServiceGroupHealth
+To increase the performance of the tunnel, consider installing NumPy. For instructions,
+please see https://cloud.google.com/iap/docs/using-tcp-forwarding#increasing_the_tcp_upload_bandwidth
+
+Warning: Permanently added 'compute.1725019681261040369' (ED25519) to the list of known hosts.
+{"status":"healthy","timestamp":"2026-09-22T14:30:56.298Z"}
+bash: line 1: pm2: command not found
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute ssh cn-backend-79d0 --zone=me-central2-c --tunnel-through-iap --command="curl -sf http://localhost:3024/health; echo; pm2 list"
+WARNING:
+
+To increase the performance of the tunnel, consider installing NumPy. For instructions,
+please see https://cloud.google.com/iap/docs/using-tcp-forwarding#increasing_the_tcp_upload_bandwidth
+
+{"status":"healthy","timestamp":"2026-09-22T14:31:51.942Z"}
+bash: line 1: pm2: command not found
 nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
