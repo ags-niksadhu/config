@@ -1,22 +1,60 @@
-echo "=== INSTANCE GROUPS (managed + unmanaged) ==="
-gcloud compute instance-groups managed list
-gcloud compute instance-groups list
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ echo "=== INSTANCE GROUPS (managed + unmanaged) ==="
+=== INSTANCE GROUPS (managed + unmanaged) ===
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed list
+NAME            LOCATION       SCOPE  BASE_INSTANCE_NAME  SIZE  TARGET_SIZE  INSTANCE_TEMPLATE       AUTOSCALED
+cn-backend-mig  me-central2-c  zone   cn-backend          3     3            cn-backend-template-v2  yes
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups list
+NAME                LOCATION       SCOPE  NETWORK  MANAGED  INSTANCES
+app-instance-group  me-central2-c  zone   default  No       1
+backend-ig          me-central2-c  zone   default  No       1
+cn-backend-mig      me-central2-c  zone   default  Yes      3
+frontend-ig         me-central2-c  zone   default  No       1
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ echo "=== IS backend-ig OUR MIG OR SOMETHING ELSE ==="
+=== IS backend-ig OUR MIG OR SOMETHING ELSE ===
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed describe backend-ig --zone=me-central2-c --format="yaml(name,instanceTemplate,targetSize,status)"
+ERROR: (gcloud.compute.instance-groups.managed.describe) HTTPError 404: The resource 'projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroupManagers/backend-ig' was not found. This command is authenticated as nikul.sadhu@gcp.pwc.com which is the active account specified by the [core/account] property
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ echo "=== DOES cn-backend-mig EXIST SEPARATELY ==="
+=== DOES cn-backend-mig EXIST SEPARATELY ===
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed describe cn-backend-mig --region=me-central2 --format="yaml(name,instanceTemplate,targetSize,status)" 2>&1 || echo "cn-backend-mig not found in region me-central2"
+ERROR: (gcloud.compute.instance-groups.managed.describe) HTTPError 404: The resource 'projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-backend-mig' was not found. This command is authenticated as nikul.sadhu@gcp.pwc.com which is the active account specified by the [core/account] property
+cn-backend-mig not found in region me-central2
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ echo "=== WHICH INSTANCES BELONG TO backend-ig ==="
+=== WHICH INSTANCES BELONG TO backend-ig ===
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed list-instances backend-ig --zone=me-central2-c
+ERROR: (gcloud.compute.instance-groups.managed.list-instances) Some requests did not succeed:
+ - The resource 'projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroupManagers/backend-ig' was not found
 
-echo "=== IS backend-ig OUR MIG OR SOMETHING ELSE ==="
-gcloud compute instance-groups managed describe backend-ig --zone=me-central2-c --format="yaml(name,instanceTemplate,targetSize,status)"
-
-echo "=== DOES cn-backend-mig EXIST SEPARATELY ==="
-gcloud compute instance-groups managed describe cn-backend-mig --region=me-central2 --format="yaml(name,instanceTemplate,targetSize,status)" 2>&1 || echo "cn-backend-mig not found in region me-central2"
-
-echo "=== WHICH INSTANCES BELONG TO backend-ig ==="
-gcloud compute instance-groups managed list-instances backend-ig --zone=me-central2-c
-
-echo "=== TEMPLATES ==="
-gcloud compute instance-templates list
-
-echo "=== HEALTH CHECKS ==="
-gcloud compute health-checks list
-
-echo "=== BACKEND SERVICE DETAIL ==="
-gcloud compute backend-services describe app-backend-service --global --format="yaml(portName,protocol,healthChecks,backends)" 2>&1 || \
-gcloud compute backend-services describe app-backend-service --region=me-central2 --format="yaml(portName,protocol,healthChecks,backends)"
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ echo "=== TEMPLATES ==="
+=== TEMPLATES ===
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-templates list
+NAME                                             MACHINE_TYPE  PREEMPTIBLE  CREATION_TIMESTAMP
+cn-backend-template-v1                           e2-medium                  2026-09-22T01:50:28.591-07:00
+cn-backend-template-v2                           e2-medium                  2026-09-22T04:46:45.820-07:00
+cnstagingbackend-instance-template-22-sept-2026  e2-medium                  2026-09-22T01:49:12.497-07:00
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ echo "=== HEALTH CHECKS ==="
+=== HEALTH CHECKS ===
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute health-checks list
+NAME                   REGION  PROTOCOL
+app-health-check               HTTP
+backend-health-3024            HTTP
+frontend-health-check          HTTP
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ echo "=== BACKEND SERVICE DETAIL ==="
+=== BACKEND SERVICE DETAIL ===
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute backend-services describe app-backend-service --global --format="yaml(portName,protocol,healthChecks,backends)" 2>&1 || \
+> gcloud compute backend-services describe app-backend-service --region=me-central2 --format="yaml(portName,protocol,healthChecks,backends)"
+backends:
+- balancingMode: UTILIZATION
+  capacityScaler: 1.0
+  group: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroups/backend-ig
+  maxUtilization: 0.8
+healthChecks:
+- https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/healthChecks/app-health-check
+portName: http
+protocol: HTTP
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
