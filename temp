@@ -1,83 +1,29 @@
-gcloud compute instance-templates create cn-backend-template-v3 \
-  --machine-type=e2-medium \
-  --image=cn-backend-os-image-v1 \
-  --service-account=765297732608-compute@developer.gserviceaccount.com \
-  --scopes=cloud-platform \
-  --no-address \
-  --network=default \
-  --subnet=default \
-  --region=me-central2 \
-  --tags=cn-backend,lb-health-check \
-  --metadata-from-file=startup-script=startup-script-v3.sh
+Good — template created (the DNS warning is informational, not blocking; ignore for now, revisit under production hardening later).
 
+**`--min-ready` isn't valid in the GA track for this command** — it's controlled differently: via the MIG's `updatePolicy.minReadySec`, set separately, not as a flag on `rolling-action start-update`. Drop it from this command and set it on the MIG directly first:
 
+**Step 1 — Set minimum ready time on the MIG itself**
 
+```bash
+gcloud compute instance-groups managed update cn-backend-mig \
+  --zone=me-central2-c \
+  --min-ready=60
+```
 
+**Step 2 — Retry the rolling update without `--min-ready`**
 
-and
-
-
-
+```bash
 gcloud compute instance-groups managed rolling-action start-update cn-backend-mig \
   --zone=me-central2-c \
   --version=template=cn-backend-template-v3 \
   --max-surge=1 \
-  --max-unavailable=0 \
-  --min-ready=60
+  --max-unavailable=0
+```
 
+Run both, then check status:
 
-
-and
-
-
-
+```bash
 gcloud compute instance-groups managed list-instances cn-backend-mig --zone=me-central2-c
+```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-templates create cn-backend-template-v3 \
->   --machine-type=e2-medium \
->   --image=cn-backend-os-image-v1 \
->   --service-account=765297732608-compute@developer.gserviceaccount.com \
->   --scopes=cloud-platform \
->   --no-address \
->   --network=default \
->   --subnet=default \
->   --region=me-central2 \
->   --tags=cn-backend,lb-health-check \
->   --metadata-from-file=startup-script=startup-script-v3.sh
-Created [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-v3].
-WARNING: Some requests generated warnings:
- - You are creating an instance template with global DNS attributes. VM instances using global DNS are vulnerable to cross-regional outages. To reduce the risk of widespread service disruption, use zonal DNS instead. Learn more at https://cloud.google.com/compute/docs/networking/zonal-dns?utm_id=tmpl-insert
-
-NAME                    MACHINE_TYPE  PREEMPTIBLE  CREATION_TIMESTAMP
-cn-backend-template-v3  e2-medium                  2026-09-22T07:04:30.603-07:00
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed rolling-action start-update cn-backend-mig \
->   --zone=me-central2-c \
->   --version=template=cn-backend-template-v3 \
->   --max-surge=1 \
->   --max-unavailable=0 \
->   --min-ready=60
-ERROR: (gcloud.compute.instance-groups.managed.rolling-action.start-update) unrecognized arguments:
-
- --min-ready flag is available in one or more alternate release tracks. Try:
-
-  gcloud alpha compute instance-groups managed rolling-action start-update --min-ready
-  gcloud beta compute instance-groups managed rolling-action start-update --min-ready
-
-  --min-ready=60
-  To search the help text of gcloud commands, run:
-  gcloud help -- SEARCH_TERMS
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+Paste all three outputs.
