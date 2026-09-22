@@ -1,1 +1,9 @@
-1
+# 1. Find the URL map for this domain (lists all URL maps in the project)
+gcloud compute url-maps list
+ 
+# 2. Describe it — look for "hostRules" (the hostname) and which
+#    "pathMatcher"/"defaultService" it routes to (that's your backend service name)
+gcloud compute url-maps describe YOUR_URL_MAP_NAME --format=yaml
+ 
+# 3. Confirm the backend service names
+gcloud compute backend-services list
