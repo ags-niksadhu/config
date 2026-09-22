@@ -1,29 +1,87 @@
-Good — template created (the DNS warning is informational, not blocking; ignore for now, revisit under production hardening later).
-
-**`--min-ready` isn't valid in the GA track for this command** — it's controlled differently: via the MIG's `updatePolicy.minReadySec`, set separately, not as a flag on `rolling-action start-update`. Drop it from this command and set it on the MIG directly first:
-
-**Step 1 — Set minimum ready time on the MIG itself**
-
-```bash
-gcloud compute instance-groups managed update cn-backend-mig \
-  --zone=me-central2-c \
-  --min-ready=60
-```
-
-**Step 2 — Retry the rolling update without `--min-ready`**
-
-```bash
-gcloud compute instance-groups managed rolling-action start-update cn-backend-mig \
-  --zone=me-central2-c \
-  --version=template=cn-backend-template-v3 \
-  --max-surge=1 \
-  --max-unavailable=0
-```
-
-Run both, then check status:
-
-```bash
-gcloud compute instance-groups managed list-instances cn-backend-mig --zone=me-central2-c
-```
-
-Paste all three outputs.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed rolling-action start-update cn-backend-mig \
+>   --zone=me-central2-c \
+>   --version=template=cn-backend-template-v3 \
+>   --max-surge=1 \
+>   --max-unavailable=0
+Updated [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroupManagers/cn-backend-mig].
+---
+autoHealingPolicies:
+- healthCheck: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/healthChecks/backend-health-3024
+  initialDelaySec: 300
+baseInstanceName: cn-backend
+creationTimestamp: '2026-09-22T01:51:30.811-07:00'
+currentActions:
+  abandoning: 0
+  creating: 1
+  creatingWithoutRetries: 0
+  deleting: 1
+  none: 0
+  recreating: 0
+  refreshing: 0
+  restarting: 0
+  resuming: 0
+  starting: 0
+  stopping: 0
+  suspending: 0
+  verifying: 1
+fingerprint: NsDXpLhpFjI=
+id: '8660718095601500029'
+instanceGroup: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroups/cn-backend-mig
+instanceLifecyclePolicy:
+  defaultActionOnFailure: REPAIR
+  forceUpdateOnRepair: NO
+  onFailedHealthCheck: DEFAULT_ACTION
+  onRepair:
+    allowChangingZone: NO
+instanceTemplate: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-v3
+kind: compute#instanceGroupManager
+listManagedInstancesResults: PAGELESS
+name: cn-backend-mig
+satisfiesPzi: false
+satisfiesPzs: true
+selfLink: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroupManagers/cn-backend-mig
+standbyPolicy:
+  initialDelaySec: 0
+  mode: MANUAL
+status:
+  allInstancesConfig:
+    effective: true
+  autoscaler: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/autoscalers/cn-backend-mig
+  isStable: false
+  stateful:
+    hasStatefulConfig: false
+    perInstanceConfigs:
+      allEffective: true
+  versionTarget:
+    isReached: false
+targetSize: 2
+targetSizePolicy:
+  mode: INDIVIDUAL
+targetStoppedSize: 0
+targetSuspendedSize: 0
+updatePolicy:
+  maxSurge:
+    calculated: 1
+    fixed: 1
+  maxUnavailable:
+    calculated: 0
+    fixed: 0
+  minimalAction: REPLACE
+  mostDisruptiveAllowedAction: REPLACE
+  replacementMethod: SUBSTITUTE
+  type: PROACTIVE
+versions:
+- instanceTemplate: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-v3
+  targetSize:
+    calculated: 2
+zone: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed list-instances cn-backend-mig --zone=me-central2-c
+NAME             ZONE           STATUS    HEALTH_STATE  ACTION     INSTANCE_TEMPLATE       VERSION_NAME  LAST_ERROR
+cn-backend-c32r  me-central2-c  RUNNING   UNKNOWN       VERIFYING  cn-backend-template-v3
+cn-backend-jsdj  me-central2-c  STOPPING  TIMEOUT       DELETING
+cn-backend-s4m0  me-central2-c  RUNNING   TIMEOUT       VERIFYING  cn-backend-template-v2
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed list-instances cn-backend-mig --zone=me-central2-c
+NAME             ZONE           STATUS   HEALTH_STATE  ACTION     INSTANCE_TEMPLATE       VERSION_NAME  LAST_ERROR
+cn-backend-c32r  me-central2-c  RUNNING  UNKNOWN       VERIFYING  cn-backend-template-v3
+cn-backend-s4m0  me-central2-c  RUNNING  TIMEOUT       VERIFYING  cn-backend-template-v2
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
