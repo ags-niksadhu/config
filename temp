@@ -1,1 +1,261 @@
-gcloud compute instances describe clean-ubuntu-26092026 --project=pg-ae-n-app-125609 --format="value(zone)"
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instances describe clean-ubuntu-26092026 --project=pg-ae-n-app-125609 --format="value(zone)"
+Did you mean zone [me-central2-c] for instance: [clean-ubuntu-26092026] (Y/n)?  y
+
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/pg-ae-n-app-125609/zones/me-central2-c/instances/clean-ubuntu-26092026' was not found
+
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+
+
+
+
+
+
+
+
+
+
+
+
+
+Console Logo
+Search (/) for resources, docs, products, and more
+
+Compute Engine
+Compute Engine favorites
+clean-ubuntu-26092026
+
+Details
+Observability
+Screenshot
+Logs
+Basic info
+Machine configuration
+Networking
+Storage
+Security and access
+Management
+Custom metadata
+Connecting to serial ports is disabled 
+Logs
+Logging
+Serial port 1 (console)
+Serial port 2
+Serial port 3
+Serial port 4
+Basic information
+Name
+clean-ubuntu-26092026
+Instance Id
+716849698494061157
+Description
+None
+Type
+Instance
+Status
+ Running
+Creation time
+Sep 27, 2026, 1:31:16 AM UTC+05:30
+Location 
+me-central2-a
+Boot disk source image
+ubuntu-2404-noble-amd64
+Boot disk architecture
+X86_64
+Boot disk license type
+Free
+Instance template
+None
+In use by
+None
+Physical host 
+None
+Maintenance status 
+—
+Labels
+goog-ops-a... : v2-templat...
+Tags 
+
+
+
+Deletion protection
+Disabled
+Confidential VM service
+Disabled
+Preserved state size
+0 GB
+Reservation affinity 
+Automatically choose
+Consumed reservation 
+—
+Consumed reservation block 
+—
+Machine configuration
+Machine type
+e2-medium (2 vCPUs, 4 GB Memory)
+CPU platform
+AMD Rome
+Minimum CPU platform
+None
+Architecture
+x86/64
+vCPUs to core ratio 
+—
+Custom visible cores 
+—
+All-core turbo-only mode 
+—
+Display device
+Disabled
+Enable to use screen capturing and recording tools
+GPUs
+None
+Resource policies
+Networking
+Public DNS PTR Record
+None
+Total egress bandwidth tier
+—
+Firewalls
+HTTP traffic
+On
+HTTPS traffic
+Off
+Allow Load Balancer Health checks
+On
+Network tags
+http-serverlb-health-check
+Network interfaces
+Filter
+Name
+Network
+Subnetwork
+NIC type
+Primary internal IP address
+Alias IP ranges
+IP stack type
+External IP address
+Network tier 
+IP forwarding
+Network details
+nic0
+default	default		10.216.0.29 		IPv4	None	-	Off	View details
+Storage
+Filter
+Name
+Size (GB)
+Type
+Data protection
+Mode
+When deleting instance
+clean-ubuntu-26092026
+(Boot Disk)	100	Standard persistent disk	
+default-schedule-1
+Every day, starts between 11:00 PM and 12:00 AM	
+Read/write
+Delete disk
+Backup plan
+Managed by Backup and DR Service .
+
+Backup schedule state 
+Not configured
+Backup plan
+—
+Security and access
+Shielded VM
+Secure Boot
+On
+vTPM
+On
+Integrity Monitoring
+On
+SSH Keys
+SSH keys
+None
+Block project-wide SSH keys
+Off
+API and identity management
+Service account
+765297732608-compute@developer.gserviceaccount.com
+Cloud API access scopes
+Allow default access
+BigQuery
+Disabled
+Bigtable Admin
+Disabled
+Bigtable Data
+Disabled
+Cloud Datastore
+Disabled
+Cloud Debugger
+Disabled
+Cloud Platform
+Disabled
+Cloud Pub/Sub
+Disabled
+Cloud Source Repositories
+Disabled
+Cloud SQL
+Disabled
+Compute Engine
+Disabled
+Service Control
+Enabled
+Service Management
+Read Only
+Stackdriver Logging API
+Write Only
+Stackdriver Monitoring API
+Write Only
+Stackdriver Trace
+Write Only
+Storage
+Read Only
+Task queue
+Disabled
+User info
+Disabled
+Managed workload identity
+Workload identity certificates
+Disabled
+Management
+Data Encryption
+Key ID
+—
+Key name
+—
+Availability policies
+VM provisioning model 
+Standard
+Max duration 
+None
+Preemptibility
+Off (Recommended)
+On VM termination 
+—
+Graceful shutdown maximum duration
+—
+Graceful shutdown timestamp
+—
+On host maintenance
+Migrate VM instance (Recommended)
+Host error timeout 
+—
+Automatic restart
+On (Recommended)
+Customer Managed Encryption Key (CMEK) revocation policy
+Do nothing
+Sole-tenancy
+CPU Overcommit
+Disabled
+Custom metadata
+Key
+Value
+enable-osconfig	
+TRUE
+enable-oslogin	
+true
+
+
+
+2 results showing.
