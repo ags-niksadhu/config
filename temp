@@ -1,28 +1,15 @@
-**Root cause:** disk is attached to a **running** instance — GCP blocks image creation from an in-use disk unless you either stop the instance or force it.
-
-| Option | Downtime | Risk | Command |
-|---|---|---|---|
-| A. Stop instance, then create image | None to prod (this VM isn't serving traffic) | Zero — clean, consistent snapshot | Stop → create → done |
-| B. `--force` while running | None | Possible filesystem inconsistency (low risk here since it's a bare OS with no active writes) | One command, no stop needed |
-
-**Recommendation: Option A** — this instance isn't serving any traffic (it's just your Packer source base), so stopping it costs nothing and guarantees a clean image.
-
-```bash
-gcloud compute instances stop clean-ubuntu-26092026 \
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instances stop clean-ubuntu-26092026 \
   --project=pg-ae-n-app-125609 \
   --zone=me-central2-a
-```
-
-Then:
-```bash
-gcloud compute images create clean-ubuntu-26092026-img \
+Stopping instance(s) clean-ubuntu-26092026...done.
+Updated [https://compute.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-a/instances/clean-ubuntu-26092026].
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute images create clean-ubuntu-26092026-img \
   --project=pg-ae-n-app-125609 \
   --source-disk=clean-ubuntu-26092026 \
   --source-disk-zone=me-central2-a
-```
-
-Verify:
-```bash
-gcloud compute images describe clean-ubuntu-26092026-img --project=pg-ae-n-app-125609 --format="value(status)"
-```
-Expect `READY`. Paste result.
+Created [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/clean-ubuntu-26092026-img].
+NAME                       PROJECT             FAMILY  DEPRECATED  STATUS
+clean-ubuntu-26092026-img  pg-ae-n-app-125609                      READY
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute images describe clean-ubuntu-26092026-img --project=pg-ae-n-app-125609 --format="value(status)"
+READY
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
