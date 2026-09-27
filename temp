@@ -1,150 +1,47 @@
-ERROR: build step 3 "hashicorp/packer:latest" failed: step exited with non-zero status: 1
-ERROR
-Finished Step #3 - "Build Packer Image"
-==> Builds finished but no artifacts were created.
---> googlecompute.backend: Timeout waiting for SSH.
-==> Some builds didn't complete successfully and had errors:
-==> Wait completed after 6 minutes 14 seconds
-Build 'googlecompute.backend' errored after 6 minutes 14 seconds: Timeout waiting for SSH.
-==> googlecompute.backend: SSH public key for OSLogin has been deleted!
-==> googlecompute.backend: Deleting SSH public key for OSLogin...
-==> googlecompute.backend: Disk has been deleted!
-==> googlecompute.backend: Deleting disk...
-==> googlecompute.backend: Instance has been deleted!
-==> googlecompute.backend: Deleting instance...
-==> googlecompute.backend: Timeout waiting for SSH.
-==> googlecompute.backend: Waiting for SSH to become available...
-==> googlecompute.backend: Using SSH communicator to connect: 10.216.0.32
-==> googlecompute.backend: IP: 10.216.0.32
-==> googlecompute.backend: Waiting for the instance to become running...
-==> googlecompute.backend: Instance has been created!
-==> googlecompute.backend: Waiting for creation operation to complete...
-==> googlecompute.backend: Requesting instance creation...
-==> googlecompute.backend: Loading machine type: e2-medium
-==> googlecompute.backend: Loading zone: me-central2-a
-==> googlecompute.backend: Creating instance...
-==> googlecompute.backend: Using image: clean-ubuntu-26092026-img
-==> googlecompute.backend: Obtaining SSH Username for OSLogin...
-==> googlecompute.backend: Importing SSH public key for OSLogin...
-==> googlecompute.backend: no persistent disk to create
-==> googlecompute.backend: Creating temporary RSA SSH key for instance...
-Installed plugin github.com/hashicorp/googlecompute v1.2.7 in "/builder/home/.config/packer/plugins/github.com/hashicorp/googlecompute/packer-plugin-googlecompute_v1.2.7_x5.0_linux_amd64"
-docker.io/hashicorp/packer:latest
-Status: Downloaded newer image for hashicorp/packer:latest
-Digest: sha256:9fd66d5a4ea0598036e6b50ac6f8c0e72c27746648a5abe480463119e9486ea7
-922cbb9f6017: Pull complete
-f36f987fc10e: Pull complete
-77874054d996: Pull complete
-77874054d996: Download complete
-77874054d996: Verifying Checksum
-324a271ea31e: Pull complete
-324a271ea31e: Download complete
-324a271ea31e: Verifying Checksum
-4fdc56a1d49f: Pull complete
-4fdc56a1d49f: Download complete
-4fdc56a1d49f: Verifying Checksum
-f36f987fc10e: Download complete
-f36f987fc10e: Verifying Checksum
-922cbb9f6017: Download complete
-922cbb9f6017: Verifying Checksum
-922cbb9f6017: Pulling fs layer
-f36f987fc10e: Pulling fs layer
-77874054d996: Pulling fs layer
-324a271ea31e: Pulling fs layer
-4fdc56a1d49f: Pulling fs layer
-latest: Pulling from hashicorp/packer
-Pulling image: hashicorp/packer:latest
-Starting Step #3 - "Build Packer Image"
-Finished Step #2 - "Build Staging"
-> cross-env NODE_ENV=staging nest build
-> cpms-api@0.0.1 build:staging
-Already have image (with digest): node:22
-Starting Step #2 - "Build Staging"
-Finished Step #1 - "Run Tests"
-No tests found, exiting with code 0
-> jest --passWithNoTests
-> cpms-api@0.0.1 test
-Already have image (with digest): node:22
-Run `npm audit` for details.
-  npm audit fix --force
-To address all issues (including breaking changes), run:
-  npm audit fix
-To address issues that do not require attention, run:
-101 vulnerabilities (6 low, 46 moderate, 45 high, 4 critical)
-  run `npm fund` for details
-176 packages are looking for funding
-added 1304 packages, and audited 1305 packages in 2m
-npm warn deprecated eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.
-npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
-npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
-npm warn deprecated uuid@8.3.2: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
-npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
-npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
-npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
-npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
-npm warn deprecated rimraf@2.7.1: Rimraf versions prior to v4 are no longer supported
-npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
-npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
-npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
-npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
-npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
-npm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
-npm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
-npm warn deprecated are-we-there-yet@2.0.0: This package is no longer supported.
-npm warn deprecated consolidate@0.15.1: Please upgrade to consolidate v1.0.0+ as it has been modernized with several long-awaited fixes implemented. Maintenance is supported by Forward Email at https://forwardemail.net ; follow/watch https://github.com/ladjs/consolidate for updates and release changelog
-npm warn deprecated fstream@1.0.12: This package is no longer supported.
-npm warn deprecated gauge@3.0.2: This package is no longer supported.
-npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
-npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
-npm warn deprecated superagent@8.1.2: Please upgrade to superagent v10.2.2+, see release notes at https://github.com/forwardemail/superagent/releases/tag/v10.2.2 - maintenance is supported by Forward Email @ https://forwardemail.net
-npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
-npm warn deprecated multer@1.4.5-lts.2: Multer 1.x is impacted by a number of vulnerabilities, which have been patched in 2.x. You should upgrade to the latest 2.x version.
-npm warn deprecated npmlog@5.0.1: This package is no longer supported.
-npm warn deprecated querystring@0.2.0: The querystring API is considered Legacy. new code should use the URLSearchParams API instead.
-npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
-npm warn deprecated supertest@6.3.4: Please upgrade to supertest v7.1.3+, see release notes at https://github.com/forwardemail/supertest/releases/tag/v7.1.3 - maintenance is supported by Forward Email @ https://forwardemail.net
-docker.io/library/node:22
-Status: Downloaded newer image for node:22
-Digest: sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
-0c06829c34ad: Pull complete
-105754cf457c: Pull complete
-0d48f423dff0: Pull complete
-b92563fa790f: Pull complete
-de9e8d0a0071: Pull complete
-81578410df16: Pull complete
-7b2de2423ebd: Pull complete
-de9e8d0a0071: Download complete
-de9e8d0a0071: Verifying Checksum
-eaac70c68abd: Pull complete
-0d48f423dff0: Download complete
-0d48f423dff0: Verifying Checksum
-81578410df16: Download complete
-81578410df16: Verifying Checksum
-eaac70c68abd: Download complete
-eaac70c68abd: Verifying Checksum
-0c06829c34ad: Download complete
-0c06829c34ad: Verifying Checksum
-7b2de2423ebd: Download complete
-7b2de2423ebd: Verifying Checksum
-105754cf457c: Download complete
-105754cf457c: Verifying Checksum
-b92563fa790f: Download complete
-0c06829c34ad: Waiting
-105754cf457c: Waiting
-0c06829c34ad: Pulling fs layer
-105754cf457c: Pulling fs layer
-0d48f423dff0: Pulling fs layer
-b92563fa790f: Pulling fs layer
-de9e8d0a0071: Pulling fs layer
-81578410df16: Pulling fs layer
-7b2de2423ebd: Pulling fs layer
-eaac70c68abd: Pulling fs layer
-22: Pulling from library/node
-Pulling image: node:22
-Starting Step #0 - "Install Dependencies"
-BUILD
-9e9d15740a077c9c32bbc19aa0baf42a8efccb80
-GitCommit:
-HEAD is now at 9e9d157 Update backend.pkr.hcl
- * branch            9e9d15740a077c9c32bbc19aa0baf42a8efccb80 -> FETCH_HEAD
-From https://github.com/pwc-me-adv-careernavigator/careernavigator-backend
+**Diagnosis — not guessing, but here's the most likely cause and how to confirm it in one command:**
+
+Instance **did** get created successfully this time (disk_size fix worked) — it booted, got an internal IP `10.216.0.32`, but Packer running inside Cloud Build's container **could never reach it** over SSH within 6 minutes, then GCP cleaned up.
+
+This points to one of two causes:
+**Diagnosis — not guessing, but here's the most likely cause and how to confirm it in one command:**
+
+Instance **did** get created successfully this time (disk_size fix worked) — it booted, got an internal IP `10.216.0.32`, but Packer running inside Cloud Build's container **could never reach it** over SSH within 6 minutes, then GCP cleaned up.
+
+This points to one of two causes:
+
+1. **Cloud Build default worker pool is not on your VPC.** Since `backend.pkr.hcl` uses `use_internal_ip = true` + `omit_external_ip = true`, Packer must reach `10.216.0.32` directly. Cloud Build's **default** pool runs in a Google-managed network outside your VPC — it cannot route to your internal IPs unless you're using a **private pool** peered into `default` network in `me-central2`.
+
+2. **Firewall blocking port 22** to the temp instance, even if network reachability exists (missing ingress rule for SSH from Cloud Build's range or via IAP).
+
+**Confirm #1 first — check your Cloud Build trigger's pool config:**
+```bash
+gcloud builds triggers describe careernavigator-backend-staging --project=pg-ae-n-app-125609 --format="value(options.pool)"
+```
+- If empty/blank → you're on the **default pool** (not VPC-connected) → this is your root cause.
+- If it shows a private pool resource path → pool exists, move to firewall check below.
+
+**Confirm #2 — check SSH ingress firewall rules on `default` network:**
+```bash
+gcloud compute firewall-rules list --project=pg-ae-n-app-125609 --filter="network:default AND allowed.ports:22" --format="table(name,sourceRanges.list(),targetTags.list())"
+```
+Paste both outputs — I'll give the exact fix once I see which one is the actual gap (don't want to have you set up a private pool if the real issue is just a missing firewall rule, or vice versa).
+
+**Quick note while you check:** if it turns out to be #1 (no private pool), the fix requires creating a Cloud Build private pool attached to your VPC — that's a recurring cost (⚠️ flagging per rule 8, private pools are billed per pool-minute regardless of build usage) and a bit of setup. The cheaper alternative if your org policy allows it temporarily: use `omit_external_ip = false` just for the Packer build VM (not your real app instances) — but check with your PwC network/security team first since org policy blocked external IPs deliberately (`constraints/compute.vmExternalIpAccess`), so this may not be allowed at all.
+1. **Cloud Build default worker pool is not on your VPC.** Since `backend.pkr.hcl` uses `use_internal_ip = true` + `omit_external_ip = true`, Packer must reach `10.216.0.32` directly. Cloud Build's **default** pool runs in a Google-managed network outside your VPC — it cannot route to your internal IPs unless you're using a **private pool** peered into `default` network in `me-central2`.
+
+2. **Firewall blocking port 22** to the temp instance, even if network reachability exists (missing ingress rule for SSH from Cloud Build's range or via IAP).
+
+**Confirm #1 first — check your Cloud Build trigger's pool config:**
+```bash
+gcloud builds triggers describe careernavigator-backend-staging --project=pg-ae-n-app-125609 --format="value(options.pool)"
+```
+- If empty/blank → you're on the **default pool** (not VPC-connected) → this is your root cause.
+- If it shows a private pool resource path → pool exists, move to firewall check below.
+
+**Confirm #2 — check SSH ingress firewall rules on `default` network:**
+```bash
+gcloud compute firewall-rules list --project=pg-ae-n-app-125609 --filter="network:default AND allowed.ports:22" --format="table(name,sourceRanges.list(),targetTags.list())"
+```
+Paste both outputs — I'll give the exact fix once I see which one is the actual gap (don't want to have you set up a private pool if the real issue is just a missing firewall rule, or vice versa).
+
+**Quick note while you check:** if it turns out to be #1 (no private pool), the fix requires creating a Cloud Build private pool attached to your VPC — that's a recurring cost (⚠️ flagging per rule 8, private pools are billed per pool-minute regardless of build usage) and a bit of setup. The cheaper alternative if your org policy allows it temporarily: use `omit_external_ip = false` just for the Packer build VM (not your real app instances) — but check with your PwC network/security team first since org policy blocked external IPs deliberately (`constraints/compute.vmExternalIpAccess`), so this may not be allowed at all.
