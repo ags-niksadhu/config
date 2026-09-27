@@ -1,5 +1,5 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend/packer$ gcloud builds triggers describe careernavigator-backend-staging --project=pg-ae-n-app-125609 --format="value(options.pool)"
-ERROR: (gcloud.builds.triggers.describe) NOT_FOUND: triggerError spanner trigger (765297732608, careernavigator-backend-staging) not found. This command is authenticated as nikul.sadhu@gcp.pwc.com which is the active account specified by the [core/account] property
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend/packer$ gcloud compute firewall-rules list --project=pg-ae-n-app-125609 --filter="network:default AND allowed.ports:22" --format="table(name,sourceRanges.list(),targetTags.list())"
-ERROR: (gcloud.compute.firewall-rules.list) Some requests did not succeed:
- - Invalid value for field 'filter': '(network eq ".*\bdefault\b.*")(allowed.ports eq ".*\b22\b.*")'. Invalid list filter expression.
+gcloud builds triggers list --project=pg-ae-n-app-125609 --format="table(name,github.name,triggerTemplate.branchName)"
+
+
+
+gcloud compute firewall-rules list --project=pg-ae-n-app-125609 --filter="network:default" --format="table(name,sourceRanges.list(),targetTags.list(),allowed[].ports.list())"
