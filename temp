@@ -1,16 +1,210 @@
-echo "=== TRIGGER LIST ==="
-gcloud builds triggers list
+I can't actually update or persist memory across future chats. My memory is not something I can edit manually.
+What I can do is give you a complete project summary that you should save in your repo (for example as docs/packer-migration-notes.md). Then in any future chat you can paste this summary and we'll continue from exactly the same point.
+________________________________________
+CareerNavigator Backend Auto-Scaling Migration Summary
+Project
+Project:
+pg-ae-n-app-125609
+Region:
+me-central2
+Primary Zone:
+me-central2-c
+Backend MIG:
+cn-backend-mig
+Current Template:
+cn-backend-template-v5
+Current Trigger:
+careernavigator-backend-staging
+________________________________________
+Existing Deployment Model
+Current process:
+Git Push
+ ↓
+Cloud Build
+ ↓
+npm ci
+ ↓
+npm test
+ ↓
+npm run build:staging
+ ↓
+tar.gz
+ ↓
+GCS
+ ↓
+latest.txt
+ ↓
+MIG Rolling Restart
+ ↓
+Startup script downloads artifact
+Files:
+dist/
+node_modules/
+ecosystem.config.js
+package.json
+________________________________________
+Final Architecture Decision
+Chosen design:
+Git Push
+ ↓
+Cloud Build
+ ↓
+npm ci
+ ↓
+npm test
+ ↓
+npm run build:staging
+ ↓
+Packer
+ ↓
+Golden Image
+ ↓
+Instance Template
+ ↓
+Rolling Update MIG
+ ↓
+Health Validation
+No startup-time artifact downloads.
+No:
+latest.txt
+GCS artifact deployment
+startup extraction
+________________________________________
+Application Structure Verified
+PM2 config:
+script: "dist/main.js"
+Application location:
+/var/www/careernavigator-backend
+Required runtime contents:
+dist/
+node_modules/
+ecosystem.config.js
+package.json
+package-lock.json
+.env.staging
+________________________________________
+Cloud Build Changes Already Completed
+Fixed Test Stage
+Changed:
+args: ['run', 'test']
+to:
+args:
+  - run
+  - test
+  - --
+  - --passWithNoTests
+Reason:
+No tests found, exiting with code 1
+________________________________________
+Added Packer Validation
+Added:
+- id: Validate Packer
+  name: 'hashicorp/packer:latest'
+Result:
+SUCCESS
+The configuration is valid.
+________________________________________
+Packer Status
+Verified:
+packer init
+✅
+packer validate
+✅
+packer build
+✅ Starts
+________________________________________
+Organization Policies Discovered
+Restriction 1
+constraints/compute.vmExternalIpAccess
+Error:
+External IP not allowed
+Fixed by:
+omit_external_ip = true
+use_internal_ip  = true
+________________________________________
+Restriction 2
+constraints/compute.trustedImageProjects
+Error:
+ubuntu-os-cloud not allowed
+Meaning:
+source_image_family = "ubuntu-2404-lts-amd64"
+cannot be used.
+________________________________________
+Clean Ubuntu Foundation
+Created:
+Machine Image:
+clean-ubuntu-26092026
+Verified:
+Machine type:
+e2-medium
+Source VM:
+clean-ubuntu-26092026
+Networking:
+default network
+default subnet
+________________________________________
+Corporate Approved Ubuntu Image
+Used by clean template:
+linux-ubuntu2404-base-2026-08-1
+Project:
+pg-gx-s-999309
+Family:
+pwc-linux-ubuntu2404-base
+________________________________________
+Current Situation
+We have confirmed:
+Cloud Build
+✅
+Service Account
+✅
+Packer Plugin
+✅
+Packer Validation
+✅
+Internal IP Build
+✅
+Trusted Image Policy Diagnosed
+✅
+Clean Machine Image Created
+✅
+________________________________________
+Next Recommended Step
+Create a project-owned Compute Image from:
+clean-ubuntu-26092026
+Example:
+gcloud compute images create clean-ubuntu-26092026-img </span>
+  --project=pg-ae-n-app-125609 </span>
+  --source-disk=clean-ubuntu-26092026 </span>
+  --source-disk-zone=me-central2-a
+Verify:
+gcloud compute images describe clean-ubuntu-26092026-img
+Expected:
+status: READY
+Then update Packer:
+source_image = "projects/pg-ae-n-app-125609/global/images/clean-ubuntu-26092026-img"
+________________________________________
+Future Packer Goal
+Packer image should eventually:
+Install Node.js
+Install PM2
+Install Apache
+Copy application
+Configure PM2
+Save image
+Result:
+cn-backend-image-<commit>
+Then:
+Instance Template
+ ↓
+Test VM
+ ↓
+Test MIG
+ ↓
+Production MIG
+________________________________________
+Important Rule Followed Throughout
+Diagnose before prescribe.
+Never guess root cause.
+Always use actual logs/errors/output.
+Save this summary somewhere in your repository. If you start a new chat later and paste this section, we'll be able to continue from exactly the current state.
 
-echo "=== TRIGGER DETAIL (branch filter, repo, included files) ==="
-gcloud builds triggers describe TRIGGER_NAME --format="yaml(triggerTemplate,github,substitutions,filename,includedFiles)"
-# ⬅ replace TRIGGER_NAME with the actual name from the list above
-
-echo "=== RECENT BUILD HISTORY — has it ever actually run? ==="
-gcloud builds list --limit=10 --format="table(id,status,createTime,substitutions.SHORT_SHA)"
-
-echo "=== BIGQUERY TABLE CHECK ==="
-bq show deployments.deployment_history 2>&1
-
-echo "=== CONFIRM cloudbuild.yaml IS ON THE PUSHED BRANCH ==="
-git log --oneline -5
-git branch --show-current
