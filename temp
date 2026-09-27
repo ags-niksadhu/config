@@ -1,19 +1,123 @@
-Good — confirms the plan already in progress. Two things needed to keep moving:
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute images create clean-ubuntu-26092026-img \
+>   --project=pg-ae-n-app-125609 \
+>   --source-machine-image=projects/pg-ae-n-app-125609/global/machineImages/clean-ubuntu-26092026
+ERROR: (gcloud.compute.images.create) unrecognized arguments: --source-machine-image=projects/pg-ae-n-app-125609/global/machineImages/clean-ubuntu-26092026 (did you mean '--source-image'?)
 
-**1. Run the image creation (from clean OS, still pending):**
-```bash
-gcloud compute images create clean-ubuntu-26092026-img \
-  --project=pg-ae-n-app-125609 \
-  --source-machine-image=projects/pg-ae-n-app-125609/global/machineImages/clean-ubuntu-26092026
-```
-Verify:
-```bash
-gcloud compute images describe clean-ubuntu-26092026-img --project=pg-ae-n-app-125609 --format="value(status)"
-```
-Expect `READY`. Paste result.
+To search the help text of gcloud commands, run:
+  gcloud help -- SEARCH_TERMS
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ cat /etc/apache2/sites-enabled/careernavigator-backend.conf
 
-**2. Apache vhost mode — still unanswered, needed for the provisioner:**
-- (a) Apache reverse-proxies to PM2's Node process (e.g. `ProxyPass / http://localhost:3000/`), or
-- (b) Apache serves static files, Node/PM2 handles API on a separate port/path
+<VirtualHost *:80>
+    ServerName stagingapi.careerdevelopmentnavigator.mer.pwc.com
+ #   ServerAlias www.staging.yourdomain.com
 
-If there's an existing vhost config on the current staging/prod backend VM, paste it (`cat /etc/apache2/sites-enabled/*.conf`) — I'll replicate it exactly rather than guess. If none exists yet (Apache not currently in front of this backend), tell me and I'll ask what you actually need it to do (SSL termination? static assets? just a passthrough?).
+    # ── Protocol Support ──────────────────────────────────────
+    Protocols h2 http/1.1
+
+    # ── Document Root ────────────────────────────────────────
+    #DocumentRoot /var/www/ABC/public
+
+    # ── Logging ──────────────────────────────────────────────
+    ErrorLog  /var/log/apache2/careernavigator-backend-staging-error.log
+    CustomLog /var/log/apache2/careernavigator-backend-staging-access.log combined
+    LogLevel warn
+
+    # ── URL Rewriting ─────────────────────────────────────────
+#    RewriteEngine On
+
+ #       RewriteCond %{HTTP:X-Forwarded-Proto} !https
+ #   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+RewriteEngine On
+
+RewriteCond %{HTTP_USER_AGENT} GoogleHC/
+RewriteRule ^ - [L]
+
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+    # ── GCP LB HTTPS Detection ────────────────────────────────
+    SetEnvIf X-Forwarded-Proto https HTTPS=on
+
+    # ── Directory Config ─────────────────────────────────────
+    <Directory /var/www>
+        Options -Indexes -ExecCGI
+        AllowOverride All
+        Require all granted
+
+        <FilesMatch "^\.">
+            Require all denied
+        </FilesMatch>
+    </Directory>
+
+    # ── Legacy HTML Directory ─────────────────────────────────
+    <Directory /var/www>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    # ── Block Sensitive Files ─────────────────────────────────
+    <FilesMatch "\.(env|git|gitignore|sh|sql|json|lock|md|log|bak|swp|orig)$">
+        Require all denied
+    </FilesMatch>
+
+    # ── Block .git Directory ──────────────────────────────────
+    <DirectoryMatch "^/.*/\.git/">
+        Order 'deny,allow'
+        Deny from all
+
+        <LimitExcept GET POST PUT DELETE OPTIONS PATCH>
+                Require all denied
+        </LimitExcept>
+
+
+    </DirectoryMatch>
+
+    # ── Security Headers ──────────────────────────────────────
+    Header always set X-Content-Type-Options        "nosniff"
+    Header always unset X-Frame-Options
+    Header set X-Frame-Options                      "SAMEORIGIN"
+    Header always set X-XSS-Protection              "1; mode=block"
+    Header always set Referrer-Policy               "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy            "geolocation=(), microphone=(), camera=()"
+    Header always set Content-Security-Policy       "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';"
+    Header always unset X-Powered-By
+    Header always unset Server
+
+    # ── Timeout & Connection Settings ────────────────────────
+    Timeout 60
+    KeepAlive On
+    KeepAliveTimeout 15
+    MaxKeepAliveRequests 100
+
+    # ── Block Bad Bots ────────────────────────────────────────
+    <If "%{HTTP_USER_AGENT} =~ /sqlmap|nikto|nessus|masscan|zgrab|nmap|dirbuster|hydra|havij/">
+        Require all denied
+    </If>
+
+    # ── Block XML-RPC ─────────────────────────────────────────
+    <Location /xmlrpc.php>
+        Require all denied
+    </Location>
+
+
+    # ── Proxy to App (Node.js port 3333) ─────────────────────
+    ProxyRequests off
+    ProxyPreserveHost on
+    ProxyVia Full
+
+    <Proxy *>
+        Require all granted
+    </Proxy>
+
+    ProxyPass / http://localhost:3024/
+    ProxyPassReverse / http://localhost:3024/
+
+    # ── GCP Load Balancer Real IP ─────────────────────────────
+    RemoteIPHeader X-Forwarded-For
+    RemoteIPInternalProxy 130.211.0.0/22
+    RemoteIPInternalProxy 35.191.0.0/16
+
+</VirtualHost>
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
