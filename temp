@@ -1,5 +1,14 @@
-gcloud builds triggers list --project=pg-ae-n-app-125609 --format="table(name,github.name,triggerTemplate.branchName)"
-
-
-
-gcloud compute firewall-rules list --project=pg-ae-n-app-125609 --filter="network:default" --format="table(name,sourceRanges.list(),targetTags.list(),allowed[].ports.list())"
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend/packer$ gcloud builds triggers list --project=pg-ae-n-app-125609 --format="table(name,github.name,triggerTemplate.branchName)"
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend/packer$ gcloud compute firewall-rules list --project=pg-ae-n-app-125609 --filter="network:default" --format="table(name,sourceRanges.list(),targetTags.list(),allowed[].ports.list())"
+NAME                              SOURCE_RANGES                                                 TARGET_TAGS      PORTS
+allow-lb-health-check-cn-backend  130.211.0.0/22,35.191.0.0/16                                  cn-backend       ['3024']
+allow-lb-to-vm                    130.211.0.0/22,35.191.0.0/16                                                   ['80']
+default-allow-health-check        35.191.0.0/16,130.211.0.0/22,209.85.152.0/22,209.85.204.0/22  lb-health-check  None
+default-allow-health-check-ipv6   2600:1901:8001::/48,2600:2d00:1:b029::/64                     lb-health-check  None
+default-allow-http                0.0.0.0/0                                                     http-server      ['80']
+default-allow-icmp                0.0.0.0/0                                                                      None
+default-allow-internal            10.128.0.0/9                                                                   ['0-65535'],['0-65535'],None
+default-allow-rdp                 35.235.240.0/20                                                                ['3389']
+default-allow-ssh                 35.235.240.0/20                                                                ['22']
+temp-testing-cn                   110.227.205.102,14.99.145.222                                                  ['3024']
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend/packer$
