@@ -1,47 +1,5 @@
-**Diagnosis — not guessing, but here's the most likely cause and how to confirm it in one command:**
-
-Instance **did** get created successfully this time (disk_size fix worked) — it booted, got an internal IP `10.216.0.32`, but Packer running inside Cloud Build's container **could never reach it** over SSH within 6 minutes, then GCP cleaned up.
-
-This points to one of two causes:
-**Diagnosis — not guessing, but here's the most likely cause and how to confirm it in one command:**
-
-Instance **did** get created successfully this time (disk_size fix worked) — it booted, got an internal IP `10.216.0.32`, but Packer running inside Cloud Build's container **could never reach it** over SSH within 6 minutes, then GCP cleaned up.
-
-This points to one of two causes:
-
-1. **Cloud Build default worker pool is not on your VPC.** Since `backend.pkr.hcl` uses `use_internal_ip = true` + `omit_external_ip = true`, Packer must reach `10.216.0.32` directly. Cloud Build's **default** pool runs in a Google-managed network outside your VPC — it cannot route to your internal IPs unless you're using a **private pool** peered into `default` network in `me-central2`.
-
-2. **Firewall blocking port 22** to the temp instance, even if network reachability exists (missing ingress rule for SSH from Cloud Build's range or via IAP).
-
-**Confirm #1 first — check your Cloud Build trigger's pool config:**
-```bash
-gcloud builds triggers describe careernavigator-backend-staging --project=pg-ae-n-app-125609 --format="value(options.pool)"
-```
-- If empty/blank → you're on the **default pool** (not VPC-connected) → this is your root cause.
-- If it shows a private pool resource path → pool exists, move to firewall check below.
-
-**Confirm #2 — check SSH ingress firewall rules on `default` network:**
-```bash
-gcloud compute firewall-rules list --project=pg-ae-n-app-125609 --filter="network:default AND allowed.ports:22" --format="table(name,sourceRanges.list(),targetTags.list())"
-```
-Paste both outputs — I'll give the exact fix once I see which one is the actual gap (don't want to have you set up a private pool if the real issue is just a missing firewall rule, or vice versa).
-
-**Quick note while you check:** if it turns out to be #1 (no private pool), the fix requires creating a Cloud Build private pool attached to your VPC — that's a recurring cost (⚠️ flagging per rule 8, private pools are billed per pool-minute regardless of build usage) and a bit of setup. The cheaper alternative if your org policy allows it temporarily: use `omit_external_ip = false` just for the Packer build VM (not your real app instances) — but check with your PwC network/security team first since org policy blocked external IPs deliberately (`constraints/compute.vmExternalIpAccess`), so this may not be allowed at all.
-1. **Cloud Build default worker pool is not on your VPC.** Since `backend.pkr.hcl` uses `use_internal_ip = true` + `omit_external_ip = true`, Packer must reach `10.216.0.32` directly. Cloud Build's **default** pool runs in a Google-managed network outside your VPC — it cannot route to your internal IPs unless you're using a **private pool** peered into `default` network in `me-central2`.
-
-2. **Firewall blocking port 22** to the temp instance, even if network reachability exists (missing ingress rule for SSH from Cloud Build's range or via IAP).
-
-**Confirm #1 first — check your Cloud Build trigger's pool config:**
-```bash
-gcloud builds triggers describe careernavigator-backend-staging --project=pg-ae-n-app-125609 --format="value(options.pool)"
-```
-- If empty/blank → you're on the **default pool** (not VPC-connected) → this is your root cause.
-- If it shows a private pool resource path → pool exists, move to firewall check below.
-
-**Confirm #2 — check SSH ingress firewall rules on `default` network:**
-```bash
-gcloud compute firewall-rules list --project=pg-ae-n-app-125609 --filter="network:default AND allowed.ports:22" --format="table(name,sourceRanges.list(),targetTags.list())"
-```
-Paste both outputs — I'll give the exact fix once I see which one is the actual gap (don't want to have you set up a private pool if the real issue is just a missing firewall rule, or vice versa).
-
-**Quick note while you check:** if it turns out to be #1 (no private pool), the fix requires creating a Cloud Build private pool attached to your VPC — that's a recurring cost (⚠️ flagging per rule 8, private pools are billed per pool-minute regardless of build usage) and a bit of setup. The cheaper alternative if your org policy allows it temporarily: use `omit_external_ip = false` just for the Packer build VM (not your real app instances) — but check with your PwC network/security team first since org policy blocked external IPs deliberately (`constraints/compute.vmExternalIpAccess`), so this may not be allowed at all.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend/packer$ gcloud builds triggers describe careernavigator-backend-staging --project=pg-ae-n-app-125609 --format="value(options.pool)"
+ERROR: (gcloud.builds.triggers.describe) NOT_FOUND: triggerError spanner trigger (765297732608, careernavigator-backend-staging) not found. This command is authenticated as nikul.sadhu@gcp.pwc.com which is the active account specified by the [core/account] property
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend/packer$ gcloud compute firewall-rules list --project=pg-ae-n-app-125609 --filter="network:default AND allowed.ports:22" --format="table(name,sourceRanges.list(),targetTags.list())"
+ERROR: (gcloud.compute.firewall-rules.list) Some requests did not succeed:
+ - Invalid value for field 'filter': '(network eq ".*\bdefault\b.*")(allowed.ports eq ".*\b22\b.*")'. Invalid list filter expression.
