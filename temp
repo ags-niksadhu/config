@@ -1,6 +1,28 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute images create clean-ubuntu-26092026-img \
->   --project=pg-ae-n-app-125609 \
->   --source-disk=clean-ubuntu-26092026 \
->   --source-disk-zone=me-central2-a
-ERROR: (gcloud.compute.images.create) Could not fetch resource:
- - The disk resource 'projects/pg-ae-n-app-125609/zones/me-central2-a/disks/clean-ubuntu-26092026' is already being used by 'projects/pg-ae-n-app-125609/zones/me-central2-a/instances/clean-ubuntu-26092026'
+**Root cause:** disk is attached to a **running** instance — GCP blocks image creation from an in-use disk unless you either stop the instance or force it.
+
+| Option | Downtime | Risk | Command |
+|---|---|---|---|
+| A. Stop instance, then create image | None to prod (this VM isn't serving traffic) | Zero — clean, consistent snapshot | Stop → create → done |
+| B. `--force` while running | None | Possible filesystem inconsistency (low risk here since it's a bare OS with no active writes) | One command, no stop needed |
+
+**Recommendation: Option A** — this instance isn't serving any traffic (it's just your Packer source base), so stopping it costs nothing and guarantees a clean image.
+
+```bash
+gcloud compute instances stop clean-ubuntu-26092026 \
+  --project=pg-ae-n-app-125609 \
+  --zone=me-central2-a
+```
+
+Then:
+```bash
+gcloud compute images create clean-ubuntu-26092026-img \
+  --project=pg-ae-n-app-125609 \
+  --source-disk=clean-ubuntu-26092026 \
+  --source-disk-zone=me-central2-a
+```
+
+Verify:
+```bash
+gcloud compute images describe clean-ubuntu-26092026-img --project=pg-ae-n-app-125609 --format="value(status)"
+```
+Expect `READY`. Paste result.
