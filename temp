@@ -1,24 +1,3 @@
-ikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute addresses create google-managed-services-cn-backend \
-  --project=pg-ae-n-app-125609 \
-  --global \
-  --purpose=VPC_PEERING \
-  --addresses=10.58.0.0 \
-  --prefix-length=16 \
-  --network=default
-Created [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/addresses/google-managed-services-cn-backend].
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud services vpc-peerings update \
-  --service=servicenetworking.googleapis.com \
-  --ranges=default-ip-range-1777629612925,google-managed-services-cn-backend \
-  --network=default \
-  --project=pg-ae-n-app-125609 \
-  --force
-Operation "operations/pssn.p24-765297732608-471bd1dd-a9fe-44e8-99c6-b5bf127f78c1" finished successfully.
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud services vpc-peerings list --network=default --project=pg-ae-n-app-125609
----
-network: projects/765297732608/global/networks/default
-peering: servicenetworking-googleapis-com
-reservedPeeringRanges:
-- default-ip-range-1777629612925
-- google-managed-services-cn-backend
-service: services/servicenetworking.googleapis.com
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud builds worker-pools list --project=pg-ae-n-app-125609 --region=me-central2
+NAME                     CREATE_TIME                STATE
+cn-backend-private-pool  2026-09-30T10:05:40+00:00  RUNNING
