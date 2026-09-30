@@ -1,4 +1,39 @@
-Failed to create private pool
-Something went wrong when creating the private pool: generic::invalid_argument: Unable to allocate a new 10.240.0.0/24 block of IP addresses in your Service Networking connection for the new worker pool. Please either specify a different IP range for the worker pool or add a new reserved range to the connection, ideally a /16 block for maximum expandability. To allocate a new range, follow these instructions: https://cloud.google.com/vpc/docs/configure-private-services-access#procedure To modify your connection to add the new range, follow these instructions: https://cloud.google.com/vpc/docs/configure-private-services-access#modifying-connection
+**Root cause:** Cloud Build private pools use Google's **Service Networking / Private Services Access** peering — this requires a reserved IP range explicitly registered with the `servicenetworking.googleapis.com` peering connection on your VPC. That connection either doesn't exist yet, or has no compatible range allocated. The Console UI tried to auto-allocate `10.240.0.0/24` into it and failed because the underlying peering setup isn't there.
 
-Tracking number: c2565163296285662
+**Check current state first:**
+```bash
+gcloud services vpc-peerings list --network=default --project=pg-ae-n-app-125609
+```
+and
+```bash
+gcloud compute addresses list --project=pg-ae-n-app-125609 --global --filter="purpose:VPC_PEERING"
+```
+Paste both outputs — tells us whether a Service Networking connection exists at all, or needs to be created from scratch.
+
+**Most likely fix (assuming no PSA connection exists yet) — do via CLI, this part isn't a GUI-only operation:**
+
+⚠️ This modifies VPC peering config — not destructive to existing resources, but touches shared network infra used by other managed services (Cloud SQL, Memorystore, etc., if any exist on this VPC). Confirm nothing else already depends on a `servicenetworking` peering range before proceeding — the `list` command above will show that.
+
+1. Reserve a larger range as Google recommends (`/16` for headroom), non-overlapping with everything in your subnet list — `10.240.0.0/16` is safe (covers `10.240.0.0`–`10.240.255.255`, clear of every existing subnet):
+```bash
+gcloud compute addresses create google-managed-services-default \
+  --project=pg-ae-n-app-125609 \
+  --global \
+  --purpose=VPC_PEERING \
+  --addresses=10.240.0.0 \
+  --prefix-length=16 \
+  --network=default
+```
+
+2. Create/update the Service Networking peering connection with this range:
+```bash
+gcloud services vpc-peerings connect \
+  --service=servicenetworking.googleapis.com \
+  --ranges=google-managed-services-default \
+  --network=default \
+  --project=pg-ae-n-app-125609
+```
+
+3. Retry the private pool creation in Console — this time use `10.240.0.0/24` (a subset of the now-reserved `/16`) as the peering range, it should allocate successfully.
+
+**Run step 1's check commands first and paste output** — if a `servicenetworking.googleapis.com` peering already exists with a different range, we should extend that one rather than create a conflicting second connection.
