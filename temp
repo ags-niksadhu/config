@@ -1,10 +1,42 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed list-instances cn-backend-mig \
->   --project=pg-ae-n-app-125609 \
->   --zone=me-central2-c
-NAME             ZONE           STATUS   HEALTH_STATE  ACTION     INSTANCE_TEMPLATE       VERSION_NAME  LAST_ERROR
-cn-backend-3dfw  me-central2-c  RUNNING  HEALTHY       NONE       cn-backend-template-v5
-cn-backend-7jjw  me-central2-c  RUNNING  UNKNOWN       VERIFYING  cn-backend-template-v5
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
+Before running this, I need one confirmation to avoid guessing: **do you want the new regional MIG to also autoscale the same way** (min 1, max 5, CPU target 60%), or fixed size for now? I'll default to matching what you already have unless you say otherwise.
 
+**Create the regional MIG** (new name to avoid clashing with the existing zonal `cn-backend-mig` — we'll rename later once cutover is complete):
 
+```bash
+gcloud compute instance-groups managed create cn-backend-mig-regional \
+  --project=pg-ae-n-app-125609 \
+  --region=me-central2 \
+  --template=cn-backend-template-v5 \
+  --size=2 \
+  --health-check=backend-health-3024 \
+  --initial-delay=300
+```
 
+**Verify it's created and healthy:**
+```bash
+gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
+  --project=pg-ae-n-app-125609 \
+  --region=me-central2
+```
+
+**Add autoscaling** (matching your existing policy):
+```bash
+gcloud compute instance-groups managed set-autoscaling cn-backend-mig-regional \
+  --project=pg-ae-n-app-125609 \
+  --region=me-central2 \
+  --min-num-replicas=1 \
+  --max-num-replicas=5 \
+  --target-cpu-utilization=0.6 \
+  --cool-down-period=60
+```
+
+⚠️ **This creates new billed instances** (up to 2 more `e2-medium` VMs running in parallel with your existing zonal MIG) — temporary duplicate cost during the migration/testing period. Once cutover is confirmed and the old zonal `cn-backend-mig` is deleted, cost returns to normal (same instance count as before, just distributed).
+
+**Important — this alone does NOT move live traffic.** This just creates a second, independent MIG running in parallel. Your load balancer / DNS still points at the old zonal `cn-backend-mig` until you explicitly repoint it. Nothing changes for users yet — this is safe to run anytime.
+
+**Next step after this is created and verified healthy:** check what your load balancer's backend service currently points to, so we can plan the traffic cutover properly:
+```bash
+gcloud compute backend-services list --project=pg-ae-n-app-125609 --format="table(name,backends[].group)"
+```
+
+Run the create command, confirm it's healthy, then paste that backend-services output — that tells us exactly how to safely switch traffic over without downtime.
