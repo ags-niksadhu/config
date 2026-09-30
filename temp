@@ -1,3 +1,10 @@
-gcloud compute instance-groups managed list-instances cn-backend-mig \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-c
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed list-instances cn-backend-mig \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-c
+NAME             ZONE           STATUS   HEALTH_STATE  ACTION     INSTANCE_TEMPLATE       VERSION_NAME  LAST_ERROR
+cn-backend-3dfw  me-central2-c  RUNNING  HEALTHY       NONE       cn-backend-template-v5
+cn-backend-7jjw  me-central2-c  RUNNING  UNKNOWN       VERIFYING  cn-backend-template-v5
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
+
+
+
