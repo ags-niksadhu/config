@@ -1,10 +1,21 @@
-ERROR: error fetching git source: retry budget exhausted (3 attempts): fetching git source: fetching git source: source fetch container exited with non-zero status: 128
-ERROR
-fatal: unable to access 'https://github.com/pwc-me-adv-careernavigator/careernavigator-backend.git/': Failed to connect to github.com port 443 after 128808 ms: Could not connect to server
-error: remote origin already exists.
-fatal: unable to access 'https://github.com/pwc-me-adv-careernavigator/careernavigator-backend.git/': Failed to connect to github.com port 443 after 130514 ms: Could not connect to server
-error: remote origin already exists.
-fatal: unable to access 'https://github.com/pwc-me-adv-careernavigator/careernavigator-backend.git/': Failed to connect to github.com port 443 after 130391 ms: Could not connect to server
-FETCHSOURCE
-starting build "f137c462-a5ff-42a1-b036-6850884f5354"
+Good — no need to create a new one then. Confirm it covers this pool before assuming it just works.
 
+**Check existing NAT config:**
+```bash
+gcloud compute routers nats list --project=pg-ae-n-app-125609 --router=$(gcloud compute routers list --project=pg-ae-n-app-125609 --filter="region:me-central2" --format="value(name)") --router-region=me-central2
+```
+
+If that's empty or errors (no router in `me-central2`), list all routers first to find where the NAT actually lives:
+```bash
+gcloud compute routers list --project=pg-ae-n-app-125609 --format="table(name,region,network)"
+```
+
+Paste output. Specifically need to confirm:
+1. **Region** — NAT/router must be in `me-central2` (same region as your private pool). A NAT in another region won't help.
+2. **Network** — must be `default` (same VPC as the private pool).
+3. **Subnet coverage** — check if it's set to "All subnets" or a specific list; if specific, confirm the private pool's peering range (`10.58.0.0/24`) or its subnet is included. Private pools route through the Service Networking peering, so also check:
+```bash
+gcloud compute routers nats describe <NAT_NAME> --project=pg-ae-n-app-125609 --router=<ROUTER_NAME> --region=me-central2 --format="yaml(sourceSubnetworkIpRangesToNat)"
+```
+
+Paste all of this and I'll confirm whether it already covers the private pool or needs a config tweak (not necessarily a new NAT).
