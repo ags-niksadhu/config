@@ -1,11 +1,37 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud services vpc-peerings list --network=default --project=pg-ae-n-app-125609
----
-network: projects/765297732608/global/networks/default
-peering: servicenetworking-googleapis-com
-reservedPeeringRanges:
-- default-ip-range-1777629612925
-service: services/servicenetworking.googleapis.com
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute addresses list --project=pg-ae-n-app-125609 --global --filter="purpose:VPC_PEERING"
-NAME                            ADDRESS/RANGE  TYPE      PURPOSE      NETWORK  REGION  SUBNET  STATUS
-default-ip-range-1777629612925  10.57.64.0/20  INTERNAL  VPC_PEERING  default                  RESERVED
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+**Root cause refined:** A Service Networking peering connection already exists (`servicenetworking-googleapis-com`) with one reserved range: `10.57.64.0/20` (4096 addresses, currently used by whatever managed service already consumed it — likely Cloud SQL private IP or similar). The Console's private-pool creation tried to allocate `10.240.0.0/24` as a **new** range but failed because that peering connection needs the new range **added to it**, not created as a separate standalone peering — my earlier step-1/step-2 approach would have created a conflicting duplicate connection. Good thing we checked first.
+
+**Correct fix — add a new range to the existing connection:**
+
+⚠️ This modifies a shared Service Networking peering used by other services on this VPC. The `--force` flag in the update step will briefly reconcile peering routes — not expected to cause downtime for existing connected services (e.g. Cloud SQL, if present), but it's a shared network control-plane change. Recommend running during a low-traffic window and confirming with whoever owns other services on this VPC.
+
+**Step 1 — reserve a new, non-overlapping range** (avoiding `10.57.64.0/20` and all your existing subnets):
+```bash
+gcloud compute addresses create google-managed-services-cn-backend \
+  --project=pg-ae-n-app-125609 \
+  --global \
+  --purpose=VPC_PEERING \
+  --addresses=10.58.0.0 \
+  --prefix-length=16 \
+  --network=default
+```
+
+**Step 2 — add this range to the existing peering connection (don't create a new one):**
+```bash
+gcloud services vpc-peerings update \
+  --service=servicenetworking.googleapis.com \
+  --ranges=default-ip-range-1777629612925,google-managed-services-cn-backend \
+  --network=default \
+  --project=pg-ae-n-app-125609 \
+  --force
+```
+`--force` is required here because you're adding a range to an active connection — GCP needs it to confirm you intend to modify an existing peering, not create a fresh one.
+
+**Verify:**
+```bash
+gcloud services vpc-peerings list --network=default --project=pg-ae-n-app-125609
+```
+Expect both ranges listed under `reservedPeeringRanges`.
+
+**Step 3 — retry private pool creation in Console**, this time set peering range to a subset within the new `/16`, e.g. `10.58.0.0/24`.
+
+Run steps 1–2, paste the verify output, then go back to the Console form.
