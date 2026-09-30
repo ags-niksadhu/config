@@ -1,5 +1,25 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ grep -rn "SecretManagerServiceClient\|secretmanager" /var/www/careernavigator-backend/dist --include="*.js" | head -5
-/var/www/careernavigator-backend/dist/common/config/secret-manager.js:9:    ? new secret_manager_1.SecretManagerServiceClient({ apiEndpoint: `${location}-secretmanager.googleapis.com` })
-/var/www/careernavigator-backend/dist/common/config/secret-manager.js:10:    : new secret_manager_1.SecretManagerServiceClient();
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ ls -la /var/www/careernavigator-backend/ | grep env
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud secrets get-iam-policy CN_STAGING_DB_HOST --project=pe-ae-n-app-125609
+ERROR: (gcloud.secrets.get-iam-policy) PERMISSION_DENIED: Permission denied on resource project pe-ae-n-app-125609. This command is authenticated as 765297732608-compute@developer.gserviceaccount.com which is the active account specified by the [core/account] property.
+Permission denied on resource project pe-ae-n-app-125609.
+Google developers console
+https://console.developers.google.com
+- '@type': type.googleapis.com/google.rpc.ErrorInfo
+  domain: googleapis.com
+  metadata:
+    consumer: projects/pe-ae-n-app-125609
+    containerInfo: pe-ae-n-app-125609
+    service: secretmanager.googleapis.com
+  reason: CONSUMER_INVALID
 nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud secrets get-iam-policy CN_STAGING_DB_HOST --project=pe-ae-n-app-125609
+ERROR: (gcloud.secrets.get-iam-policy) PERMISSION_DENIED: Permission denied on resource project pe-ae-n-app-125609. This command is authenticated as nikul.sadhu@gcp.pwc.com which is the active account specified by the [core/account] property.
+Permission denied on resource project pe-ae-n-app-125609.
+Google developers console
+https://console.developers.google.com
+- '@type': type.googleapis.com/google.rpc.ErrorInfo
+  domain: googleapis.com
+  metadata:
+    consumer: projects/pe-ae-n-app-125609
+    containerInfo: pe-ae-n-app-125609
+    service: secretmanager.googleapis.com
+  reason: CONSUMER_INVALID
