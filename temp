@@ -1,4 +1,4 @@
-curl -X PATCH \
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ curl -X PATCH \
   -H "Authorization: Bearer $(gcloud auth print-access-token)" \
   -H "Content-Type: application/json" \
   "https://cloudbuild.googleapis.com/v1/projects/pg-ae-n-app-125609/locations/me-central2/triggers/33a17fa4-65cd-435e-8e0b-9bcc9fbf7f0b?updateMask=options.pool.name" \
@@ -9,8 +9,24 @@ curl -X PATCH \
       }
     }
   }'
+{
+  "error": {
+    "code": 400,
+    "message": "Invalid JSON payload received. Unknown name \"options\" at 'trigger': Cannot find field.",
+    "status": "INVALID_ARGUMENT",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.BadRequest",
+        "fieldViolations": [
+          {
+            "field": "trigger",
+            "description": "Invalid JSON payload received. Unknown name \"options\" at 'trigger': Cannot find field."
+          }
+        ]
+      }
+    ]
+  }
+}
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
 
 
-
-
-gcloud builds triggers describe careernavigator-backend-staging --project=pg-ae-n-app-125609 --region=me-central2 --format=json
