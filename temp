@@ -1,8 +1,41 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed list-instances cn-backend-mig \
->   --project=pg-ae-n-app-125609 \
->   --zone=me-central2-c
-NAME             ZONE           STATUS   HEALTH_STATE  ACTION    INSTANCE_TEMPLATE       VERSION_NAME     LAST_ERROR
-cn-backend-3dfw  me-central2-c           UNKNOWN       CREATING  cn-backend-template-v5                   Error ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS: Instance 'cn-backend-3dfw' creation failed: The zone 'projects/pg-ae-n-app-125609/zones/me-central2-c' does not have enough resources available to fulfill the request.  '(resource type:compute)'.
-cn-backend-4chz  me-central2-c  RUNNING  HEALTHY       NONE      cn-backend-template-v5  0-1790266088265
-cn-backend-c1pw  me-central2-c           UNKNOWN       CREATING  cn-backend-template-v5                   Error ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS: Instance 'cn-backend-c1pw' creation failed: The zone 'projects/pg-ae-n-app-125609/zones/me-central2-c' does not have enough resources available to fulfill the request.  '(resource type:compute)'.
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
+**Confirmed: this is a genuine, ongoing `e2-medium` capacity shortage in `me-central2-c` right now** — not template-specific, since even the old `cn-backend-template-v5` is now failing to create new instances. Your one existing instance (`cn-backend-4chz`) is still healthy and serving traffic, so **the service itself is fine** — just stuck at 1 instance instead of 2 until zone capacity frees up.
+
+**Clean up the retry loop first** — MIG will keep endlessly retrying and failing, generating noise. Set target size back to exactly what's actually achievable right now (1), so it stops thrashing:
+
+```bash
+gcloud compute instance-groups managed resize cn-backend-mig \
+  --project=pg-ae-n-app-125609 \
+  --zone=me-central2-c \
+  --size=1
+```
+
+**This is a genuine capacity constraint you can't fix from your side.** Options:
+
+| | A. Wait it out | B. Try a different machine type | C. Move to a different zone |
+|---|---|---|---|
+| What | Retry resize periodically until `me-central2-c` frees up | Try `e2-small` or `e2-standard-2` — sometimes only specific shapes are constrained | Recreate MIG in `me-central2-a` or `-b`, which have had capacity all along in our testing |
+| Effort | None, just monitoring | Low — test if e.g. `e2-small` succeeds where `e2-medium` doesn't | High — different zone means new MIG, potentially new subnet considerations, health check re-pointing |
+| Risk | Service runs on 1 instance (no redundancy) until resolved | Changes instance sizing for all future templates | Bigger architecture change |
+
+**Recommended immediate action:** Option A — this is very likely transient (regional capacity crunches in GCP typically clear within hours). Your service keeps running on the 1 healthy instance in the meantime. Check back periodically:
+
+```bash
+gcloud compute instance-groups managed resize cn-backend-mig \
+  --project=pg-ae-n-app-125609 \
+  --zone=me-central2-c \
+  --size=2
+```
+
+Retry this every 30-60 min, or first thing tomorrow. Once it succeeds, re-enable autoscaling:
+```bash
+gcloud compute instance-groups managed set-autoscaling cn-backend-mig \
+  --project=pg-ae-n-app-125609 \
+  --zone=me-central2-c \
+  --min-num-replicas=1 \
+  --max-num-replicas=5 \
+  --target-cpu-utilization=0.6 \
+  --cool-down-period=60
+```
+(This restores the exact same autoscaling policy that was there before we disabled it.)
+
+**Bottom line for tonight:** your CI/CD pipeline itself is fully working and correct — every step of our build succeeded. Tonight's disruption was purely GCP zone capacity, unrelated to any config we wrote. Run the resize-to-1 cleanup command above, confirm the site is responding normally, and pick up the new-template rollout attempt another time when zone capacity is back.
