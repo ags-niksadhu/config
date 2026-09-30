@@ -1,29 +1,98 @@
-⚠️ **This needs immediate attention — you're down to 1 running instance** (`cn-backend-4chz`), the second previously-healthy instance (`cn-backend-cj1f`) is gone. This reduces your redundancy to zero; if this one instance has any issue right now, the service goes down entirely.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instances list --project=pg-ae-n-app-125609 --filter="name:cn-backend" --format="table(name,zone,status)"
+NAME             ZONE           STATUS
+cn-backend-4chz  me-central2-c  RUNNING
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed describe cn-backend-mig \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-c \
+>   --format="yaml(status)"
+status:
+  allInstancesConfig:
+    effective: true
+  autoscaler: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/autoscalers/cn-backend-mig
+  isStable: true
+  stateful:
+    hasStatefulConfig: false
+    perInstanceConfigs:
+      allEffective: true
+  versionTarget:
+    isReached: false
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed resize cn-backend-mig \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-c \
+>   --size=2
+Updated [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroupManagers/cn-backend-mig].
+WARNING: Some requests generated warnings:
+ - Group is autoscaled and provided target size can be overridden by autoscaler's recommendation.
 
-**Check what happened to it — was it deleted, or is it mid-recreation somewhere:**
-```bash
-gcloud compute instances list --project=pg-ae-n-app-125609 --filter="name:cn-backend" --format="table(name,zone,status)"
-```
-
-**Check the autoscaler correctly** (the right command path):
-```bash
-gcloud compute instance-groups managed describe cn-backend-mig \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-c \
-  --format="yaml(status)"
-```
-
-**Most likely explanation:** the rolling update replaced `cn-backend-cj1f` first (deleted the old one to make room per `REPLACE`/`SUBSTITUTE` policy), then tried creating its replacement — which is the instance that hit `ZONE_RESOURCE_POOL_EXHAUSTED`. So you lost one old instance and never successfully got its replacement. That matches `targetSize: 1` — the MIG may have auto-corrected target size down to match what's actually achievable right now.
-
-**Immediate fix — restore capacity using the template that's proven working** (`cn-backend-template-v5`, currently running healthy on `cn-backend-4chz`), not the new one, since the new one is what's hitting the zone capacity wall:
-
-```bash
-gcloud compute instance-groups managed resize cn-backend-mig \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-c \
-  --size=2
-```
-
-This attempts to add one more instance. **If it also fails with `ZONE_RESOURCE_POOL_EXHAUSTED`**, that confirms the zone genuinely has no capacity right now for *any* new instance (regardless of template), and this is purely a Google-side capacity problem you'll need to wait out — not something fixable from our side. In that case, your one running instance keeps serving traffic; just monitor and retry the resize periodically.
-
-Run the two check commands and the resize command, paste all three outputs.
+---
+autoHealingPolicies:
+- healthCheck: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/healthChecks/backend-health-3024
+  initialDelaySec: 300
+baseInstanceName: cn-backend
+creationTimestamp: '2026-09-22T01:51:30.811-07:00'
+currentActions:
+  abandoning: 0
+  creating: 1
+  creatingWithoutRetries: 0
+  deleting: 0
+  none: 1
+  recreating: 0
+  refreshing: 0
+  restarting: 0
+  resuming: 0
+  starting: 0
+  stopping: 0
+  suspending: 0
+  verifying: 0
+fingerprint: U0tEQD1_I5Q=
+id: '8660718095601500029'
+instanceGroup: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroups/cn-backend-mig
+instanceLifecyclePolicy:
+  defaultActionOnFailure: REPAIR
+  forceUpdateOnRepair: NO
+  onFailedHealthCheck: DEFAULT_ACTION
+  onRepair:
+    allowChangingZone: NO
+instanceTemplate: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-fd726a3
+kind: compute#instanceGroupManager
+listManagedInstancesResults: PAGELESS
+name: cn-backend-mig
+satisfiesPzi: false
+satisfiesPzs: true
+selfLink: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroupManagers/cn-backend-mig
+standbyPolicy:
+  initialDelaySec: 0
+  mode: MANUAL
+status:
+  allInstancesConfig:
+    effective: true
+  autoscaler: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/autoscalers/cn-backend-mig
+  isStable: false
+  stateful:
+    hasStatefulConfig: false
+    perInstanceConfigs:
+      allEffective: true
+  versionTarget:
+    isReached: false
+targetSize: 2
+targetSizePolicy:
+  mode: INDIVIDUAL
+targetStoppedSize: 0
+targetSuspendedSize: 0
+updatePolicy:
+  maxSurge:
+    calculated: 1
+    fixed: 1
+  maxUnavailable:
+    calculated: 0
+    fixed: 0
+  minimalAction: REPLACE
+  mostDisruptiveAllowedAction: REPLACE
+  replacementMethod: SUBSTITUTE
+  type: OPPORTUNISTIC
+versions:
+- instanceTemplate: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-fd726a3
+  targetSize:
+    calculated: 2
+zone: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
