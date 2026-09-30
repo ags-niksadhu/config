@@ -1,464 +1,9 @@
-DONE
-PUSH
-Copying file://backend-d6bdd94.tar.gz [Content-Type=application/x-tar]...
-Already have image (with digest): gcr.io/cloud-builders/gcloud
-Starting Step #5 - "Upload Release to GCS"
-Finished Step #4 - "Package Release"
-Already have image (with digest): gcr.io/cloud-builders/gcloud
-Starting Step #4 - "Package Release"
---> googlecompute.backend: A disk image was created in the 'pg-ae-n-app-125609' project: cn-backend-image-manual
-==> Builds finished. The artifacts of successful builds are:
-==> Wait completed after 4 minutes 54 seconds
-Build 'googlecompute.backend' finished after 4 minutes 54 seconds.
-==> googlecompute.backend: SSH public key for OSLogin has been deleted!
-==> googlecompute.backend: Deleting SSH public key for OSLogin...
-==> googlecompute.backend: Disk has been deleted!
-==> googlecompute.backend: Deleting disk...
-==> googlecompute.backend: Creating image...
-==> googlecompute.backend: Instance has been deleted!
-==> googlecompute.backend: Deleting instance...
-==> googlecompute.backend: $ pm2 unstartup systemd
-==> googlecompute.backend: [PM2] Remove init script via:
-==> googlecompute.backend:
-==> googlecompute.backend: $ pm2 save
-==> googlecompute.backend: [PM2] Freeze a process list on reboot via:
-==> googlecompute.backend: +---------------------------------------+
-==> googlecompute.backend: [PM2] [v] Command successfully executed.
-==> googlecompute.backend: Created symlink /etc/systemd/system/multi-user.target.wants/pm2-sa_108691235514385689272.service → /etc/systemd/system/pm2-sa_108691235514385689272.service.
-==> googlecompute.backend: [PM2] [-] Executing: systemctl enable pm2-sa_108691235514385689272...
-==> googlecompute.backend: [PM2] Making script booting at startup...
-==> googlecompute.backend: [PM2] Writing init configuration in /etc/systemd/system/pm2-sa_108691235514385689272.service
-==> googlecompute.backend: [ 'systemctl enable pm2-sa_108691235514385689272' ]
-==> googlecompute.backend: Command list
-==> googlecompute.backend: /etc/systemd/system/pm2-sa_108691235514385689272.service
-==> googlecompute.backend: Target path
-==> googlecompute.backend:
-==> googlecompute.backend: WantedBy=multi-user.target
-==> googlecompute.backend: [Install]
-==> googlecompute.backend:
-==> googlecompute.backend: ExecStop=/usr/lib/node_modules/pm2/bin/pm2 kill
-==> googlecompute.backend: ExecReload=/usr/lib/node_modules/pm2/bin/pm2 reload all
-==> googlecompute.backend: ExecStart=/usr/lib/node_modules/pm2/bin/pm2 resurrect
-==> googlecompute.backend:
-==> googlecompute.backend: Restart=on-failure
-==> googlecompute.backend: PIDFile=/home/sa_108691235514385689272/.pm2/pm2.pid
-==> googlecompute.backend: Environment=PM2_HOME=/home/sa_108691235514385689272/.pm2
-==> googlecompute.backend: Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/bin:/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
-==> googlecompute.backend: LimitCORE=infinity
-==> googlecompute.backend: LimitNPROC=infinity
-==> googlecompute.backend: LimitNOFILE=infinity
-==> googlecompute.backend: User=sa_108691235514385689272
-==> googlecompute.backend: Type=forking
-==> googlecompute.backend: [Service]
-==> googlecompute.backend:
-==> googlecompute.backend: After=network.target
-==> googlecompute.backend: Documentation=https://pm2.keymetrics.io/
-==> googlecompute.backend: Description=PM2 process manager
-==> googlecompute.backend: [Unit]
-==> googlecompute.backend: Template
-==> googlecompute.backend: Platform systemd
-==> googlecompute.backend: [PM2] Init System found: systemd
-==> googlecompute.backend: [PM2] Successfully saved in /root/.pm2/dump.pm2
-==> googlecompute.backend: [PM2] Saving current process list...
-==> googlecompute.backend: └────┴────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
-==> googlecompute.backend: │ 0  │ careernavigator-backend    │ default     │ 0.0.1   │ fork    │ 3334     │ 0s     │ 0    │ online    │ 0%       │ 45.1mb   │ root     │ disabled │
-==> googlecompute.backend: ├────┼────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
-==> googlecompute.backend: │ id │ name                       │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
-==> googlecompute.backend: ┌────┬────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
-==> googlecompute.backend: [PM2] App [careernavigator-backend] launched (1 instances)
-==> googlecompute.backend: [PM2][WARN] Applications careernavigator-backend not running, starting...
-==> googlecompute.backend: [PM2] PM2 Successfully daemonized
-==> googlecompute.backend: [PM2] Spawning PM2 daemon with pm2_home=/root/.pm2
-==> googlecompute.backend:
-==> googlecompute.backend:                         -------------
-==> googlecompute.backend:
-==> googlecompute.backend:
-==> googlecompute.backend:                 http://pm2.io/
-==> googlecompute.backend:                 To go further checkout:
-==> googlecompute.backend:
-==> googlecompute.backend:                 $ pm2 startup
-==> googlecompute.backend:                 Make pm2 auto-boot at server restart:
-==> googlecompute.backend:
-==> googlecompute.backend:                 $ pm2 monitor
-==> googlecompute.backend:                 Monitor in production:
-==> googlecompute.backend:
-==> googlecompute.backend:                 $ pm2 start api.js -i 4
-==> googlecompute.backend:                 Load Balance 4 instances of api.js:
-==> googlecompute.backend:
-==> googlecompute.backend:                 $ pm2 start app.js
-==> googlecompute.backend:                 Start and Daemonize any application:
-==> googlecompute.backend:
-==> googlecompute.backend:                      with a built-in Load Balancer.
-==> googlecompute.backend:         PM2 is a Production Process Manager for Node.js applications
-==> googlecompute.backend:
-==> googlecompute.backend:                           Runtime Edition
-==> googlecompute.backend:
-==> googlecompute.backend:
-==> googlecompute.backend:         _\///______________\///______________\///__\///////////////__
-==> googlecompute.backend:        _\/\\\_____________\/\\\_____________\/\\\__/\\\\\\\\\\\\\\\_
-==> googlecompute.backend:       _\/\\\_____________\/\\\_____________\/\\\___/\\\/___________
-==> googlecompute.backend:      _\/\\\_____________\/\\\____\///_____\/\\\_____/\\\//________
-==> googlecompute.backend:     _\/\\\/////////____\/\\\__\///\\\/___\/\\\________/\\\//_____
-==> googlecompute.backend:    _\/\\\\\\\\\\\\\/__\/\\\\///\\\/\\\/_\/\\\___________/\\\/___
-==> googlecompute.backend:   _\/\\\_______\/\\\_\/\\\//\\\____/\\\//\\\_\///______\//\\\__
-==> googlecompute.backend:  _\/\\\/////////\\\_\/\\\\\\________/\\\\\\__/\\\///////\\\___
-==> googlecompute.backend: __/\\\\\\\\\\\\\____/\\\\____________/\\\\____/\\\\\\\\\_____
-==> googlecompute.backend:
-==> googlecompute.backend:                         -------------
-==> googlecompute.backend:
-==> googlecompute.backend: Executing: /usr/lib/systemd/systemd-sysv-install enable apache2
-==> googlecompute.backend: Synchronizing state of apache2.service with SysV service script with /usr/lib/systemd/systemd-sysv-install.
-==> googlecompute.backend:   systemctl reload apache2
-==> googlecompute.backend: To activate the new configuration, you need to run:
-==> googlecompute.backend: Site 000-default disabled.
-==> googlecompute.backend:   systemctl reload apache2
-==> googlecompute.backend: To activate the new configuration, you need to run:
-==> googlecompute.backend: Enabling site careernavigator-backend.
-==> googlecompute.backend: npm notice
-==> googlecompute.backend: npm notice To update run: npm install -g npm@12.1.0
-==> googlecompute.backend: npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.1.0
-==> googlecompute.backend:   run `npm fund` for details
-==> googlecompute.backend: npm notice New major version of npm available! 10.9.9 -> 12.1.0
-==> googlecompute.backend: 8 packages are looking for funding
-==> googlecompute.backend: npm notice
-==> googlecompute.backend:
-==> googlecompute.backend: added 77 packages in 13s
-==> googlecompute.backend:
-==> googlecompute.backend:   systemctl restart apache2
-==> googlecompute.backend: To activate the new configuration, you need to run:
-==> googlecompute.backend: Enabling module remoteip.
-==> googlecompute.backend: Enabling module http2.
-==> googlecompute.backend: See /usr/share/doc/apache2/README.Debian.gz on how to configure SSL and create self-signed certificates.
-==> googlecompute.backend: Enabling module ssl.
-==> googlecompute.backend: Enabling module socache_shmcb.
-==> googlecompute.backend: Considering dependency socache_shmcb for ssl:
-==> googlecompute.backend: Module mime already enabled
-==> googlecompute.backend: Considering dependency mime for ssl:
-==> googlecompute.backend: Enabling module rewrite.
-==> googlecompute.backend: Enabling module headers.
-==> googlecompute.backend: Enabling module proxy_http.
-==> googlecompute.backend: Module proxy already enabled
-==> googlecompute.backend: Considering dependency proxy for proxy_http:
-==> googlecompute.backend: Enabling module proxy.
-==> googlecompute.backend: No VM guests are running outdated hypervisor (qemu) binaries on this host.
-==> googlecompute.backend:
-==> googlecompute.backend:  sa_108691235514385689272 @ user manager service: systemd[1001]
-==> googlecompute.backend:  sa_108691235514385689272 @ session #1: sshd[928]
-==> googlecompute.backend: User sessions running outdated binaries:
-==> googlecompute.backend:
-==> googlecompute.backend: No containers need to be restarted.
-==> googlecompute.backend:
-==> googlecompute.backend:  systemctl restart systemd-logind.service
-==> googlecompute.backend:  /etc/needrestart/restart.d/dbus.service
-==> googlecompute.backend: Service restarts being deferred:
-==> googlecompute.backend:
-==> googlecompute.backend: Restarting services...
-==> googlecompute.backend:
-==> googlecompute.backend: Running kernel seems to be up-to-date.
-==> googlecompute.backend:
-==> googlecompute.backend: debconf: falling back to frontend: Teletype
-==> googlecompute.backend: debconf: (This frontend requires a controlling tty.)
-==> googlecompute.backend: debconf: unable to initialize frontend: Readline
-==> googlecompute.backend: debconf: falling back to frontend: Readline
-==> googlecompute.backend: debconf: (Dialog frontend will not work on a dumb terminal, an emacs shell buffer, or without a controlling terminal.)
-==> googlecompute.backend: debconf: unable to initialize frontend: Dialog
-==> googlecompute.backend: Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
-==> googlecompute.backend: Processing triggers for man-db (2.12.0-4build2) ...
-==> googlecompute.backend: Processing triggers for ufw (0.36.2-6) ...
-==> googlecompute.backend: Created symlink /etc/systemd/system/multi-user.target.wants/apache-htcacheclean.service → /usr/lib/systemd/system/apache-htcacheclean.service.
-==> googlecompute.backend: Created symlink /etc/systemd/system/multi-user.target.wants/apache2.service → /usr/lib/systemd/system/apache2.service.
-==> googlecompute.backend: Enabling site 000-default.
-==> googlecompute.backend: Enabling conf serve-cgi-bin.
-==> googlecompute.backend: Enabling conf security.
-==> googlecompute.backend: Enabling conf other-vhosts-access-log.
-==> googlecompute.backend: Enabling conf localized-error-pages.
-==> googlecompute.backend: Enabling conf charset.
-==> googlecompute.backend: Enabling module reqtimeout.
-==> googlecompute.backend: Enabling module status.
-==> googlecompute.backend: Enabling module deflate.
-==> googlecompute.backend: Enabling module filter.
-==> googlecompute.backend: Enabling module setenvif.
-==> googlecompute.backend: Enabling module negotiation.
-==> googlecompute.backend: Enabling module mime.
-==> googlecompute.backend: Enabling module env.
-==> googlecompute.backend: Enabling module autoindex.
-==> googlecompute.backend: Enabling module dir.
-==> googlecompute.backend: Enabling module alias.
-==> googlecompute.backend: Enabling module authz_user.
-==> googlecompute.backend: Enabling module authn_file.
-==> googlecompute.backend: Enabling module access_compat.
-==> googlecompute.backend: Enabling module auth_basic.
-==> googlecompute.backend: Enabling module authn_core.
-==> googlecompute.backend: Enabling module authz_host.
-==> googlecompute.backend: Enabling module authz_core.
-==> googlecompute.backend: Enabling module mpm_event.
-==> googlecompute.backend: Setting up apache2 (2.4.58-1ubuntu8.15) ...
-==> googlecompute.backend: Setting up apache2-bin (2.4.58-1ubuntu8.15) ...
-==> googlecompute.backend: Setting up apache2-utils (2.4.58-1ubuntu8.15) ...
-==> googlecompute.backend: Setting up libaprutil1-dbd-sqlite3:amd64 (1.6.3-1.1ubuntu7.1) ...
-==> googlecompute.backend: Setting up libaprutil1-ldap:amd64 (1.6.3-1.1ubuntu7.1) ...
-==> googlecompute.backend: Setting up libaprutil1t64:amd64 (1.6.3-1.1ubuntu7.1) ...
-==> googlecompute.backend: Setting up apache2-data (2.4.58-1ubuntu8.15) ...
-==> googlecompute.backend: Setting up liblua5.4-0:amd64 (5.4.6-3build2) ...
-==> googlecompute.backend: Setting up libapr1t64:amd64 (1.7.2-3.1ubuntu0.1) ...
-==> googlecompute.backend: Created symlink /etc/systemd/system/multi-user.target.wants/ssl-cert.service → /usr/lib/systemd/system/ssl-cert.service.
-==> googlecompute.backend: Setting up nodejs (22.23.3-1nodesource1) ...
-==> googlecompute.backend: Unpacking ssl-cert (1.1.2ubuntu1) ...
-==> googlecompute.backend: Preparing to unpack .../10-ssl-cert_1.1.2ubuntu1_all.deb ...
-==> googlecompute.backend: Selecting previously unselected package ssl-cert.
-==> googlecompute.backend: Unpacking nodejs (22.23.3-1nodesource1) ...
-==> googlecompute.backend: Preparing to unpack .../09-nodejs_22.23.3-1nodesource1_amd64.deb ...
-==> googlecompute.backend: Selecting previously unselected package nodejs.
-==> googlecompute.backend: Unpacking apache2 (2.4.58-1ubuntu8.15) ...
-==> googlecompute.backend: Preparing to unpack .../08-apache2_2.4.58-1ubuntu8.15_amd64.deb ...
-==> googlecompute.backend: Selecting previously unselected package apache2.
-==> googlecompute.backend: Unpacking apache2-utils (2.4.58-1ubuntu8.15) ...
-==> googlecompute.backend: Preparing to unpack .../07-apache2-utils_2.4.58-1ubuntu8.15_amd64.deb ...
-==> googlecompute.backend: Selecting previously unselected package apache2-utils.
-==> googlecompute.backend: Unpacking apache2-data (2.4.58-1ubuntu8.15) ...
-==> googlecompute.backend: Preparing to unpack .../06-apache2-data_2.4.58-1ubuntu8.15_all.deb ...
-==> googlecompute.backend: Selecting previously unselected package apache2-data.
-==> googlecompute.backend: Unpacking apache2-bin (2.4.58-1ubuntu8.15) ...
-==> googlecompute.backend: Preparing to unpack .../05-apache2-bin_2.4.58-1ubuntu8.15_amd64.deb ...
-==> googlecompute.backend: Selecting previously unselected package apache2-bin.
-==> googlecompute.backend: Unpacking liblua5.4-0:amd64 (5.4.6-3build2) ...
-==> googlecompute.backend: Preparing to unpack .../04-liblua5.4-0_5.4.6-3build2_amd64.deb ...
-==> googlecompute.backend: Selecting previously unselected package liblua5.4-0:amd64.
-==> googlecompute.backend: Unpacking libaprutil1-ldap:amd64 (1.6.3-1.1ubuntu7.1) ...
-==> googlecompute.backend: Preparing to unpack .../03-libaprutil1-ldap_1.6.3-1.1ubuntu7.1_amd64.deb ...
-==> googlecompute.backend: Selecting previously unselected package libaprutil1-ldap:amd64.
-==> googlecompute.backend: Unpacking libaprutil1-dbd-sqlite3:amd64 (1.6.3-1.1ubuntu7.1) ...
-==> googlecompute.backend: Preparing to unpack .../02-libaprutil1-dbd-sqlite3_1.6.3-1.1ubuntu7.1_amd64.deb ...
-==> googlecompute.backend: Selecting previously unselected package libaprutil1-dbd-sqlite3:amd64.
-==> googlecompute.backend: Unpacking libaprutil1t64:amd64 (1.6.3-1.1ubuntu7.1) ...
-==> googlecompute.backend: Preparing to unpack .../01-libaprutil1t64_1.6.3-1.1ubuntu7.1_amd64.deb ...
-==> googlecompute.backend: Selecting previously unselected package libaprutil1t64:amd64.
-==> googlecompute.backend: Unpacking libapr1t64:amd64 (1.7.2-3.1ubuntu0.1) ...
-==> googlecompute.backend: Preparing to unpack .../00-libapr1t64_1.7.2-3.1ubuntu0.1_amd64.deb ...
-==> googlecompute.backend: (Reading database ... 80287 files and directories currently installed.)
-==> googlecompute.backend: Selecting previously unselected package libapr1t64:amd64.
-==> googlecompute.backend: Fetched 39.9 MB in 2s (23.5 MB/s)
-==> googlecompute.backend: dpkg-preconfigure: unable to re-open stdin:
-==> googlecompute.backend: debconf: falling back to frontend: Teletype
-==> googlecompute.backend: debconf: (This frontend requires a controlling tty.)
-==> googlecompute.backend: debconf: unable to initialize frontend: Readline
-==> googlecompute.backend: debconf: falling back to frontend: Readline
-==> googlecompute.backend: debconf: (Dialog frontend will not work on a dumb terminal, an emacs shell buffer, or without a controlling terminal.)
-==> googlecompute.backend: debconf: unable to initialize frontend: Dialog
-==> googlecompute.backend: Get:11 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/main amd64 ssl-cert all 1.1.2ubuntu1 [17.8 kB]
-==> googlecompute.backend: Get:10 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 apache2 amd64 2.4.58-1ubuntu8.15 [90.2 kB]
-==> googlecompute.backend: Get:9 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 apache2-utils amd64 2.4.58-1ubuntu8.15 [99.7 kB]
-==> googlecompute.backend: Get:8 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 apache2-data all 2.4.58-1ubuntu8.15 [163 kB]
-==> googlecompute.backend: Get:7 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 apache2-bin amd64 2.4.58-1ubuntu8.15 [1338 kB]
-==> googlecompute.backend: Get:6 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/main amd64 liblua5.4-0 amd64 5.4.6-3build2 [166 kB]
-==> googlecompute.backend: Get:5 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 libaprutil1-ldap amd64 1.6.3-1.1ubuntu7.1 [9120 B]
-==> googlecompute.backend: Get:4 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 libaprutil1-dbd-sqlite3 amd64 1.6.3-1.1ubuntu7.1 [11.2 kB]
-==> googlecompute.backend: Get:3 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 libaprutil1t64 amd64 1.6.3-1.1ubuntu7.1 [92.7 kB]
-==> googlecompute.backend: Get:2 https://deb.nodesource.com/node_22.x nodistro/main amd64 nodejs amd64 22.23.3-1nodesource1 [37.8 MB]
-==> googlecompute.backend: Get:1 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 libapr1t64 amd64 1.7.2-3.1ubuntu0.1 [108 kB]
-==> googlecompute.backend: After this operation, 244 MB of additional disk space will be used.
-==> googlecompute.backend: Need to get 39.9 MB of archives.
-==> googlecompute.backend: 0 upgraded, 11 newly installed, 0 to remove and 25 not upgraded.
-==> googlecompute.backend:   ssl-cert
-==> googlecompute.backend:   libaprutil1-dbd-sqlite3 libaprutil1-ldap libaprutil1t64 liblua5.4-0 nodejs
-==> googlecompute.backend:   apache2 apache2-bin apache2-data apache2-utils libapr1t64
-==> googlecompute.backend: The following NEW packages will be installed:
-==> googlecompute.backend:   apache2-doc apache2-suexec-pristine | apache2-suexec-custom www-browser
-==> googlecompute.backend: Suggested packages:
-==> googlecompute.backend:   libaprutil1-ldap libaprutil1t64 liblua5.4-0 ssl-cert
-==> googlecompute.backend:   apache2-bin apache2-data apache2-utils libapr1t64 libaprutil1-dbd-sqlite3
-==> googlecompute.backend: The following additional packages will be installed:
-==> googlecompute.backend: Reading state information...
-==> googlecompute.backend: Building dependency tree...
-==> googlecompute.backend: Reading package lists...
-==> googlecompute.backend: 
-==> googlecompute.backend: 2026-09-30 11:59:37 - To install N|solid Runtime, run: apt install nsolid -y
-==> googlecompute.backend: 2026-09-30 11:59:37 - You can use N|solid Runtime as a node.js alternative
-==> googlecompute.backend: 2026-09-30 11:59:37 - To install Node.js, run: apt install nodejs -y
-==> googlecompute.backend: 2026-09-30 11:59:37 - Repository configured successfully.
-==> googlecompute.backend: 25 packages can be upgraded. Run 'apt list --upgradable' to see them.
-==> googlecompute.backend: Reading state information...
-==> googlecompute.backend: Building dependency tree...
-==> googlecompute.backend: Reading package lists...
-==> googlecompute.backend: Fetched 24.5 kB in 1s (31.6 kB/s)
-==> googlecompute.backend: Hit:6 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports InRelease
-==> googlecompute.backend: Get:5 https://deb.nodesource.com/node_22.x nodistro/main amd64 Packages [12.3 kB]
-==> googlecompute.backend: Hit:4 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates InRelease
-==> googlecompute.backend: Get:3 https://deb.nodesource.com/node_22.x nodistro InRelease [12.1 kB]
-==> googlecompute.backend: Hit:2 http://security.ubuntu.com/ubuntu noble-security InRelease
-==> googlecompute.backend: Hit:1 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble InRelease
-==> googlecompute.backend:
-==> googlecompute.backend: WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
-==> googlecompute.backend:
-==> googlecompute.backend: No VM guests are running outdated hypervisor (qemu) binaries on this host.
-==> googlecompute.backend:
-==> googlecompute.backend:  sa_108691235514385689272 @ user manager service: systemd[1001]
-==> googlecompute.backend:  sa_108691235514385689272 @ session #1: sshd[928]
-==> googlecompute.backend: User sessions running outdated binaries:
-==> googlecompute.backend:
-==> googlecompute.backend: No containers need to be restarted.
-==> googlecompute.backend:
-==> googlecompute.backend:  systemctl restart systemd-logind.service
-==> googlecompute.backend:  /etc/needrestart/restart.d/dbus.service
-==> googlecompute.backend: Service restarts being deferred:
-==> googlecompute.backend:
-==> googlecompute.backend:  systemctl restart packagekit.service rsyslog.service ssh.service
-==> googlecompute.backend: Restarting services...
-==> googlecompute.backend:
-==> googlecompute.backend: Running kernel seems to be up-to-date.
-==> googlecompute.backend:
-==> googlecompute.backend: debconf: falling back to frontend: Teletype
-==> googlecompute.backend: debconf: (This frontend requires a controlling tty.)
-==> googlecompute.backend: debconf: unable to initialize frontend: Readline
-==> googlecompute.backend: debconf: falling back to frontend: Readline
-==> googlecompute.backend: debconf: (Dialog frontend will not work on a dumb terminal, an emacs shell buffer, or without a controlling terminal.)
-==> googlecompute.backend: debconf: unable to initialize frontend: Dialog
-==> googlecompute.backend: Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
-==> googlecompute.backend: Processing triggers for man-db (2.12.0-4build2) ...
-==> googlecompute.backend: Setting up curl (8.5.0-2ubuntu10.15) ...
-==> googlecompute.backend: Setting up libcurl3t64-gnutls:amd64 (8.5.0-2ubuntu10.15) ...
-==> googlecompute.backend: Setting up libcurl4t64:amd64 (8.5.0-2ubuntu10.15) ...
-==> googlecompute.backend: Setting up apt-transport-https (2.8.3) ...
-==> googlecompute.backend: Unpacking libcurl3t64-gnutls:amd64 (8.5.0-2ubuntu10.15) over (8.5.0-2ubuntu10.13) ...
-==> googlecompute.backend: Preparing to unpack .../libcurl3t64-gnutls_8.5.0-2ubuntu10.15_amd64.deb ...
-==> googlecompute.backend: Unpacking libcurl4t64:amd64 (8.5.0-2ubuntu10.15) over (8.5.0-2ubuntu10.13) ...
-==> googlecompute.backend: Preparing to unpack .../libcurl4t64_8.5.0-2ubuntu10.15_amd64.deb ...
-==> googlecompute.backend: Unpacking curl (8.5.0-2ubuntu10.15) over (8.5.0-2ubuntu10.13) ...
-==> googlecompute.backend: Preparing to unpack .../curl_8.5.0-2ubuntu10.15_amd64.deb ...
-==> googlecompute.backend: Unpacking apt-transport-https (2.8.3) ...
-==> googlecompute.backend: Preparing to unpack .../apt-transport-https_2.8.3_all.deb ...
-==> googlecompute.backend: (Reading database ... 80283 files and directories currently installed.)
-==> googlecompute.backend: Selecting previously unselected package apt-transport-https.
-==> googlecompute.backend: Fetched 910 kB in 1s (945 kB/s)
-==> googlecompute.backend: dpkg-preconfigure: unable to re-open stdin:
-==> googlecompute.backend: debconf: falling back to frontend: Teletype
-==> googlecompute.backend: debconf: (This frontend requires a controlling tty.)
-==> googlecompute.backend: debconf: unable to initialize frontend: Readline
-==> googlecompute.backend: debconf: falling back to frontend: Readline
-==> googlecompute.backend: debconf: (Dialog frontend will not work on a dumb terminal, an emacs shell buffer, or without a controlling terminal.)
-==> googlecompute.backend: debconf: unable to initialize frontend: Dialog
-==> googlecompute.backend: Get:4 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 libcurl3t64-gnutls amd64 8.5.0-2ubuntu10.15 [336 kB]
-==> googlecompute.backend: Get:3 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 libcurl4t64 amd64 8.5.0-2ubuntu10.15 [343 kB]
-==> googlecompute.backend: Get:2 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 curl amd64 8.5.0-2ubuntu10.15 [227 kB]
-==> googlecompute.backend: Get:1 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/universe amd64 apt-transport-https all 2.8.3 [3970 B]
-==> googlecompute.backend: After this operation, 36.9 kB of additional disk space will be used.
-==> googlecompute.backend: Need to get 910 kB of archives.
-==> googlecompute.backend: 3 upgraded, 1 newly installed, 0 to remove and 25 not upgraded.
-==> googlecompute.backend:   curl libcurl3t64-gnutls libcurl4t64
-==> googlecompute.backend: The following packages will be upgraded:
-==> googlecompute.backend:   apt-transport-https
-==> googlecompute.backend: The following NEW packages will be installed:
-==> googlecompute.backend: gnupg set to manually installed.
-==> googlecompute.backend: gnupg is already the newest version (2.4.4-2ubuntu17.6).
-==> googlecompute.backend: ca-certificates set to manually installed.
-==> googlecompute.backend: ca-certificates is already the newest version (20260601~24.04.1).
-==> googlecompute.backend: Reading state information...
-==> googlecompute.backend: Building dependency tree...
-==> googlecompute.backend: Reading package lists...
-==> googlecompute.backend:
-==> googlecompute.backend: WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
-==> googlecompute.backend:
-==> googlecompute.backend: 28 packages can be upgraded. Run 'apt list --upgradable' to see them.
-==> googlecompute.backend: Reading state information...
-==> googlecompute.backend: Building dependency tree...
-==> googlecompute.backend: Reading package lists...
-==> googlecompute.backend: Fetched 40.2 MB in 6s (7304 kB/s)
-==> googlecompute.backend: Get:65 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 c-n-f Metadata [116 B]
-==> googlecompute.backend: Get:64 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 Components [212 B]
-==> googlecompute.backend: Get:63 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/multiverse Translation-en [340 B]
-==> googlecompute.backend: Get:62 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 Packages [748 B]
-==> googlecompute.backend: Get:61 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/restricted amd64 c-n-f Metadata [116 B]
-==> googlecompute.backend: Get:60 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/restricted amd64 Components [212 B]
-==> googlecompute.backend: Get:59 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/universe amd64 c-n-f Metadata [1588 B]
-==> googlecompute.backend: Get:58 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/universe amd64 Components [12.6 kB]
-==> googlecompute.backend: Get:57 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/universe Translation-en [18.6 kB]
-==> googlecompute.backend: Get:56 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/universe amd64 Packages [31.0 kB]
-==> googlecompute.backend: Get:55 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/main amd64 c-n-f Metadata [368 B]
-==> googlecompute.backend: Get:54 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/main amd64 Components [5760 B]
-==> googlecompute.backend: Get:53 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/main Translation-en [9172 B]
-==> googlecompute.backend: Get:52 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/main amd64 Packages [40.6 kB]
-==> googlecompute.backend: Get:51 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 c-n-f Metadata [656 B]
-==> googlecompute.backend: Get:50 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Components [940 B]
-==> googlecompute.backend: Get:49 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/multiverse Translation-en [13.1 kB]
-==> googlecompute.backend: Get:48 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Packages [45.7 kB]
-==> googlecompute.backend: Get:47 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 c-n-f Metadata [456 B]
-==> googlecompute.backend: Get:46 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Components [212 B]
-==> googlecompute.backend: Get:45 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [379 kB]
-==> googlecompute.backend: Get:44 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1662 kB]
-==> googlecompute.backend: Get:43 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/universe amd64 c-n-f Metadata [34.9 kB]
-==> googlecompute.backend: Get:42 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Components [388 kB]
-==> googlecompute.backend: Get:41 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [341 kB]
-==> googlecompute.backend: Get:40 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1699 kB]
-==> googlecompute.backend: Get:39 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 c-n-f Metadata [17.7 kB]
-==> googlecompute.backend: Get:38 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 Components [181 kB]
-==> googlecompute.backend: Get:37 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [299 kB]
-==> googlecompute.backend: Get:36 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1322 kB]
-==> googlecompute.backend: Get:35 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/multiverse amd64 c-n-f Metadata [8328 B]
-==> googlecompute.backend: Get:34 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/multiverse amd64 Components [35.0 kB]
-==> googlecompute.backend: Get:33 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/multiverse Translation-en [118 kB]
-==> googlecompute.backend: Get:32 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/multiverse amd64 Packages [269 kB]
-==> googlecompute.backend: Get:31 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/restricted amd64 c-n-f Metadata [416 B]
-==> googlecompute.backend: Get:30 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/restricted Translation-en [18.7 kB]
-==> googlecompute.backend: Get:29 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/restricted amd64 Packages [93.9 kB]
-==> googlecompute.backend: Get:28 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/universe amd64 c-n-f Metadata [301 kB]
-==> googlecompute.backend: Get:27 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/universe amd64 Components [3871 kB]
-==> googlecompute.backend: Get:26 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/universe Translation-en [5982 kB]
-==> googlecompute.backend: Get:25 http://security.ubuntu.com/ubuntu noble-security/multiverse amd64 c-n-f Metadata [468 B]
-==> googlecompute.backend: Get:24 http://security.ubuntu.com/ubuntu noble-security/multiverse amd64 Components [208 B]
-==> googlecompute.backend: Get:23 http://security.ubuntu.com/ubuntu noble-security/multiverse Translation-en [11.3 kB]
-==> googlecompute.backend: Get:22 http://security.ubuntu.com/ubuntu noble-security/multiverse amd64 Packages [40.3 kB]
-==> googlecompute.backend: Get:21 http://security.ubuntu.com/ubuntu noble-security/restricted amd64 c-n-f Metadata [444 B]
-==> googlecompute.backend: Get:20 http://security.ubuntu.com/ubuntu noble-security/restricted amd64 Components [212 B]
-==> googlecompute.backend: Get:19 http://security.ubuntu.com/ubuntu noble-security/restricted Translation-en [361 kB]
-==> googlecompute.backend: Get:18 http://security.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1566 kB]
-==> googlecompute.backend: Get:17 http://security.ubuntu.com/ubuntu noble-security/universe amd64 c-n-f Metadata [24.2 kB]
-==> googlecompute.backend: Get:16 http://security.ubuntu.com/ubuntu noble-security/universe amd64 Components [76.3 kB]
-==> googlecompute.backend: Get:15 http://security.ubuntu.com/ubuntu noble-security/universe Translation-en [244 kB]
-==> googlecompute.backend: Get:14 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/universe amd64 Packages [15.0 MB]
-==> googlecompute.backend: Get:13 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/main amd64 c-n-f Metadata [30.5 kB]
-==> googlecompute.backend: Get:12 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/main amd64 Components [464 kB]
-==> googlecompute.backend: Get:11 http://security.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1216 kB]
-==> googlecompute.backend: Get:10 http://security.ubuntu.com/ubuntu noble-security/main amd64 c-n-f Metadata [11.9 kB]
-==> googlecompute.backend: Get:9 http://security.ubuntu.com/ubuntu noble-security/main amd64 Components [46.4 kB]
-==> googlecompute.backend: Get:8 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/main Translation-en [513 kB]
-==> googlecompute.backend: Get:7 http://security.ubuntu.com/ubuntu noble-security/main Translation-en [220 kB]
-==> googlecompute.backend: Get:6 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/main amd64 Packages [1401 kB]
-==> googlecompute.backend: Get:5 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages [1066 kB]
-==> googlecompute.backend: Get:4 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
-==> googlecompute.backend: Get:3 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
-==> googlecompute.backend: Get:2 http://security.ubuntu.com/ubuntu noble-security InRelease [126 kB]
-==> googlecompute.backend: Get:1 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble InRelease [256 kB]
-==> googlecompute.backend:
-==> googlecompute.backend: WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
-==> googlecompute.backend:
-==> googlecompute.backend: 2026-09-30 11:59:02 - Installing pre-requisites
-==> googlecompute.backend: Provisioning with shell script: /tmp/packer-shell3336468923
-==> googlecompute.backend: Uploading files/careernavigator-backend.conf => /tmp/careernavigator-backend.conf
-==> googlecompute.backend: Uploading ../.env.staging => /var/www/careernavigator-backend/.env.staging
-==> googlecompute.backend: Uploading ../ecosystem.config.js => /var/www/careernavigator-backend/ecosystem.config.js
-==> googlecompute.backend: Uploading ../package-lock.json => /var/www/careernavigator-backend/package-lock.json
-==> googlecompute.backend: Uploading ../package.json => /var/www/careernavigator-backend/package.json
-==> googlecompute.backend: Uploading ../node_modules => /var/www/careernavigator-backend/node_modules
-==> googlecompute.backend: Uploading ../dist => /var/www/careernavigator-backend/dist
-==> googlecompute.backend: Provisioning with shell script: /tmp/packer-shell2840112471
-==> googlecompute.backend: Connected to SSH!
-==> googlecompute.backend: Waiting for SSH to become available...
-==> googlecompute.backend: Using SSH communicator to connect: 10.216.0.58
-==> googlecompute.backend: IP: 10.216.0.58
-==> googlecompute.backend: Waiting for the instance to become running...
-==> googlecompute.backend: Instance has been created!
-==> googlecompute.backend: Waiting for creation operation to complete...
-==> googlecompute.backend: Requesting instance creation...
-==> googlecompute.backend: Loading machine type: e2-medium
-==> googlecompute.backend: Loading zone: me-central2-a
-==> googlecompute.backend: Creating instance...
-==> googlecompute.backend: Using image: clean-ubuntu-26092026-img
-==> googlecompute.backend: Obtaining SSH Username for OSLogin...
-==> googlecompute.backend: Importing SSH public key for OSLogin...
-==> googlecompute.backend: no persistent disk to create
-==> googlecompute.backend: Creating temporary RSA SSH key for instance...
-==> googlecompute.backend: Checking image does not exist...
-googlecompute.backend: output will be in this color.
+ERROR: build step 3 "hashicorp/packer:latest" failed: step exited with non-zero status: 1
+ERROR
+Finished Step #3 - "Build Packer Image"
+* Bad source '../.env.staging': stat ../.env.staging: no such file or directory
+1 error(s) occurred:
+  (source code not available)
 Installed plugin github.com/hashicorp/googlecompute v1.2.7 in "/builder/home/.config/packer/plugins/github.com/hashicorp/googlecompute/packer-plugin-googlecompute_v1.2.7_x5.0_linux_amd64"
 docker.io/hashicorp/packer:latest
 Status: Downloaded newer image for hashicorp/packer:latest
@@ -469,15 +14,15 @@ f36f987fc10e: Pull complete
 324a271ea31e: Pull complete
 77874054d996: Download complete
 77874054d996: Verifying Checksum
+4fdc56a1d49f: Pull complete
 324a271ea31e: Download complete
 324a271ea31e: Verifying Checksum
-4fdc56a1d49f: Pull complete
 4fdc56a1d49f: Download complete
 4fdc56a1d49f: Verifying Checksum
-f36f987fc10e: Download complete
-f36f987fc10e: Verifying Checksum
 922cbb9f6017: Download complete
 922cbb9f6017: Verifying Checksum
+f36f987fc10e: Download complete
+f36f987fc10e: Verifying Checksum
 922cbb9f6017: Pulling fs layer
 f36f987fc10e: Pulling fs layer
 77874054d996: Pulling fs layer
@@ -523,15 +68,14 @@ npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supporte
 npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
 npm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
 npm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
-npm warn deprecated are-we-there-yet@2.0.0: This package is no longer supported.
 npm warn deprecated consolidate@0.15.1: Please upgrade to consolidate v1.0.0+ as it has been modernized with several long-awaited fixes implemented. Maintenance is supported by Forward Email at https://forwardemail.net ; follow/watch https://github.com/ladjs/consolidate for updates and release changelog
 npm warn deprecated fstream@1.0.12: This package is no longer supported.
 npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
 npm warn deprecated gauge@3.0.2: This package is no longer supported.
 npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated superagent@8.1.2: Please upgrade to superagent v10.2.2+, see release notes at https://github.com/forwardemail/superagent/releases/tag/v10.2.2 - maintenance is supported by Forward Email @ https://forwardemail.net
 npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
 npm warn deprecated multer@1.4.5-lts.2: Multer 1.x is impacted by a number of vulnerabilities, which have been patched in 2.x. You should upgrade to the latest 2.x version.
-npm warn deprecated superagent@8.1.2: Please upgrade to superagent v10.2.2+, see release notes at https://github.com/forwardemail/superagent/releases/tag/v10.2.2 - maintenance is supported by Forward Email @ https://forwardemail.net
 npm warn deprecated npmlog@5.0.1: This package is no longer supported.
 npm warn deprecated querystring@0.2.0: The querystring API is considered Legacy. new code should use the URLSearchParams API instead.
 npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
@@ -551,12 +95,12 @@ de9e8d0a0071: Verifying Checksum
 eaac70c68abd: Pull complete
 81578410df16: Download complete
 81578410df16: Verifying Checksum
+0c06829c34ad: Download complete
+0c06829c34ad: Verifying Checksum
 0d48f423dff0: Download complete
 0d48f423dff0: Verifying Checksum
 eaac70c68abd: Download complete
 eaac70c68abd: Verifying Checksum
-0c06829c34ad: Download complete
-0c06829c34ad: Verifying Checksum
 7b2de2423ebd: Download complete
 7b2de2423ebd: Verifying Checksum
 105754cf457c: Download complete
@@ -576,10 +120,10 @@ eaac70c68abd: Pulling fs layer
 Pulling image: node:22
 Starting Step #0 - "Install Dependencies"
 BUILD
-d6bdd9425c0d65df201dda7bd526e428e1d5a51a
+78c39d82e596b50652d923f3518cfc653b41bbe7
 GitCommit:
-HEAD is now at d6bdd94 Update backend.pkr.hcl
- * branch            d6bdd9425c0d65df201dda7bd526e428e1d5a51a -> FETCH_HEAD
+HEAD is now at 78c39d8 Update cloudbuild.yaml
+ * branch            78c39d82e596b50652d923f3518cfc653b41bbe7 -> FETCH_HEAD
 From https://github.com/pwc-me-adv-careernavigator/careernavigator-backend
 FETCHSOURCE
-starting build "cffb3aee-2967-44ca-8036-eb559abff915"
+starting build "2cf240d1-b06e-4af2-8c7a-75590b422efd"
