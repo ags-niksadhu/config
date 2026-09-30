@@ -1,46 +1,17 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed create cn-backend-mig-regional \
->   --project=pg-ae-n-app-125609 \
->   --region=me-central2 \
->   --template=cn-backend-template-v5 \
->   --size=2 \
->   --health-check=backend-health-3024 \
->   --initial-delay=300
-Created [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-backend-mig-regional].
-NAME                     LOCATION     SCOPE   BASE_INSTANCE_NAME       SIZE  TARGET_SIZE  INSTANCE_TEMPLATE       AUTOSCALED
-cn-backend-mig-regional  me-central2  region  cn-backend-mig-regional  0     2            cn-backend-template-v5  no
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
->   --project=pg-ae-n-app-125609 \
->   --region=me-central2
-NAME                          ZONE           STATUS   HEALTH_STATE  ACTION    INSTANCE_TEMPLATE       VERSION_NAME  LAST_ERROR
-cn-backend-mig-regional-pmlp  me-central2-a  STAGING  UNKNOWN       CREATING  cn-backend-template-v5
-cn-backend-mig-regional-0ft4  me-central2-c           UNKNOWN       CREATING  cn-backend-template-v5                Error ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS: Instance 'cn-backend-mig-regional-0ft4' creation failed: The zone 'projects/pg-ae-n-app-125609/zones/me-central2-c' does not have enough resources available to fulfill the request.  '(resource type:compute)'.
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed set-autoscaling cn-backend-mig-regional \
->   --project=pg-ae-n-app-125609 \
->   --region=me-central2 \
->   --min-num-replicas=1 \
->   --max-num-replicas=5 \
->   --target-cpu-utilization=0.6 \
->   --cool-down-period=60
-Created [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-backend-mig-regional-np3m].
----
-autoscalingPolicy:
-  coolDownPeriodSec: 60
-  cpuUtilization:
-    utilizationTarget: 0.6
-  maxNumReplicas: 5
-  minNumReplicas: 1
-  mode: ON
-creationTimestamp: '2026-09-30T07:47:28.193-07:00'
-id: '3472513171012493295'
-kind: compute#autoscaler
-name: cn-backend-mig-regional-np3m
-region: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2
-selfLink: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-backend-mig-regional-np3m
-status: ACTIVE
-target: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-backend-mig-regional
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute backend-services list --project=pg-ae-n-app-125609 --format="table(name,backends[].group)"
-NAME                 BACKENDS
-app-backend-service  me-central2-c/instanceGroups/backend-ig
-frontend-service     me-central2-c/instanceGroups/frontend-ig
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
+**This just proved the exact point of doing this migration — in real time.** Notice: one instance (`me-central2-a`) is proceeding normally (`STAGING`), while the other (`me-central2-c`) hit the same capacity wall as before. With a regional MIG, this isn't a crisis — the `-a` instance will come up fine and serve traffic; only the `-c` one needs a retry once that zone frees up. This is exactly the resilience we're after.
 
+**Important finding from the backend-services check — need to investigate before any cutover:**
+
+Your load balancer's `app-backend-service` points to `me-central2-c/instanceGroups/backend-ig` — **not** `cn-backend-mig`. This is a different, unmanaged instance group name than what we've been working with all night.
+
+**This needs clarifying before we go further — don't want to assume:**
+
+```bash
+gcloud compute instance-groups list --project=pg-ae-n-app-125609 --format="table(name,zone,region,isManaged,size)"
+```
+
+Paste this. I need to understand:
+1. Is `backend-ig` the **managed instance group** behind `cn-backend-mig` under a different display name, or is it a **separate, older** instance group your load balancer is actually using right now (meaning `cn-backend-mig` might not even be the thing serving live traffic)?
+2. If `backend-ig` is unmanaged or different, all of tonight's MIG work may not have been affecting live traffic at all — which would be important to know either way (good, if nothing was ever at risk; concerning, if this means the actual live serving group has zero redundancy and wasn't part of tonight's fixes).
+
+Run that command and paste the output before we do anything else — this could change what "cutover" even means here.
