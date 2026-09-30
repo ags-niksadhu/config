@@ -1,4 +1,10 @@
-gcloud beta builds triggers update github careernavigator-backend-staging \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2 \
-  --worker-pool=projects/pg-ae-n-app-125609/locations/me-central2/workerPools/cn-backend-private-pool
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud beta builds triggers update github careernavigator-backend-staging \
+>   --project=pg-ae-n-app-125609 \
+>   --region=me-central2 \
+>   --worker-pool=projects/pg-ae-n-app-125609/locations/me-central2/workerPools/cn-backend-private-pool
+ERROR: (gcloud.beta.builds.triggers.update.github) unrecognized arguments: --worker-pool=projects/pg-ae-n-app-125609/locations/me-central2/workerPools/cn-backend-private-pool
+
+To search the help text of gcloud commands, run:
+  gcloud help -- SEARCH_TERMS
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+
