@@ -1,40 +1,36 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute ssh cn-backend-mig-regional-r4q2 \
->   --project=pg-ae-n-app-125609 \
->   --zone=me-central2-a \
->   --tunnel-through-iap
-WARNING:
+The programs included with the Ubuntu system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
 
-To increase the performance of the tunnel, consider installing NumPy. For instructions,
-please see https://cloud.google.com/iap/docs/using-tcp-forwarding#increasing_the_tcp_upload_bandwidth
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
 
-ERROR: [0] Error during local connection to [stdin]: Error while connecting [4033: 'not authorized'].
-Traceback (most recent call last):
-  File "/snap/google-cloud-cli/501/lib/googlecloudsdk/command_lib/compute/iap_tunnel.py", line 805, in RunReceiveLocalData
-    websocket_conn = self._InitiateConnection(
-        conn,
-    ...<4 lines>...
-        conn_id=conn_id,
-    )
-  File "/snap/google-cloud-cli/501/lib/googlecloudsdk/command_lib/compute/iap_tunnel.py", line 771, in _InitiateConnection
-    new_websocket.InitiateConnection()
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
-  File "/snap/google-cloud-cli/501/lib/googlecloudsdk/api_lib/compute/iap_tunnel_websocket.py", line 158, in InitiateConnection
-    self._WaitForOpenOrRaiseError()
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
-  File "/snap/google-cloud-cli/501/lib/googlecloudsdk/api_lib/compute/iap_tunnel_websocket.py", line 512, in _WaitForOpenOrRaiseError
-    raise ConnectionCreationError(error_msg)
-googlecloudsdk.api_lib.compute.iap_tunnel_websocket.ConnectionCreationError: Error while connecting [4033: 'not authorized'].
-Connection closed by UNKNOWN port 65535
 
-Recommendation: To check for possible causes of SSH connectivity issues and get
-recommendations, rerun the ssh command with the --troubleshoot option.
+The programs included with the Ubuntu system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
 
-gcloud compute ssh cn-backend-mig-regional-r4q2 --project=pg-ae-n-app-125609 --zone=me-central2-a --troubleshoot
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
 
-Or, to investigate an IAP tunneling issue:
-
-gcloud compute ssh cn-backend-mig-regional-r4q2 --project=pg-ae-n-app-125609 --zone=me-central2-a --troubleshoot --tunnel-through-iap
-
-ERROR: (gcloud.compute.ssh) [/usr/bin/ssh] exited with return code [255].
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
-
+Creating directory '/home/nikul_sadhu_gcp_pwc_com'.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-r4q2:~$ sudo pm2 list
+[PM2] Spawning PM2 daemon with pm2_home=/root/.pm2
+[PM2] PM2 Successfully daemonized
+┌────┬───────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name      │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+└────┴───────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-r4q2:~$ sudo pm2 logs careernavigator-backend --lines 50 --nostream
+[TAILING] Tailing last 50 lines for [careernavigator-backend] process (change the value with --lines option)
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-r4q2:~$ curl -v http://localhost:3024
+* Host localhost:3024 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+*   Trying [::1]:3024...
+* connect to ::1 port 3024 from ::1 port 52764 failed: Connection refused
+*   Trying 127.0.0.1:3024...
+* connect to 127.0.0.1 port 3024 from 127.0.0.1 port 42018 failed: Connection refused
+* Failed to connect to localhost port 3024 after 0 ms: Couldn't connect to server
+* Closing connection
+curl: (7) Failed to connect to localhost port 3024 after 0 ms: Couldn't connect to server
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-r4q2:~$
