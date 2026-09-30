@@ -1,9 +1,29 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
->   --project=pg-ae-n-app-125609 \
->   --region=me-central2
-NAME                          ZONE           STATUS   HEALTH_STATE  ACTION     INSTANCE_TEMPLATE            VERSION_NAME  LAST_ERROR
-cn-backend-mig-regional-f4fd  me-central2-a  RUNNING  HEALTHY       NONE       cn-backend-template-v5
-cn-backend-mig-regional-r4q2  me-central2-a  RUNNING  TIMEOUT       VERIFYING  cn-backend-template-fd726a3
-cn-backend-mig-regional-g2p4  me-central2-c  RUNNING  HEALTHY       NONE       cn-backend-template-v5
-cn-backend-mig-regional-h8k0  me-central2-c           UNKNOWN       CREATING   cn-backend-template-fd726a3                Error ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS: Instance 'cn-backend-mig-regional-h8k0' creation failed: The zone 'projects/pg-ae-n-app-125609/zones/me-central2-c' does not have enough resources available to fulfill the request.  '(resource type:compute)'.
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
+We **are** already using that exact scenario — that's exactly what `cn-backend-template-fd726a3` is.
+
+To be clear on what each template actually is:
+
+| Template | How it was made | What's wrong with it |
+|---|---|---|
+| `cn-backend-template-v5` | Old method — boots a generic base image, then a **startup script runs at boot time** to download the app from a GCS bucket (`latest.txt`) | That GCS file no longer exists (we removed the upload step), so new instances from this template fail |
+| `cn-backend-template-fd726a3` | **This is your clean-OS scenario** — built tonight by Packer: clean Ubuntu image → install Node/PM2/Apache → copy app code in → bake it all into one final image | This is the correct one. Instance `r4q2` is running it right now — but its health check is timing out, meaning something inside the app itself isn't responding correctly once booted |
+
+So we're not avoiding your approach — we're already on it. The current problem is a **new, separate bug**: the app on this correctly-built image isn't passing its health check. That could be a crashed process, a missing permission, wrong port, or something else — we don't know yet because we haven't looked at the actual logs.
+
+**This is the one thing blocking everything else.** I can't skip past it — if we cut over the load balancer to a MIG where the app doesn't actually respond, that's an outage, not a fix.
+
+**Please SSH in and run the diagnostic commands so we can see what's actually happening:**
+```bash
+gcloud compute ssh cn-backend-mig-regional-r4q2 \
+  --project=pg-ae-n-app-125609 \
+  --zone=me-central2-a \
+  --tunnel-through-iap
+```
+
+Then:
+```bash
+sudo pm2 list
+sudo pm2 logs careernavigator-backend --lines 50 --nostream
+curl -v http://localhost:3024/
+```
+
+Paste the output — this is the fastest way to find the actual root cause instead of guessing further.
