@@ -1,9 +1,44 @@
-ERROR: error fetching git source: retry budget exhausted (3 attempts): fetching git source: fetching git source: source fetch container exited with non-zero status: 128
-ERROR
-fatal: unable to access 'https://github.com/pwc-me-adv-careernavigator/careernavigator-backend.git/': Failed to connect to github.com port 443 after 129788 ms: Could not connect to server
-error: remote origin already exists.
-fatal: unable to access 'https://github.com/pwc-me-adv-careernavigator/careernavigator-backend.git/': Failed to connect to github.com port 443 after 129992 ms: Could not connect to server
-error: remote origin already exists.
-fatal: unable to access 'https://github.com/pwc-me-adv-careernavigator/careernavigator-backend.git/': Failed to connect to github.com port 443 after 130165 ms: Could not connect to server
-FETCHSOURCE
-starting build "3162a3c1-2908-44a1-8787-f2edde7c3abf"
+Confirmed — existing NAT doesn't help; hypothesis validated. Same failure as before, so `default-nat`'s `ENDPOINT_TYPE_VM` scoping doesn't cover the private pool's source-fetch container.
+
+**Root cause, precisely:** Cloud Build private pools fetch git source using a Google-managed tenant-project network path that peers into your VPC via the Service Networking connection (the same `10.58.0.0/24` range you reserved). Regular Cloud NAT attached to `default-router` only NATs traffic **originating from VM instances in your project's subnets** — it does not NAT traffic from the Service-Networking-peered range used by the private pool's internal workers. This is a known private-pool networking requirement, not a config mistake on your part.
+
+**The correct fix: a second Cloud Router + Cloud NAT dedicated to the peered range, OR add the peered range explicitly to NAT's subnet config.**
+
+Check if your existing NAT can be extended to cover this, or if it needs a dedicated router (Google's documented pattern for private pools actually requires NAT configured specifically for the peering range via a router associated with that VPC, targeting the reserved range):
+
+```bash
+gcloud compute routers nats update default-nat \
+  --project=pg-ae-n-app-125609 \
+  --router=default-router \
+  --region=me-central2 \
+  --nat-custom-subnet-ip-ranges=default:ALL,app-subnet:ALL,data-subnet:ALL \
+  --nat-external-ip-pool=auto
+```
+
+Wait — before running that, this is genuinely a nuanced area (private pool + Service Networking + NAT interaction) where I don't want to hand you a guessed command. Let me search current GCP docs for the exact supported pattern rather than trial-and-error more `gcloud` commands against your production trigger.**Found the actual root cause — it's your own earlier config, not a missing NAT.**
+
+Per Google's docs: *"Assign external IPs: This option is selected by default to allow private pools to access the public internet. Clear this box to restrict access to your private network."*
+
+When we created `cn-backend-private-pool`, I told you to **uncheck "Assign external IPs"** (correctly, to comply with your org policy on VM external IPs). But that setting is what gave private pool workers internet access by default — unchecking it cut off all internet egress for the pool, and standard Cloud NAT attached to your `default-router` does **not** automatically cover the private pool's traffic, because pool workers live in Google's service-producer network (peered via `10.58.0.0/24`), not as regular VM instances in your project's subnets — which is exactly why `default-nat` (scoped to `ENDPOINT_TYPE_VM`) doesn't help.
+
+**This is a real conflict between two requirements:**
+- Your org policy (`constraints/compute.vmExternalIpAccess`) blocks external IPs on **VM instances** in your project.
+- Cloud Build private pool's "Assign external IPs" toggle is a **separate, Cloud-Build-managed** IP — not a project VM — so it does **not** violate that org policy. It's Google-managed egress specifically for the pool's build workers.
+
+**Correct fix: re-enable external IPs on the private pool itself** (not on any of your VMs — org policy is unaffected):
+
+**Console:**
+1. Cloud Build → Worker pools → `cn-backend-private-pool` → Edit
+2. Check **"Assign external IPs"**
+3. Save
+
+This gives pool workers outbound internet (GitHub, npm registry, Docker Hub) while your actual Compute Engine instances (Packer's temp build VM, MIG instances) remain fully compliant with `omit_external_ip = true` — that setting in `backend.pkr.hcl` is untouched and still enforces no-external-IP on the instances being built.
+
+⚠️ **Verify this doesn't violate anything before flipping it** — if your PwC security/network team specifically intended for Cloud Build pools to have zero internet path (defense-in-depth policy, not just the literal org constraint), confirm with them first. If the only requirement was "no external IPs on Compute Engine VMs" (which is what the org policy literally enforces), this change is compliant and safe.
+
+Once toggled, retry:
+```bash
+gcloud builds triggers run careernavigator-backend-staging --project=pg-ae-n-app-125609 --region=me-central2 --branch=staging
+```
+
+Paste the log.
