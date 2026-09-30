@@ -1,9 +1,16 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud builds triggers export careernavigator-backend-staging \
->   --project=pg-ae-n-app-125609 \
->   --region=me-central2 \
->   --destination=trigger-backend.yaml
-ERROR: (gcloud.builds.triggers) Invalid choice: 'export'.
-This command is available in one or more alternate release tracks.  Try:
-  gcloud alpha builds triggers export
-  gcloud beta builds triggers export
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+**Root cause:** `export`/`import` for triggers is only in `alpha`/`beta` release tracks on this gcloud version — not in the stable/GA command group you're using.
+
+**Fix — use the beta track (safe, read-only for the export step):**
+
+```bash
+gcloud beta builds triggers export careernavigator-backend-staging \
+  --project=pg-ae-n-app-125609 \
+  --region=me-central2 \
+  --destination=trigger-backend.yaml
+```
+
+```bash
+cat trigger-backend.yaml
+```
+
+Paste output. (If `beta` component isn't installed, gcloud will prompt to install it — accept, it's a standard Google-maintained component, no risk.)
