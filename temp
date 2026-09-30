@@ -1,19 +1,26 @@
-Good — let's find the existing secret instead of creating a duplicate.
-
-**List existing secrets:**
-```bash
-gcloud secrets list --project=pg-ae-n-app-125609 --format="table(name,createTime)"
-```
-
-Paste output — looking for something like `careernavigator-backend-env-staging`, `cn-backend-env`, or similar naming that matches this project's convention.
-
-**Once you find the right one, check it has a version (actual content) and who can access it:**
-```bash
-gcloud secrets versions list <SECRET_NAME> --project=pg-ae-n-app-125609
-
-gcloud secrets get-iam-policy <SECRET_NAME> --project=pg-ae-n-app-125609
-```
-
-Paste both. I need to confirm:
-1. The exact secret name (so `cloudbuild.yaml` references the right one)
-2. Whether the Cloud Build service account (`765297732608-compute@developer.gserviceaccount.com`) already has `secretmanager.secretAccessor` on it — if yes, we skip the IAM grant step entirely and just add the fetch step to `cloudbuild.yaml`.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud secrets list --project=pg-ae-n-app-125609 --format="table(name,createTime)"
+NAME                              CREATED
+CN_STAGING_BASE_URL               2026-09-23T10:20:14
+CN_STAGING_DB_DATABASE            2026-05-12T06:05:25
+CN_STAGING_DB_HOST                2026-05-12T04:59:36
+CN_STAGING_DB_PASSWORD            2026-05-12T05:58:10
+CN_STAGING_DB_PORT                2026-05-12T06:09:04
+CN_STAGING_DB_USERNAME            2026-05-12T06:04:04
+CN_STAGING_EMAIL_SENDING_ENABLED  2026-09-23T10:21:39
+CN_STAGING_FRONTEND_URL           2026-09-23T10:06:40
+CN_STAGING_GCP_BUCKET             2026-05-12T08:22:19
+CN_STAGING_GCP_FILE_PATH          2026-05-12T08:23:51
+CN_STAGING_MAIL_DRIVER            2026-05-12T08:12:21
+CN_STAGING_MAIL_ENCRYPTION        2026-05-12T08:19:38
+CN_STAGING_MAIL_FROM_ADDRESS      2026-05-12T08:21:49
+CN_STAGING_MAIL_FROM_NAME         2026-05-12T08:19:05
+CN_STAGING_MAIL_HOST              2026-05-12T08:13:06
+CN_STAGING_MAIL_PASSWORD          2026-05-12T08:18:12
+CN_STAGING_MAIL_PORT              2026-05-12T08:13:43
+CN_STAGING_MAIL_USERNAME          2026-05-12T08:16:13
+CN_STAGING_REDIS_HOST             2026-05-12T08:24:16
+CN_STAGING_REDIS_PASSWORD         2026-05-12T08:25:06
+CN_STAGING_REDIS_PORT             2026-05-12T08:24:44
+CN_STAGING_SOCKET_URL             2026-09-23T10:20:44
+CN_STAGING_SUB_DOMAIN_URL         2026-09-23T10:21:19
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
