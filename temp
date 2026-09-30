@@ -12,19 +12,37 @@ nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ cat trigger-current.json
   "id": "33a17fa4-65cd-435e-8e0b-9bcc9fbf7f0b",
   "name": "careernavigator-backend-staging",
   "resourceName": "projects/pg-ae-n-app-125609/locations/me-central2/triggers/33a17fa4-65cd-435e-8e0b-9bcc9fbf7f0b",
-  "serviceAccount": "projects/pg-ae-n-app-125609/serviceAccounts/765297732608-compute@developer.gserviceaccount.com"
+  "serviceAccount": "projects/pg-ae-n-app-125609/serviceAccounts/765297732608-compute@developer.gserviceaccount.com",
   "options": {
     "pool": {
       "name": "projects/pg-ae-n-app-125609/locations/me-central2/workerPools/cn-backend-private-pool"
     }
   }
 }
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud beta builds triggers update github careernavigator-backend-staging \
+>   --project=pg-ae-n-app-125609 \
+>   --region=me-central2 \
+>   --trigger-config=trigger-current.json
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$: command not found
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud beta builds triggers update github careernavigator-backend-staging >   --project=pg-ae-n-app-125609 >   --region=me-central2 >   --trigger-config=trigger-current.json^C
 nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud beta builds triggers update github careernavigator-backend-staging \
 >   --project=pg-ae-n-app-125609 \
 >   --region=me-central2 \
 >   --trigger-config=trigger-current.json
-ERROR: (gcloud.beta.builds.triggers.update.github) parsing trigger-current.json: while parsing a flow mapping
-  in "trigger-current.json", line 1, column 1
-expected ',' or '}', but got '<scalar>'
-  in "trigger-current.json", line 15, column 3
+ERROR: (gcloud.beta.builds.triggers.update.github) Exactly one of (--trigger-config | --description --ignored-files --include-logs-with-status --included-files --[no-]require-approval --service-account --branch-pattern | --tag-pattern | --comment-control --pull-request-pattern --build-config | --inline-config | [--dockerfile --dockerfile-image : --dockerfile-dir] --clear-substitutions | --remove-substitutions | --update-substitutions --repository | --enterprise-config --repo-name --repo-owner) must be specified.
+Usage: gcloud beta builds triggers update github (TRIGGER : --region=REGION) (--trigger-config=PATH | --description=DESCRIPTION --ignored-files=[GLOB,...] --include-logs-with-status --included-files=[GLOB,...] --[no-]require-approval --service-account=SERVICE_ACCOUNT --branch-pattern=REGEX | --tag-pattern=REGEX | --comment-control=COMMENT_CONTROL; default="COMMENTS_ENABLED" --pull-request-pattern=REGEX --build-config=PATH | --inline-config=PATH | [--dockerfile=DOCKERFILE --dockerfile-image=DOCKERFILE_IMAGE : --dockerfile-dir=DOCKERFILE_DIR] --clear-substitutions | --remove-substitutions=[KEY,...] | --update-substitutions=[KEY=VALUE,...] --repository=REPOSITORY | --enterprise-config=ENTERPRISE_CONFIG --repo-name=REPO_NAME --repo-owner=REPO_OWNER) [optional flags]
+  optional flags may be  --branch-pattern | --build-config |
+                         --clear-substitutions | --comment-control |
+                         --description | --dockerfile | --dockerfile-dir |
+                         --dockerfile-image | --enterprise-config | --help |
+                         --ignored-files | --include-logs-with-status |
+                         --included-files | --inline-config |
+                         --pull-request-pattern | --region |
+                         --remove-substitutions | --repo-name | --repo-owner |
+                         --repository | --require-approval | --service-account |
+                         --tag-pattern | --trigger-config |
+                         --update-substitutions
+
+For detailed information on this command and its flags, run:
+  gcloud beta builds triggers update github --help
 nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
