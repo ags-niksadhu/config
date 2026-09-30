@@ -1,25 +1,89 @@
-**Two things happening — let's separate them.**
-
-**1. The `g2p4` instance is now showing `HEALTHY`** despite the GCS failure in its boot log — likely because the health check only verifies the app port is responding, and PM2 either recovered on its own or was already serving from a previous state. This doesn't fully explain the earlier `TIMEOUT`, but it's not blocking right now — the real fix (switching to the new template) addresses the root cause either way, so let's not chase this further.
-
-**2. The rolling update command failed on a regional-MIG-specific rule I didn't know about:** for a regional MIG spanning 3 zones (`me-central2-a`, `-b`, `-c`, as shown in `distributionPolicy`), `maxSurge` must be **either 0 or at least equal to the number of zones (3)** — `1` isn't valid here. This is a GCP constraint specific to regional MIGs, different from zonal ones.
-
-**Corrected command:**
-```bash
-gcloud compute instance-groups managed rolling-action start-update cn-backend-mig-regional \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2 \
-  --version=template=cn-backend-template-fd726a3 \
-  --max-surge=3 --max-unavailable=0
-```
-
-This means the update can create up to 3 new instances at once (one per zone) before removing any old ones — actually a good, safe pattern for a 3-zone spread.
-
-**Run it, then check status:**
-```bash
-gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2
-```
-
-Paste both outputs. This is also the exact syntax fix needed for `cloudbuild.yaml` once we're ready to finalize the pipeline for the regional MIG — noting that for later.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed rolling-action start-update cn-backend-mig-regional \
+>   --project=pg-ae-n-app-125609 \
+>   --region=me-central2 \
+>   --version=template=cn-backend-template-fd726a3 \
+>   --max-surge=3 --max-unavailable=0
+Updated [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-backend-mig-regional].
+---
+autoHealingPolicies:
+- healthCheck: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/healthChecks/backend-health-3024
+  initialDelaySec: 300
+baseInstanceName: cn-backend-mig-regional
+creationTimestamp: '2026-09-30T07:45:25.422-07:00'
+currentActions:
+  abandoning: 0
+  creating: 0
+  creatingWithoutRetries: 0
+  deleting: 0
+  none: 2
+  recreating: 0
+  refreshing: 0
+  restarting: 0
+  resuming: 0
+  starting: 0
+  stopping: 0
+  suspending: 0
+  verifying: 0
+distributionPolicy:
+  targetShape: EVEN
+  zones:
+  - zone: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c
+  - zone: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-a
+  - zone: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-b
+fingerprint: h0hA84yQnzw=
+id: '8830549146958077546'
+instanceGroup: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroups/cn-backend-mig-regional
+instanceLifecyclePolicy:
+  defaultActionOnFailure: REPAIR
+  forceUpdateOnRepair: NO
+  onFailedHealthCheck: DEFAULT_ACTION
+instanceTemplate: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-fd726a3
+kind: compute#instanceGroupManager
+listManagedInstancesResults: PAGELESS
+name: cn-backend-mig-regional
+region: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2
+satisfiesPzi: false
+satisfiesPzs: true
+selfLink: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-backend-mig-regional
+standbyPolicy:
+  mode: MANUAL
+status:
+  allInstancesConfig:
+    effective: true
+  autoscaler: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-backend-mig-regional-np3m
+  isStable: false
+  stateful:
+    hasStatefulConfig: false
+    perInstanceConfigs:
+      allEffective: true
+  versionTarget:
+    isReached: false
+targetSize: 2
+targetSizePolicy:
+  mode: INDIVIDUAL
+targetStoppedSize: 0
+targetSuspendedSize: 0
+updatePolicy:
+  instanceRedistributionType: PROACTIVE
+  maxSurge:
+    calculated: 3
+    fixed: 3
+  maxUnavailable:
+    calculated: 0
+    fixed: 0
+  minimalAction: REPLACE
+  replacementMethod: SUBSTITUTE
+  type: PROACTIVE
+versions:
+- instanceTemplate: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-fd726a3
+  targetSize:
+    calculated: 2
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
+>   --project=pg-ae-n-app-125609 \
+>   --region=me-central2
+NAME                          ZONE           STATUS    HEALTH_STATE  ACTION    INSTANCE_TEMPLATE            VERSION_NAME  LAST_ERROR
+cn-backend-mig-regional-f4fd  me-central2-a  RUNNING   HEALTHY       NONE      cn-backend-template-v5
+cn-backend-mig-regional-r4q2  me-central2-a  STAGING   UNKNOWN       CREATING  cn-backend-template-fd726a3
+cn-backend-mig-regional-g2p4  me-central2-c  RUNNING   HEALTHY       NONE      cn-backend-template-v5
+cn-backend-mig-regional-h8k0  me-central2-c  STOPPING  UNKNOWN       CREATING  cn-backend-template-fd726a3
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
