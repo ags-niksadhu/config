@@ -1,22 +1,83 @@
-Resize accepted, one instance creating (`creating: 1`, `none: 1` = your existing healthy one). This is using the **new** template (`cn-backend-template-fd726a3`), so if the zone still lacks capacity, it'll fail the same way. Let's check.
-
-**Wait ~30-60 seconds, then check status:**
-```bash
-gcloud compute instance-groups managed list-instances cn-backend-mig \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-c
-```
-
-**If it succeeds** (new instance reaches `RUNNING`), the zone capacity issue was transient and has cleared — you're back to 2 healthy instances on the new image, and the earlier rollout failure was just bad timing. In that case, nothing more to fix; the pipeline logic was correct all along.
-
-**If it fails again with `ZONE_RESOURCE_POOL_EXHAUSTED`**, the zone genuinely still lacks capacity. In that case, do this instead — force it back onto the known-good old template just to restore your second instance and redundancy immediately, don't wait on the new template:
-```bash
-gcloud compute instance-groups managed rolling-action start-update cn-backend-mig \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-c \
-  --version=template=cn-backend-template-v5 \
-  --max-surge=1 --max-unavailable=0
-```
-(This is the actual rollback — using the real previous template name `cn-backend-template-v5`, not a placeholder this time.)
-
-Run the check command now and paste it.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed list-instances cn-backend-mig \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-c
+NAME             ZONE           STATUS   HEALTH_STATE  ACTION  INSTANCE_TEMPLATE       VERSION_NAME     LAST_ERROR
+cn-backend-4chz  me-central2-c  RUNNING  HEALTHY       NONE    cn-backend-template-v5  0-1790266088265
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed rolling-action start-update cn-backend-mig \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-c \
+>   --version=template=cn-backend-template-v5 \
+>   --max-surge=1 --max-unavailable=0
+Updated [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroupManagers/cn-backend-mig].
+---
+autoHealingPolicies:
+- healthCheck: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/healthChecks/backend-health-3024
+  initialDelaySec: 300
+baseInstanceName: cn-backend
+creationTimestamp: '2026-09-22T01:51:30.811-07:00'
+currentActions:
+  abandoning: 0
+  creating: 1
+  creatingWithoutRetries: 0
+  deleting: 0
+  none: 1
+  recreating: 0
+  refreshing: 0
+  restarting: 0
+  resuming: 0
+  starting: 0
+  stopping: 0
+  suspending: 0
+  verifying: 0
+fingerprint: WPGLUnea65s=
+id: '8660718095601500029'
+instanceGroup: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroups/cn-backend-mig
+instanceLifecyclePolicy:
+  defaultActionOnFailure: REPAIR
+  forceUpdateOnRepair: NO
+  onFailedHealthCheck: DEFAULT_ACTION
+  onRepair:
+    allowChangingZone: NO
+instanceTemplate: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-v5
+kind: compute#instanceGroupManager
+listManagedInstancesResults: PAGELESS
+name: cn-backend-mig
+satisfiesPzi: false
+satisfiesPzs: true
+selfLink: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroupManagers/cn-backend-mig
+standbyPolicy:
+  initialDelaySec: 0
+  mode: MANUAL
+status:
+  allInstancesConfig:
+    effective: true
+  autoscaler: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/autoscalers/cn-backend-mig
+  isStable: false
+  stateful:
+    hasStatefulConfig: false
+    perInstanceConfigs:
+      allEffective: true
+  versionTarget:
+    isReached: false
+targetSize: 1
+targetSizePolicy:
+  mode: INDIVIDUAL
+targetStoppedSize: 0
+targetSuspendedSize: 0
+updatePolicy:
+  maxSurge:
+    calculated: 1
+    fixed: 1
+  maxUnavailable:
+    calculated: 0
+    fixed: 0
+  minimalAction: REPLACE
+  mostDisruptiveAllowedAction: REPLACE
+  replacementMethod: SUBSTITUTE
+  type: PROACTIVE
+versions:
+- instanceTemplate: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-v5
+  targetSize:
+    calculated: 1
+zone: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
