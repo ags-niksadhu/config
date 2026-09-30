@@ -1,28 +1,9 @@
-Found it — `careernavigator-backend-staging` is a **regional** trigger (`me-central2`), confirmed. Earlier failures were because commands lacked `--region`.
-
-**Why the GUI isn't showing Advanced/worker pool:** likely the Console trigger list/edit page is scoped to a different region context (or "Global" view), and regional triggers sometimes hide certain advanced fields depending on how the Console renders that trigger type. Rather than hunting through Console UI, do this via CLI instead — more reliable and scriptable for a production change:
-
-**Step 1 — export current trigger config to see its exact structure:**
-```bash
-gcloud builds triggers export careernavigator-backend-staging \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2 \
-  --destination=trigger-backend.yaml
-```
-
-```bash
-cat trigger-backend.yaml
-```
-Paste this output — I need to see the exact field names (`options:`, `name:`, etc.) as currently structured before editing, since malformed YAML on import will fail or silently misconfigure the trigger.
-
-**Step 2 (after I see the file)** — I'll give you the exact YAML edit needed (adding `options.pool.name: projects/pg-ae-n-app-125609/locations/me-central2/workerPools/cn-backend-private-pool`), then:
-```bash
-gcloud builds triggers import \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2 \
-  --source=trigger-backend.yaml
-```
-
-⚠️ **Verification before this goes live:** after import, run a test build manually (`gcloud builds triggers run careernavigator-backend-staging --region=me-central2 --branch=<your-staging-branch>`) rather than waiting for the next git push — confirms the pool wiring works before it's in the critical path for every future commit.
-
-Paste the exported YAML first.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud builds triggers export careernavigator-backend-staging \
+>   --project=pg-ae-n-app-125609 \
+>   --region=me-central2 \
+>   --destination=trigger-backend.yaml
+ERROR: (gcloud.builds.triggers) Invalid choice: 'export'.
+This command is available in one or more alternate release tracks.  Try:
+  gcloud alpha builds triggers export
+  gcloud beta builds triggers export
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
