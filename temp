@@ -1,1 +1,22 @@
-gcloud beta builds triggers update github --help | grep -i pool
+Confirms it: `--worker-pool` isn't a valid flag for `triggers update github` in this gcloud version. Rather than keep guessing flag names, let's use the underlying REST API directly via `gcloud builds triggers` PATCH — this bypasses the CLI's flag limitations entirely.
+
+**Check full flag list first, to be certain nothing's just named differently:**
+```bash
+gcloud beta builds triggers update github --help | less
+```
+Scroll through (or run `gcloud beta builds triggers update github --help > help.txt && cat help.txt`) and check for anything with "pool" or "worker" in it — paste the full output if unsure, don't want to miss a differently-named flag.
+
+**If nothing found, correct fix — direct REST PATCH:**
+
+```bash
+gcloud builds triggers describe careernavigator-backend-staging \
+  --project=pg-ae-n-app-125609 \
+  --region=me-central2 \
+  --format=json > trigger-current.json
+```
+
+```bash
+cat trigger-current.json
+```
+
+Paste this JSON output — the REST resource schema (unlike the YAML export/import) should expose the `options.pool.name` field correctly, and I'll give you the exact `gcloud alpha builds triggers update-config` or direct `curl`/`gcloud builds triggers patch` command using the JSON structure, which sidesteps whatever gap exists in the `github`-subcommand flag set.
