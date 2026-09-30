@@ -1,105 +1,29 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed list-instances cn-backend-mig \
->   --project=pg-ae-n-app-125609 \
->   --zone=me-central2-c
-NAME             ZONE           STATUS   HEALTH_STATE  ACTION  INSTANCE_TEMPLATE       VERSION_NAME     LAST_ERROR
-cn-backend-4chz  me-central2-c  RUNNING  HEALTHY       NONE    cn-backend-template-v5  0-1790266088265
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute autoscalers describe cn-backend-mig \
->   --project=pg-ae-n-app-125609 \
->   --zone=me-central2-c \
->   --format="yaml(status,statusDetails,autoscalingPolicy)"
-ERROR: (gcloud.compute) Invalid choice: 'autoscalers'.
-Maybe you meant:
-  gcloud app describe
-  gcloud compute addresses describe
-  gcloud compute routers describe
-  gcloud compute firewall-rules describe
-  gcloud compute operations describe
-  gcloud compute accelerator-types describe
-  gcloud compute backend-buckets describe
-  gcloud compute backend-services describe
-  gcloud compute commitments describe
-  gcloud compute composite-health-checks describe
-  gcloud compute advice
-  gcloud compute config-ssh
-  gcloud compute connect-to-serial-port
-  gcloud compute copy-files
-  gcloud compute diagnose
-  gcloud compute disk-types
-  gcloud compute disks
-  gcloud compute external-vpn-gateways
-  gcloud compute firewall-policies
-  gcloud compute forwarding-rules
-  gcloud compute future-reservations
-  gcloud compute global-vm-extension-policies
-  gcloud compute health-aggregation-policies
-  gcloud compute health-checks
-  gcloud compute health-sources
-  gcloud compute hosts
-  gcloud compute http-health-checks
-  gcloud compute https-health-checks
-  gcloud compute image-views
-  gcloud compute images
-  gcloud compute instance-groups
-  gcloud compute instance-templates
-  gcloud compute instances
-  gcloud compute instant-snapshot-groups
-  gcloud compute instant-snapshots
-  gcloud compute interconnects
-  gcloud compute machine-images
-  gcloud compute machine-types
-  gcloud compute migration
-  gcloud compute network-attachments
-  gcloud compute network-edge-security-services
-  gcloud compute network-endpoint-groups
-  gcloud compute network-firewall-policies
-  gcloud compute network-profiles
-  gcloud compute networks
-  gcloud compute org-security-policies
-  gcloud compute os-config
-  gcloud compute os-login
-  gcloud compute packet-mirrorings
-  gcloud compute preview-features
-  gcloud compute project-info
-  gcloud compute project-views
-  gcloud compute project-zonal-metadata
-  gcloud compute public-advertised-prefixes
-  gcloud compute public-delegated-prefixes
-  gcloud compute regions
-  gcloud compute reservations
-  gcloud compute reset-windows-password
-  gcloud compute resource-policies
-  gcloud compute rollout-plans
-  gcloud compute rollouts
-  gcloud compute routes
-  gcloud compute scp
-  gcloud compute security-policies
-  gcloud compute service-attachments
-  gcloud compute shared-vpc
-  gcloud compute sign-url
-  gcloud compute snapshot-settings
-  gcloud compute snapshots
-  gcloud compute sole-tenancy
-  gcloud compute ssh
-  gcloud compute ssl-certificates
-  gcloud compute ssl-policies
-  gcloud compute start-iap-tunnel
-  gcloud compute storage-pool-types
-  gcloud compute storage-pools
-  gcloud compute target-grpc-proxies
-  gcloud compute target-http-proxies
-  gcloud compute target-https-proxies
-  gcloud compute target-instances
-  gcloud compute target-pools
-  gcloud compute target-ssl-proxies
-  gcloud compute target-tcp-proxies
-  gcloud compute target-vpn-gateways
-  gcloud compute tpus
-  gcloud compute url-maps
-  gcloud compute vpn-gateways
-  gcloud compute vpn-tunnels
-  gcloud compute zone-vm-extension-policies
-  gcloud compute zones
+⚠️ **This needs immediate attention — you're down to 1 running instance** (`cn-backend-4chz`), the second previously-healthy instance (`cn-backend-cj1f`) is gone. This reduces your redundancy to zero; if this one instance has any issue right now, the service goes down entirely.
 
-To search the help text of gcloud commands, run:
-  gcloud help -- SEARCH_TERMS
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
+**Check what happened to it — was it deleted, or is it mid-recreation somewhere:**
+```bash
+gcloud compute instances list --project=pg-ae-n-app-125609 --filter="name:cn-backend" --format="table(name,zone,status)"
+```
+
+**Check the autoscaler correctly** (the right command path):
+```bash
+gcloud compute instance-groups managed describe cn-backend-mig \
+  --project=pg-ae-n-app-125609 \
+  --zone=me-central2-c \
+  --format="yaml(status)"
+```
+
+**Most likely explanation:** the rolling update replaced `cn-backend-cj1f` first (deleted the old one to make room per `REPLACE`/`SUBSTITUTE` policy), then tried creating its replacement — which is the instance that hit `ZONE_RESOURCE_POOL_EXHAUSTED`. So you lost one old instance and never successfully got its replacement. That matches `targetSize: 1` — the MIG may have auto-corrected target size down to match what's actually achievable right now.
+
+**Immediate fix — restore capacity using the template that's proven working** (`cn-backend-template-v5`, currently running healthy on `cn-backend-4chz`), not the new one, since the new one is what's hitting the zone capacity wall:
+
+```bash
+gcloud compute instance-groups managed resize cn-backend-mig \
+  --project=pg-ae-n-app-125609 \
+  --zone=me-central2-c \
+  --size=2
+```
+
+This attempts to add one more instance. **If it also fails with `ZONE_RESOURCE_POOL_EXHAUSTED`**, that confirms the zone genuinely has no capacity right now for *any* new instance (regardless of template), and this is purely a Google-side capacity problem you'll need to wait out — not something fixable from our side. In that case, your one running instance keeps serving traffic; just monitor and retry the resize periodically.
+
+Run the two check commands and the resize command, paste all three outputs.
