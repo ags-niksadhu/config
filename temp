@@ -1,1 +1,5 @@
-gcloud builds triggers list --project=pg-ae-n-app-125609 --region=me-central2 --format="table(name,github.name,filename)"
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud builds triggers list --project=pg-ae-n-app-125609 --region=me-central2 --format="table(name,github.name,filename)"
+NAME                              GITHUB_NAME               FILENAME
+careernavigator-frontend-staging  careernavigator-frontend  cloudbuild.yaml
+careernavigator-backend-staging   careernavigator-backend   cloudbuild.yaml
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
