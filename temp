@@ -1,21 +1,5 @@
-**Important gap — this needs confirming before we finalize, not guessing:**
-
-`ecosystem.config.js` only sets `NODE_ENV` and `PORT`. It has **no** database, Redis, or mail credentials at all. But you have Secret Manager secrets for exactly those (`CN_STAGING_DB_HOST`, `CN_STAGING_DB_PASSWORD`, `CN_STAGING_REDIS_HOST`, etc.) — so your app **does** need those values somehow to function (connect to DB, send mail, etc.).
-
-This means one of two things is true, and I need you to confirm which:
-
-**Option A:** Your NestJS app code reads secrets directly from Secret Manager at startup (via `@google-cloud/secret-manager` SDK or similar), not from `process.env` populated by a `.env` file. In this case, removing `.env.staging` from Packer is completely safe — the app fetches what it needs itself at runtime, and just needs the right IAM permission (Secret Manager access) on the instance's service account.
-
-**Option B:** The app still expects a `.env.staging` file or these values in `process.env`, and the currently-running server on `cn-staging-backapp-vm-01` has one that was placed there manually at some point (not via this pipeline) — meaning the "not used, already deleted" you mentioned might refer to a different, unrelated file, and the real one this app needs is still sitting on disk somewhere.
-
-**Check which is true — search the app code:**
-```bash
-grep -rn "SecretManagerServiceClient\|secretmanager" /var/www/careernavigator-backend/dist --include="*.js" | head -5
-```
-
-**And check if a `.env` file currently exists on the live server (just confirm presence, don't paste contents):**
-```bash
-ls -la /var/www/careernavigator-backend/ | grep env
-```
-
-Paste both. If Option A is confirmed, I'll also check the instance's service account has `secretmanager.secretAccessor` — needed either way for the app to reach those secrets at runtime, separate from anything in `backend.pkr.hcl`.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ grep -rn "SecretManagerServiceClient\|secretmanager" /var/www/careernavigator-backend/dist --include="*.js" | head -5
+/var/www/careernavigator-backend/dist/common/config/secret-manager.js:9:    ? new secret_manager_1.SecretManagerServiceClient({ apiEndpoint: `${location}-secretmanager.googleapis.com` })
+/var/www/careernavigator-backend/dist/common/config/secret-manager.js:10:    : new secret_manager_1.SecretManagerServiceClient();
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ ls -la /var/www/careernavigator-backend/ | grep env
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
