@@ -1,10 +1,34 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
->   --project=pg-ae-n-app-125609 \
->   --region=me-central2
-NAME                          ZONE           STATUS   HEALTH_STATE  ACTION     INSTANCE_TEMPLATE       VERSION_NAME  LAST_ERROR
-cn-backend-mig-regional-f4fd  me-central2-a  RUNNING  HEALTHY       NONE       cn-backend-template-v5
-cn-backend-mig-regional-pmlp  me-central2-a  RUNNING  HEALTHY       NONE       cn-backend-template-v5
-cn-backend-mig-regional-r7bf  me-central2-b  RUNNING  HEALTHY       NONE       cn-backend-template-v5
-cn-backend-mig-regional-tsps  me-central2-b  RUNNING  HEALTHY       NONE       cn-backend-template-v5
-cn-backend-mig-regional-g2p4  me-central2-c  RUNNING  TIMEOUT       VERIFYING  cn-backend-template-v5
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
+⚠️ **Stop — this needs attention before proceeding.** You now have **5 running instances** (`cn-backend-mig-regional` was created with `--size=2` and autoscaler `max-num-replicas=5`) — the autoscaler has scaled you all the way to its maximum. This is unexpected and costing you 5x the compute you intended right now. Also, one instance (`me-central2-c`) shows `HEALTH_STATE: TIMEOUT` — its health check isn't passing correctly.
+
+**Check why autoscaler jumped to max — likely CPU spiking on boot, or the failing health check is triggering churn/replacements that inflate the count:**
+
+```bash
+gcloud compute instance-groups managed describe cn-backend-mig-regional \
+  --project=pg-ae-n-app-125609 \
+  --region=me-central2 \
+  --format="yaml(status,targetSize)"
+```
+
+**Check the unhealthy instance's actual state — why is its health check timing out:**
+```bash
+gcloud compute instances get-serial-port-output cn-backend-mig-regional-g2p4 \
+  --project=pg-ae-n-app-125609 \
+  --zone=me-central2-c \
+  --port=1 | tail -50
+```
+
+**Immediately cap the cost exposure while we diagnose** — lower `max-num-replicas` so it can't keep scaling further:
+```bash
+gcloud compute instance-groups managed set-autoscaling cn-backend-mig-regional \
+  --project=pg-ae-n-app-125609 \
+  --region=me-central2 \
+  --min-num-replicas=1 \
+  --max-num-replicas=2 \
+  --target-cpu-utilization=0.6 \
+  --cool-down-period=60
+```
+This tells the autoscaler to settle back down toward 2 instances rather than holding all 5.
+
+⚠️ **Cost flag (rule 8):** each extra `e2-medium` running unnecessarily is real recurring spend — 5 instances vs the intended 2 is meaningfully more per hour. Capping `max-num-replicas` now limits further growth; the autoscaler will scale back down toward 2 on its own once CPU utilization normalizes, but that can take a few minutes per the cool-down period.
+
+Run all three commands, paste the outputs — need to understand the TIMEOUT health state before deciding if this MIG is actually ready for a cutover.
