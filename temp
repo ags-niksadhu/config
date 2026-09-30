@@ -1,29 +1,12 @@
-**Important discovery — this changes tonight's picture significantly.**
-
-Your load balancer (`app-backend-service`) points to **`backend-ig`** — an **unmanaged**, single-instance group (`No`, size `1`) in `me-central2-c`. This is a **completely separate** group from `cn-backend-mig` (managed, size 2) that we've been working on all night.
-
-**This means: everything we did tonight — the Packer builds, the MIGs, the rolling updates, the capacity crisis — may not have touched what's actually serving live traffic at all.**
-
-**Need to confirm immediately, not guess:**
-
-```bash
-gcloud compute instance-groups list-instances backend-ig \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-c
-```
-
-```bash
-gcloud compute instance-groups list-instances cn-backend-mig \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-c
-```
-
-Paste both. I need to see the **instance names** in each — specifically whether `backend-ig`'s single instance is the **same physical VM** as one of `cn-backend-mig`'s instances (just added to both groups), or a **totally separate, older VM** that predates all of this Packer/MIG work.
-
-**Why this matters so much:**
-- If `backend-ig`'s instance is a manually-created VM (like your original `cn-staging-backapp-vm-01` setup, before any of this migration started) — then **tonight's incident never affected live users at all**, and the actual production traffic has zero redundancy right now (single unmanaged instance, no autoscaling, no auto-healing).
-- If it's shared/overlapping with `cn-backend-mig` somehow, that's a different, more confusing situation to untangle.
-
-This is more urgent to resolve than the regional MIG work — if live traffic really is on a single unmanaged instance with no redundancy, that's the actual risk, and the regional MIG conversion needs to target **`backend-ig`**, not `cn-backend-mig`, to have any real effect on production resilience.
-
-Paste both outputs.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups list-instances backend-ig \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-c
+NAME                      ZONE           STATUS
+cn-staging-backapp-vm-01  me-central2-c  RUNNING
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups list-instances cn-backend-mig \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-c
+NAME             ZONE           STATUS
+cn-backend-3dfw  me-central2-c  RUNNING
+cn-backend-7jjw  me-central2-c  RUNNING
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
