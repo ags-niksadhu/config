@@ -1,27 +1,103 @@
-`targetSize` reset itself back to `1` — the autoscaler is overriding our manual resize. This confirms the earlier flagged autoscaling error is real and is actively interfering with recovery. Let's see its actual policy/config directly via the resource URL, since the `gcloud compute autoscalers` command group doesn't exist in this SDK version:
-
-```bash
-curl -s -X GET \
-  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
-  "https://compute.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/autoscalers/cn-backend-mig"
-```
-
-Paste the full JSON output — I need to see `minNumReplicas`, `maxNumReplicas`, and especially the `status`/`statusDetails` fields, since that's where the earlier-flagged error message lives and will explain why it keeps forcing size back to 1.
-
-**Immediate stabilization, while we diagnose:** since the autoscaler is fighting our manual changes, the safest move right now is to disable autoscaling temporarily so target size stays put where we set it:
-
-```bash
-gcloud compute instance-groups managed stop-autoscaling cn-backend-mig \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-c
-```
-
-Then resize again to restore your second instance:
-```bash
-gcloud compute instance-groups managed resize cn-backend-mig \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-c \
-  --size=2
-```
-
-Run `stop-autoscaling`, then the `resize`, then the `curl` diagnostic — paste all three outputs. This stops the autoscaler from undoing our fix while we figure out what's actually wrong with its config.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ curl -s -X GET \
+>   -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+>   "https://compute.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/autoscalers/cn-backend-mig"
+{
+  "kind": "compute#autoscaler",
+  "id": "8942123734360114292",
+  "creationTimestamp": "2026-09-22T05:54:51.287-07:00",
+  "name": "cn-backend-mig",
+  "target": "https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroupManagers/cn-backend-mig",
+  "autoscalingPolicy": {
+    "minNumReplicas": 1,
+    "maxNumReplicas": 5,
+    "coolDownPeriodSec": 60,
+    "cpuUtilization": {
+      "utilizationTarget": 0.6
+    },
+    "mode": "ON"
+  },
+  "zone": "https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c",
+  "selfLink": "https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/autoscalers/cn-backend-mig",
+  "status": "ACTIVE",
+  "recommendedSize": 1
+}
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed stop-autoscaling cn-backend-mig \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-c
+Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/autoscalers/cn-backend-mig].
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed resize cn-backend-mig \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-c \
+>   --size=2
+Updated [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroupManagers/cn-backend-mig].
+---
+autoHealingPolicies:
+- healthCheck: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/healthChecks/backend-health-3024
+  initialDelaySec: 300
+baseInstanceName: cn-backend
+creationTimestamp: '2026-09-22T01:51:30.811-07:00'
+currentActions:
+  abandoning: 0
+  creating: 1
+  creatingWithoutRetries: 0
+  deleting: 0
+  none: 1
+  recreating: 0
+  refreshing: 0
+  restarting: 0
+  resuming: 0
+  starting: 0
+  stopping: 0
+  suspending: 0
+  verifying: 0
+fingerprint: WPGLUnea65s=
+id: '8660718095601500029'
+instanceGroup: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroups/cn-backend-mig
+instanceLifecyclePolicy:
+  defaultActionOnFailure: REPAIR
+  forceUpdateOnRepair: NO
+  onFailedHealthCheck: DEFAULT_ACTION
+  onRepair:
+    allowChangingZone: NO
+instanceTemplate: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-v5
+kind: compute#instanceGroupManager
+listManagedInstancesResults: PAGELESS
+name: cn-backend-mig
+satisfiesPzi: false
+satisfiesPzs: true
+selfLink: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroupManagers/cn-backend-mig
+standbyPolicy:
+  initialDelaySec: 0
+  mode: MANUAL
+status:
+  allInstancesConfig:
+    effective: true
+  isStable: false
+  stateful:
+    hasStatefulConfig: false
+    perInstanceConfigs:
+      allEffective: true
+  versionTarget:
+    isReached: false
+targetSize: 2
+targetSizePolicy:
+  mode: INDIVIDUAL
+targetStoppedSize: 0
+targetSuspendedSize: 0
+updatePolicy:
+  maxSurge:
+    calculated: 1
+    fixed: 1
+  maxUnavailable:
+    calculated: 0
+    fixed: 0
+  minimalAction: REPLACE
+  mostDisruptiveAllowedAction: REPLACE
+  replacementMethod: SUBSTITUTE
+  type: PROACTIVE
+versions:
+- instanceTemplate: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-v5
+  targetSize:
+    calculated: 2
+zone: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
