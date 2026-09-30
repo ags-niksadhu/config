@@ -1,32 +1,10 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ curl -X PATCH \
-  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
-  -H "Content-Type: application/json" \
-  "https://cloudbuild.googleapis.com/v1/projects/pg-ae-n-app-125609/locations/me-central2/triggers/33a17fa4-65cd-435e-8e0b-9bcc9fbf7f0b?updateMask=options.pool.name" \
-  -d '{
-    "options": {
-      "pool": {
-        "name": "projects/pg-ae-n-app-125609/locations/me-central2/workerPools/cn-backend-private-pool"
-      }
-    }
-  }'
-{
-  "error": {
-    "code": 400,
-    "message": "Invalid JSON payload received. Unknown name \"options\" at 'trigger': Cannot find field.",
-    "status": "INVALID_ARGUMENT",
-    "details": [
-      {
-        "@type": "type.googleapis.com/google.rpc.BadRequest",
-        "fieldViolations": [
-          {
-            "field": "trigger",
-            "description": "Invalid JSON payload received. Unknown name \"options\" at 'trigger': Cannot find field."
-          }
-        ]
-      }
-    ]
-  }
-}
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
-
+ERROR: error fetching git source: retry budget exhausted (3 attempts): fetching git source: fetching git source: source fetch container exited with non-zero status: 128
+ERROR
+fatal: unable to access 'https://github.com/pwc-me-adv-careernavigator/careernavigator-backend.git/': Failed to connect to github.com port 443 after 128808 ms: Could not connect to server
+error: remote origin already exists.
+fatal: unable to access 'https://github.com/pwc-me-adv-careernavigator/careernavigator-backend.git/': Failed to connect to github.com port 443 after 130514 ms: Could not connect to server
+error: remote origin already exists.
+fatal: unable to access 'https://github.com/pwc-me-adv-careernavigator/careernavigator-backend.git/': Failed to connect to github.com port 443 after 130391 ms: Could not connect to server
+FETCHSOURCE
+starting build "f137c462-a5ff-42a1-b036-6850884f5354"
 
