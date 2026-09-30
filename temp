@@ -1,16 +1,18 @@
-**Root cause:** `export`/`import` for triggers is only in `alpha`/`beta` release tracks on this gcloud version — not in the stable/GA command group you're using.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud beta builds triggers export careernavigator-backend-staging \
+>   --project=pg-ae-n-app-125609 \
+>   --region=me-central2 \
+>   --destination=trigger-backend.yaml
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ cat trigger-backend.yaml
+createTime: '2026-09-21T12:39:20.830863836Z'
+filename: cloudbuild.yaml
+github:
+  name: careernavigator-backend
+  owner: pwc-me-adv-careernavigator
+  push:
+    branch: ^staging$
+id: 33a17fa4-65cd-435e-8e0b-9bcc9fbf7f0b
+name: careernavigator-backend-staging
+resourceName: projects/pg-ae-n-app-125609/locations/me-central2/triggers/33a17fa4-65cd-435e-8e0b-9bcc9fbf7f0b
+serviceAccount: projects/pg-ae-n-app-125609/serviceAccounts/765297732608-compute@developer.gserviceaccount.com
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
 
-**Fix — use the beta track (safe, read-only for the export step):**
-
-```bash
-gcloud beta builds triggers export careernavigator-backend-staging \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2 \
-  --destination=trigger-backend.yaml
-```
-
-```bash
-cat trigger-backend.yaml
-```
-
-Paste output. (If `beta` component isn't installed, gcloud will prompt to install it — accept, it's a standard Google-maintained component, no risk.)
