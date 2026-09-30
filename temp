@@ -1,24 +1,105 @@
-⚠️ **Stop before running anything else — check current live capacity first.** `targetSize` dropped to `1` (it was `3` before), and `currentActions` shows `deleting: 1, none: 1` — this needs to be understood before proceeding, since your service was running on 2 healthy instances a moment ago.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed list-instances cn-backend-mig \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-c
+NAME             ZONE           STATUS   HEALTH_STATE  ACTION  INSTANCE_TEMPLATE       VERSION_NAME     LAST_ERROR
+cn-backend-4chz  me-central2-c  RUNNING  HEALTHY       NONE    cn-backend-template-v5  0-1790266088265
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute autoscalers describe cn-backend-mig \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-c \
+>   --format="yaml(status,statusDetails,autoscalingPolicy)"
+ERROR: (gcloud.compute) Invalid choice: 'autoscalers'.
+Maybe you meant:
+  gcloud app describe
+  gcloud compute addresses describe
+  gcloud compute routers describe
+  gcloud compute firewall-rules describe
+  gcloud compute operations describe
+  gcloud compute accelerator-types describe
+  gcloud compute backend-buckets describe
+  gcloud compute backend-services describe
+  gcloud compute commitments describe
+  gcloud compute composite-health-checks describe
+  gcloud compute advice
+  gcloud compute config-ssh
+  gcloud compute connect-to-serial-port
+  gcloud compute copy-files
+  gcloud compute diagnose
+  gcloud compute disk-types
+  gcloud compute disks
+  gcloud compute external-vpn-gateways
+  gcloud compute firewall-policies
+  gcloud compute forwarding-rules
+  gcloud compute future-reservations
+  gcloud compute global-vm-extension-policies
+  gcloud compute health-aggregation-policies
+  gcloud compute health-checks
+  gcloud compute health-sources
+  gcloud compute hosts
+  gcloud compute http-health-checks
+  gcloud compute https-health-checks
+  gcloud compute image-views
+  gcloud compute images
+  gcloud compute instance-groups
+  gcloud compute instance-templates
+  gcloud compute instances
+  gcloud compute instant-snapshot-groups
+  gcloud compute instant-snapshots
+  gcloud compute interconnects
+  gcloud compute machine-images
+  gcloud compute machine-types
+  gcloud compute migration
+  gcloud compute network-attachments
+  gcloud compute network-edge-security-services
+  gcloud compute network-endpoint-groups
+  gcloud compute network-firewall-policies
+  gcloud compute network-profiles
+  gcloud compute networks
+  gcloud compute org-security-policies
+  gcloud compute os-config
+  gcloud compute os-login
+  gcloud compute packet-mirrorings
+  gcloud compute preview-features
+  gcloud compute project-info
+  gcloud compute project-views
+  gcloud compute project-zonal-metadata
+  gcloud compute public-advertised-prefixes
+  gcloud compute public-delegated-prefixes
+  gcloud compute regions
+  gcloud compute reservations
+  gcloud compute reset-windows-password
+  gcloud compute resource-policies
+  gcloud compute rollout-plans
+  gcloud compute rollouts
+  gcloud compute routes
+  gcloud compute scp
+  gcloud compute security-policies
+  gcloud compute service-attachments
+  gcloud compute shared-vpc
+  gcloud compute sign-url
+  gcloud compute snapshot-settings
+  gcloud compute snapshots
+  gcloud compute sole-tenancy
+  gcloud compute ssh
+  gcloud compute ssl-certificates
+  gcloud compute ssl-policies
+  gcloud compute start-iap-tunnel
+  gcloud compute storage-pool-types
+  gcloud compute storage-pools
+  gcloud compute target-grpc-proxies
+  gcloud compute target-http-proxies
+  gcloud compute target-https-proxies
+  gcloud compute target-instances
+  gcloud compute target-pools
+  gcloud compute target-ssl-proxies
+  gcloud compute target-tcp-proxies
+  gcloud compute target-vpn-gateways
+  gcloud compute tpus
+  gcloud compute url-maps
+  gcloud compute vpn-gateways
+  gcloud compute vpn-tunnels
+  gcloud compute zone-vm-extension-policies
+  gcloud compute zones
 
-**Check immediately:**
-```bash
-gcloud compute instance-groups managed list-instances cn-backend-mig \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-c
-```
-
-Paste this now — I need to confirm how many instances are actually `RUNNING` and `HEALTHY` right now, not just what the target size says.
-
-**Also check the autoscaler** — recall it had a flagged error earlier ("errors in your autoscaling setup"). It may have recalculated target size down on its own, independent of anything we did:
-```bash
-gcloud compute autoscalers describe cn-backend-mig \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-c \
-  --format="yaml(status,statusDetails,autoscalingPolicy)"
-```
-
----
-
-**Separately — the failed command:** `<PREVIOUS_SHORT_SHA>` was a placeholder in my example, not something to run literally. Bash tried to interpret `<` as file redirection, which is why it errored. You don't need to run that rollback command right now — nothing indicates you're in a state that needs rolling back to an old template. Hold off on it until we understand the `targetSize` change.
-
-Paste both outputs above first.
+To search the help text of gcloud commands, run:
+  gcloud help -- SEARCH_TERMS
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
