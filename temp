@@ -1,3 +1,1 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud builds worker-pools list --project=pg-ae-n-app-125609 --region=me-central2
-NAME                     CREATE_TIME                STATE
-cn-backend-private-pool  2026-09-30T10:05:40+00:00  RUNNING
+gcloud builds triggers list --project=pg-ae-n-app-125609 --region=me-central2 --format="table(name,github.name,filename)"
