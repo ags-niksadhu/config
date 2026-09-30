@@ -1,17 +1,11 @@
-**This just proved the exact point of doing this migration — in real time.** Notice: one instance (`me-central2-a`) is proceeding normally (`STAGING`), while the other (`me-central2-c`) hit the same capacity wall as before. With a regional MIG, this isn't a crisis — the `-a` instance will come up fine and serve traffic; only the `-c` one needs a retry once that zone frees up. This is exactly the resilience we're after.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups list --project=pg-ae-n-app-125609 --format="table(name,zone,region,isManaged,size)"
+NAME                     ZONE                                                                                   REGION                                                                                 MANAGED  INSTANCES
+cn-backend-mig-regional                                                                                         https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2  Yes      2
+app-instance-group       https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c                                                                                         No       1
+backend-ig               https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c                                                                                         No       1
+cn-backend-mig           https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c                                                                                         Yes      2
+frontend-ig              https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c                                                                                         No       1
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
 
-**Important finding from the backend-services check — need to investigate before any cutover:**
 
-Your load balancer's `app-backend-service` points to `me-central2-c/instanceGroups/backend-ig` — **not** `cn-backend-mig`. This is a different, unmanaged instance group name than what we've been working with all night.
 
-**This needs clarifying before we go further — don't want to assume:**
-
-```bash
-gcloud compute instance-groups list --project=pg-ae-n-app-125609 --format="table(name,zone,region,isManaged,size)"
-```
-
-Paste this. I need to understand:
-1. Is `backend-ig` the **managed instance group** behind `cn-backend-mig` under a different display name, or is it a **separate, older** instance group your load balancer is actually using right now (meaning `cn-backend-mig` might not even be the thing serving live traffic)?
-2. If `backend-ig` is unmanaged or different, all of tonight's MIG work may not have been affecting live traffic at all — which would be important to know either way (good, if nothing was ever at risk; concerning, if this means the actual live serving group has zero redundancy and wasn't part of tonight's fixes).
-
-Run that command and paste the output before we do anything else — this could change what "cutover" even means here.
