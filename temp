@@ -52,3 +52,60 @@ gcloud builds triggers run careernavigator-backend-staging \
 Watch the build logs — Packer's SSH step should now connect within seconds instead of timing out at 6 minutes.
 
 ⚠️ Rollback if something breaks: re-import the original file content (without the `options` block) — since you still have the original unedited version above, you can revert instantly by restoring it and re-running the `import` command.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ cat trigger-backend.yaml
+createTime: '2026-09-21T12:39:20.830863836Z'
+filename: cloudbuild.yaml
+github:
+  name: careernavigator-backend
+  owner: pwc-me-adv-careernavigator
+  push:
+    branch: ^staging$
+id: 33a17fa4-65cd-435e-8e0b-9bcc9fbf7f0b
+name: careernavigator-backend-staging
+resourceName: projects/pg-ae-n-app-125609/locations/me-central2/triggers/33a17fa4-65cd-435e-8e0b-9bcc9fbf7f0b
+serviceAccount: projects/pg-ae-n-app-125609/serviceAccounts/765297732608-compute@developer.gserviceaccount.com
+options:
+  pool:
+    name: projects/pg-ae-n-app-125609/locations/me-central2/workerPools/cn-backend-private-pool
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud beta builds triggers import \
+>   --project=pg-ae-n-app-125609 \
+>   --region=me-central2 \
+>   --source=trigger-backend.yaml
+ERROR: (gcloud.beta.builds.triggers.import) interpreting trigger-backend.yaml as BuildTrigger: .options: unused
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+
