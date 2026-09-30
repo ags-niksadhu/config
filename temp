@@ -1,42 +1,25 @@
-**Good news: the rolling update itself was accepted and started successfully** ("Updated [...]" confirms this). **The actual failure is just the `Verify Rollout Health` step timing out** after 600 seconds (10 min) while waiting — this is a different, less serious problem than the earlier errors.
-
-**Root cause, most likely:** your health check has `initialDelaySec: 300` (5 minutes) — meaning each new instance gets a 5-minute grace period before GCP even starts checking its health. With `targetSize: 3` and a rolling update replacing instances sequentially (`maxUnavailable`), waiting for all 3 to boot, pass the 5-minute delay, and then pass the actual health check can easily exceed our 600-second timeout — this may just be **too short a timeout for your actual rollout time**, not a real failure.
-
-**But I want to confirm this rather than assume — check current state of the MIG right now:**
-```bash
-gcloud compute instance-groups managed list-instances cn-backend-mig \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-c
-```
-
-This shows each instance's status and whether it's healthy, still booting, or stuck in a repair/recreate loop. Paste output.
-
-**One more check — is it stuck (actual failure) or just slow (needs more time)?**
-```bash
-gcloud compute operations list \
-  --project=pg-ae-n-app-125609 \
-  --filter="targetLink:cn-backend-mig" \
-  --sort-by=~startTime \
-  --limit=10 \
-  --format="table(name,operationType,status,statusMessage,startTime)"
-```
-
-**If instances show healthy/running** in the first command, this was just a timeout that's too short — quick fix is increasing the `Verify Rollout Health` timeout:
-
-**Quick patch:**
-```yaml
-  - id: Verify Rollout Health
-    name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        gcloud compute instance-groups managed wait-until cn-backend-mig \
-          --project=pg-ae-n-app-125609 \
-          --zone=me-central2-c \
-          --stable \
-          --timeout=1200
-```
-(1200s = 20 min, giving headroom for the 300s delay × sequential replacement of 3 instances)
-
-**If instances show failing/repeatedly recreating**, that's a real problem (app not passing its health check on the new image) and needs different investigation — don't apply the timeout patch in that case, paste both outputs first and I'll tell you which situation you're in.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed list-instances cn-backend-mig \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-c
+NAME             ZONE           STATUS   HEALTH_STATE  ACTION    INSTANCE_TEMPLATE            VERSION_NAME     LAST_ERROR
+cn-backend-1t43  me-central2-c           UNKNOWN       CREATING  cn-backend-template-fd726a3                   Error ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS: Instance 'cn-backend-1t43' creation failed: The zone 'projects/pg-ae-n-app-125609/zones/me-central2-c' does not have enough resources available to fulfill the request.  '(resource type:compute)'.
+cn-backend-4chz  me-central2-c  RUNNING  HEALTHY       NONE      cn-backend-template-v5       0-1790266088265
+cn-backend-cj1f  me-central2-c  RUNNING  HEALTHY       NONE      cn-backend-template-v5       0-1790266088265
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute operations list \
+>   --project=pg-ae-n-app-125609 \
+>   --filter="targetLink:cn-backend-mig" \
+>   --sort-by=~startTime \
+>   --limit=10 \
+>   --format="table(name,operationType,status,statusMessage,startTime)"
+NAME                                                     TYPE                                           STATUS  STATUS_MESSAGE  START_TIME
+operation-1790775429037-65cb36551ff76-dbbabaf3-72d2e4e5  patch                                          DONE                    2026-09-30T06:37:11.293-07:00
+operation-1790362796509-65c5352814ad9-54864fad-461a6a1c  compute.autoscalers.update                     DONE                    2026-09-25T11:59:56.584-07:00
+operation-1790362632030-65c5348b38b02-3a0f6581-97b3172b  compute.instanceGroupManagers.resize           DONE                    2026-09-25T11:57:12.297-07:00
+operation-1790327433483-65c4b16b453c3-0d5a2099-e858a4ca  patch                                          DONE                    2026-09-25T02:10:36.361-07:00
+operation-1790327249741-65c4b0bc0a817-81455352-971d0a50  patch                                          DONE                    2026-09-25T02:07:31.960-07:00
+operation-1790327032588-65c4afecf297a-0c2b5499-bb0925b0  patch                                          DONE                    2026-09-25T02:03:54.897-07:00
+operation-1790266295222-65c3cda94816c-11902523-f52425c0  compute.autoscalers.update                     DONE                    2026-09-24T09:11:35.316-07:00
+operation-1790266282542-65c3cd9d304f7-25af9091-116b5123  patch                                          DONE                    2026-09-24T09:11:24.913-07:00
+operation-1790266209073-65c3cd571fa18-e2fcd85b-931b1c15  compute.instanceGroupManagers.deleteInstances  DONE                    2026-09-24T09:10:09.346-07:00
+operation-1790266172817-65c3cd348c004-1285038c-f7b2d943  compute.instanceGroupManagers.deleteInstances  DONE                    2026-09-24T09:09:32.956-07:00
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
