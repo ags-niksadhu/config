@@ -1,13 +1,9 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~/github-sync$ gcloud compute routers nats list --project=pg-ae-n-app-125609 --router=$(gcloud compute routers list --project=pg-ae-n-app-125609 --filter="region:me-central2" --format="value(name)") --router-region=me-central2
-NAME         NAT_IP_ALLOCATE_OPTION  SOURCE_SUBNETWORK_IP_RANGES_TO_NAT  ENDPOINT_TYPES
-default-nat  AUTO_ONLY               ALL_SUBNETWORKS_ALL_IP_RANGES       ENDPOINT_TYPE_VM
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~/github-sync$ gcloud compute routers list --project=pg-ae-n-app-125609 --format="table(name,region,network)"
-NAME            REGION       NETWORK
-default-router  me-central2  default
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~/github-sync$ gcloud compute routers nats describe default-nat --project=pg-ae-n-app-125609 --router=<ROUTER_NAME> --region=me-central2 --format="yaml(sourceSubnetworkIpRangesToNat)"
--bash: ROUTER_NAME: No such file or directory
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~/github-sync$ gcloud compute routers nats describe default-router --project=pg-ae-n-app-125609 --router=<ROUTER_NAME> --region=me-central2 --format="yaml(sourceSubnetworkIpRangesToNat)"
--bash: ROUTER_NAME: No such file or directory
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~/github-sync$ gcloud compute routers nats describe default-nat --project=pg-ae-n-app-125609 --router=default-router --region=me-central2 --format="yaml(sourceSubnetworkIpRangesToNat)"
-sourceSubnetworkIpRangesToNat: ALL_SUBNETWORKS_ALL_IP_RANGES
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~/github-sync$
+ERROR: error fetching git source: retry budget exhausted (3 attempts): fetching git source: fetching git source: source fetch container exited with non-zero status: 128
+ERROR
+fatal: unable to access 'https://github.com/pwc-me-adv-careernavigator/careernavigator-backend.git/': Failed to connect to github.com port 443 after 129788 ms: Could not connect to server
+error: remote origin already exists.
+fatal: unable to access 'https://github.com/pwc-me-adv-careernavigator/careernavigator-backend.git/': Failed to connect to github.com port 443 after 129992 ms: Could not connect to server
+error: remote origin already exists.
+fatal: unable to access 'https://github.com/pwc-me-adv-careernavigator/careernavigator-backend.git/': Failed to connect to github.com port 443 after 130165 ms: Could not connect to server
+FETCHSOURCE
+starting build "3162a3c1-2908-44a1-8787-f2edde7c3abf"
