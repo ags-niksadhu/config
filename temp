@@ -1,21 +1,13 @@
-Good — no need to create a new one then. Confirm it covers this pool before assuming it just works.
-
-**Check existing NAT config:**
-```bash
-gcloud compute routers nats list --project=pg-ae-n-app-125609 --router=$(gcloud compute routers list --project=pg-ae-n-app-125609 --filter="region:me-central2" --format="value(name)") --router-region=me-central2
-```
-
-If that's empty or errors (no router in `me-central2`), list all routers first to find where the NAT actually lives:
-```bash
-gcloud compute routers list --project=pg-ae-n-app-125609 --format="table(name,region,network)"
-```
-
-Paste output. Specifically need to confirm:
-1. **Region** — NAT/router must be in `me-central2` (same region as your private pool). A NAT in another region won't help.
-2. **Network** — must be `default` (same VPC as the private pool).
-3. **Subnet coverage** — check if it's set to "All subnets" or a specific list; if specific, confirm the private pool's peering range (`10.58.0.0/24`) or its subnet is included. Private pools route through the Service Networking peering, so also check:
-```bash
-gcloud compute routers nats describe <NAT_NAME> --project=pg-ae-n-app-125609 --router=<ROUTER_NAME> --region=me-central2 --format="yaml(sourceSubnetworkIpRangesToNat)"
-```
-
-Paste all of this and I'll confirm whether it already covers the private pool or needs a config tweak (not necessarily a new NAT).
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~/github-sync$ gcloud compute routers nats list --project=pg-ae-n-app-125609 --router=$(gcloud compute routers list --project=pg-ae-n-app-125609 --filter="region:me-central2" --format="value(name)") --router-region=me-central2
+NAME         NAT_IP_ALLOCATE_OPTION  SOURCE_SUBNETWORK_IP_RANGES_TO_NAT  ENDPOINT_TYPES
+default-nat  AUTO_ONLY               ALL_SUBNETWORKS_ALL_IP_RANGES       ENDPOINT_TYPE_VM
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~/github-sync$ gcloud compute routers list --project=pg-ae-n-app-125609 --format="table(name,region,network)"
+NAME            REGION       NETWORK
+default-router  me-central2  default
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~/github-sync$ gcloud compute routers nats describe default-nat --project=pg-ae-n-app-125609 --router=<ROUTER_NAME> --region=me-central2 --format="yaml(sourceSubnetworkIpRangesToNat)"
+-bash: ROUTER_NAME: No such file or directory
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~/github-sync$ gcloud compute routers nats describe default-router --project=pg-ae-n-app-125609 --router=<ROUTER_NAME> --region=me-central2 --format="yaml(sourceSubnetworkIpRangesToNat)"
+-bash: ROUTER_NAME: No such file or directory
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~/github-sync$ gcloud compute routers nats describe default-nat --project=pg-ae-n-app-125609 --router=default-router --region=me-central2 --format="yaml(sourceSubnetworkIpRangesToNat)"
+sourceSubnetworkIpRangesToNat: ALL_SUBNETWORKS_ALL_IP_RANGES
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~/github-sync$
