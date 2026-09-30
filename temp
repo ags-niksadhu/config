@@ -1,36 +1,34 @@
-The programs included with the Ubuntu system are free software;
-the exact distribution terms for each program are described in the
-individual files in /usr/share/doc/*/copyright.
+**Root cause found: PM2 process list is empty.** `sudo pm2 list` shows **no processes at all** — the app was never started on this instance, or it crashed so completely that PM2 dropped it entirely from its list (not even shown as "errored").
 
-Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
-applicable law.
+This connects back to something important: notice you ran `sudo pm2 list` — this connects to **root's** PM2 daemon (`/root/.pm2`). But recall from tonight's Packer provisioner, we start PM2 as the OS Login user (`$(whoami)`, which resolved to `sa_108691235514385689272` during the build), **not as root**. So this could simply be looking in the wrong place.
 
+**Check if PM2 is running under a different user's daemon:**
+```bash
+ps aux | grep -i pm2
+ps aux | grep -i node
+```
 
-The programs included with the Ubuntu system are free software;
-the exact distribution terms for each program are described in the
-individual files in /usr/share/doc/*/copyright.
+```bash
+sudo ls -la /home/ | grep sa_
+```
 
-Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
-applicable law.
+If you find a `sa_...` home directory, check its PM2 state directly:
+```bash
+sudo -u sa_108691235514385689272 pm2 list
+```
+(Adjust the username to whatever the `ps aux` output shows.)
 
-Creating directory '/home/nikul_sadhu_gcp_pwc_com'.
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-r4q2:~$ sudo pm2 list
-[PM2] Spawning PM2 daemon with pm2_home=/root/.pm2
-[PM2] PM2 Successfully daemonized
-┌────┬───────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
-│ id │ name      │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
-└────┴───────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-r4q2:~$ sudo pm2 logs careernavigator-backend --lines 50 --nostream
-[TAILING] Tailing last 50 lines for [careernavigator-backend] process (change the value with --lines option)
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-r4q2:~$ curl -v http://localhost:3024
-* Host localhost:3024 was resolved.
-* IPv6: ::1
-* IPv4: 127.0.0.1
-*   Trying [::1]:3024...
-* connect to ::1 port 3024 from ::1 port 52764 failed: Connection refused
-*   Trying 127.0.0.1:3024...
-* connect to 127.0.0.1 port 3024 from 127.0.0.1 port 42018 failed: Connection refused
-* Failed to connect to localhost port 3024 after 0 ms: Couldn't connect to server
-* Closing connection
-curl: (7) Failed to connect to localhost port 3024 after 0 ms: Couldn't connect to server
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-r4q2:~$
+**Also check systemd**, since Packer configured a PM2 systemd service to auto-start on boot:
+```bash
+sudo systemctl status 'pm2-*' --no-pager
+sudo systemctl list-units --type=service | grep pm2
+```
+
+Paste all of this. This will tell us whether:
+1. PM2 never started at all (systemd service failed) — likely a boot-time failure we need the journal for, or
+2. PM2 is running fine under a different user and `sudo pm2 list` was just looking at the wrong daemon
+
+If it's case 1, check the systemd journal for the actual crash reason:
+```bash
+sudo journalctl -u 'pm2-*' --no-pager -n 100
+```
