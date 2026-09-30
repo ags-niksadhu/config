@@ -1,31 +1,29 @@
-**Root cause:** trigger-level YAML schema doesn't accept `options` as a direct field when using `filename:` (repo-hosted `cloudbuild.yaml`) — worker pool assignment for this trigger type goes through a dedicated flag instead, not the exported YAML structure.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud beta builds triggers update careernavigator-backend-staging \
+>   --project=pg-ae-n-app-125609 \
+>   --region=me-central2 \
+>   --worker-pool=projects/pg-ae-n-app-125609/locations/me-central2/workerPools/cn-backend-private-pool
+ERROR: (gcloud.beta.builds.triggers.update) Invalid choice: 'careernavigator-backend-staging'.
+Maybe you meant:
+  gcloud app update
+  gcloud beta builds triggers update developer-connect
+  gcloud app domain-mappings update
+  gcloud app firewall-rules update
+  gcloud app services update
+  gcloud app ssl-certificates update
+  gcloud beta app gen-config
+  gcloud beta app migrate-to-run
+  gcloud beta app repair
+  gcloud app browse
+  gcloud beta builds triggers update bitbucket-cloud
+  gcloud beta builds triggers update bitbucket-data-center
+  gcloud beta builds triggers update bitbucketserver
+  gcloud beta builds triggers update cloud-source-repositories
+  gcloud beta builds triggers update github
+  gcloud beta builds triggers update gitlab
+  gcloud beta builds triggers update manual
+  gcloud beta builds triggers update pubsub
+  gcloud beta builds triggers update webhook
 
-**Correct fix — use `update` with `--worker-pool` flag directly:**
-
-```bash
-gcloud beta builds triggers update careernavigator-backend-staging \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2 \
-  --worker-pool=projects/pg-ae-n-app-125609/locations/me-central2/workerPools/cn-backend-private-pool
-```
-
-**Verify:**
-```bash
-gcloud beta builds triggers export careernavigator-backend-staging \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2 \
-  --destination=trigger-backend-verify.yaml
-
-cat trigger-backend-verify.yaml
-```
-Look for `options.pool.name` (or similar) now present in the export — schema should accept it now since it's coming from the proper API field, not raw YAML import.
-
-**Then test:**
-```bash
-gcloud builds triggers run careernavigator-backend-staging \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2 \
-  --branch=staging
-```
-
-Paste the verify output and the test build's Packer SSH step result.
+To search the help text of gcloud commands, run:
+  gcloud help -- SEARCH_TERMS
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
