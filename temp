@@ -1,46 +1,94 @@
-**Big discovery — and this changes the whole picture.** That instance's `TIMEOUT` isn't a capacity or health-check-tuning issue. Look at the actual boot log:
-
-```
-CommandException: No URLs matched: gs://cn-staging-pg-ae-n-app-125609/releases/backend/latest.txt
-Script "startup-script" failed with error: exit status 1
-```
-
-**Root cause:** `cn-backend-template-v5` — the template every instance in both `cn-backend-mig` and `cn-backend-mig-regional` is using — has a **startup script that downloads the app from GCS at boot time** (the old deployment method your migration was replacing). It expects a file at `gs://cn-staging-pg-ae-n-app-125609/releases/backend/latest.txt`.
-
-**That file no longer exists — because earlier tonight, I had you remove the `Package Release` / `Upload Release to GCS` steps from `cloudbuild.yaml`**, since we assumed they were legacy and unused. That assumption was wrong for `cn-backend-template-v5`: it still actively depends on that GCS artifact existing. So every *new* instance created from `v5` now fails to boot the app correctly — this isn't a fluke, it will happen to every single new instance from this template, permanently, until either the GCS artifact comes back or we stop using this template.
-
-**This also means:** the two "healthy" instances you have right now in `cn-backend-mig` and most of `cn-backend-mig-regional` are healthy only because they were created *before* we removed those steps — they still have the old release cached locally from before. Any instance replaced or newly created from now on **will fail the same way**.
-
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed set-instance-template cn-backend-mig-regional \
+>   --project=pg-ae-n-app-125609 \
+>   --region=me-central2 \
+>   --template=cn-backend-template-fd726a3
+Updated [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-backend-mig-regional].
 ---
+autoHealingPolicies:
+- healthCheck: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/healthChecks/backend-health-3024
+  initialDelaySec: 300
+baseInstanceName: cn-backend-mig-regional
+creationTimestamp: '2026-09-30T07:45:25.422-07:00'
+currentActions:
+  abandoning: 0
+  creating: 0
+  creatingWithoutRetries: 0
+  deleting: 0
+  none: 2
+  recreating: 0
+  refreshing: 0
+  restarting: 0
+  resuming: 0
+  starting: 0
+  stopping: 0
+  suspending: 0
+  verifying: 0
+distributionPolicy:
+  targetShape: EVEN
+  zones:
+  - zone: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c
+  - zone: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-a
+  - zone: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-b
+fingerprint: 8ZAL4ZoOTiw=
+id: '8830549146958077546'
+instanceGroup: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroups/cn-backend-mig-regional
+instanceLifecyclePolicy:
+  defaultActionOnFailure: REPAIR
+  forceUpdateOnRepair: NO
+  onFailedHealthCheck: DEFAULT_ACTION
+instanceTemplate: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-fd726a3
+kind: compute#instanceGroupManager
+listManagedInstancesResults: PAGELESS
+name: cn-backend-mig-regional
+region: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2
+satisfiesPzi: false
+satisfiesPzs: true
+selfLink: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-backend-mig-regional
+standbyPolicy:
+  mode: MANUAL
+status:
+  allInstancesConfig:
+    effective: true
+  autoscaler: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-backend-mig-regional-np3m
+  isStable: true
+  stateful:
+    hasStatefulConfig: false
+    perInstanceConfigs:
+      allEffective: true
+  versionTarget:
+    isReached: false
+targetSize: 2
+targetSizePolicy:
+  mode: INDIVIDUAL
+targetStoppedSize: 0
+targetSuspendedSize: 0
+updatePolicy:
+  instanceRedistributionType: PROACTIVE
+  maxSurge:
+    calculated: 3
+    fixed: 3
+  maxUnavailable:
+    calculated: 3
+    fixed: 3
+  minimalAction: REPLACE
+  replacementMethod: SUBSTITUTE
+  type: OPPORTUNISTIC
+versions:
+- instanceTemplate: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-fd726a3
+  targetSize:
+    calculated: 2
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed rolling-action start-update cn-backend-mig-regional \
+>   --project=pg-ae-n-app-125609 \
+>   --region=me-central2 \
+>   --version=template=cn-backend-template-fd726a3 \
+>   --max-surge=1 --max-unavailable=0
+ERROR: (gcloud.compute.instance-groups.managed.rolling-action.start-update) Could not fetch resource:
+ - Invalid value for field 'resource.updatePolicy.maxSurge.fixed': '1'. Fixed updatePolicy.maxSurge for regional managed instance group has to be either 0 or at least equal to the number of zones.
 
-## The actual correct fix
-
-**Stop using `cn-backend-template-v5` entirely, for anything, going forward.** The right template is the one Packer built tonight — `cn-backend-template-fd726a3` — which has the app baked directly into the image (no GCS fetch needed at boot, which was the whole point of tonight's migration).
-
-**Immediate action: point the regional MIG at the correct new template:**
-```bash
-gcloud compute instance-groups managed set-instance-template cn-backend-mig-regional \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2 \
-  --template=cn-backend-template-fd726a3
-```
-
-**Then roll existing instances onto it:**
-```bash
-gcloud compute instance-groups managed rolling-action start-update cn-backend-mig-regional \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2 \
-  --version=template=cn-backend-template-fd726a3 \
-  --max-surge=1 --max-unavailable=0
-```
-
-⚠️ **Also note:** that boot log shows the instance is running a **GitHub Actions self-hosted runner**, **Splunk forwarder**, and **Microsoft Defender (mdatp)** — meaning `cn-backend-template-v5` was cloned from a fuller, more complex VM setup than what our clean Packer image builds. Your new golden image doesn't include these. Confirm whether the self-hosted runner / Splunk / Defender agents are actually required on these app servers, or whether they were incidental leftovers from how the original VM was provisioned — this affects whether the new template needs additional provisioners added, or whether it's correctly lean as-is.
-
-**Run the two commands above, then recheck instance health:**
-```bash
-gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2
-```
-
-Paste that — this should now show instances booting cleanly with the app already present, no GCS dependency, no timeout.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
+>   --project=pg-ae-n-app-125609 \
+>   --region=me-central2
+NAME                          ZONE           STATUS   HEALTH_STATE  ACTION  INSTANCE_TEMPLATE       VERSION_NAME  LAST_ERROR
+cn-backend-mig-regional-f4fd  me-central2-a  RUNNING  HEALTHY       NONE    cn-backend-template-v5
+cn-backend-mig-regional-g2p4  me-central2-c  RUNNING  HEALTHY       NONE    cn-backend-template-v5
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
