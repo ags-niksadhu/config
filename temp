@@ -1,1 +1,4 @@
-aaa
+Failed to create private pool
+Something went wrong when creating the private pool: generic::invalid_argument: Unable to allocate a new 10.240.0.0/24 block of IP addresses in your Service Networking connection for the new worker pool. Please either specify a different IP range for the worker pool or add a new reserved range to the connection, ideally a /16 block for maximum expandability. To allocate a new range, follow these instructions: https://cloud.google.com/vpc/docs/configure-private-services-access#procedure To modify your connection to add the new range, follow these instructions: https://cloud.google.com/vpc/docs/configure-private-services-access#modifying-connection
+
+Tracking number: c2565163296285662
