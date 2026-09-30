@@ -1,31 +1,5 @@
-**Big progress — Packer build and Instance Template creation both succeeded.** Image `cn-backend-image-5262057` and template `cn-backend-template-5262057` were created without issue. Only the last step failed:
-
-**Root cause:** `cn-backend-mig` doesn't exist as a **regional** instance group in `me-central2`. It may not exist at all yet, or it exists as a **zonal** MIG (tied to `me-central2-a` specifically) rather than regional — these are different resource types in GCP and the wrong `gcloud` command will always 404.
-
-**Check which is true:**
-```bash
-gcloud compute instance-groups managed list --project=pg-ae-n-app-125609 --filter="name:cn-backend-mig"
-```
-
-This lists it regardless of whether it's zonal or regional, and shows you which. Paste output.
-
-**If it shows up as zonal** (a `ZONE` column with a value like `me-central2-a`, not `REGION`), the fix is simple — change the command in `cloudbuild.yaml` from region-based to zone-based:
-```yaml
-  - id: Rolling Update MIG
-    name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        gcloud compute instance-groups managed rolling-action start-update cn-backend-mig \
-          --project=pg-ae-n-app-125609 \
-          --zone=me-central2-a \
-          --version=template=cn-backend-template-$SHORT_SHA \
-          --max-surge=1 \
-          --max-unavailable=0
-```
-(Same fix needed for the `Verify Rollout Health` step — `--zone=me-central2-a` instead of `--region=me-central2`.)
-
-**If it doesn't exist at all**, we need to create it first (one-time setup) — tell me and I'll give you the exact `instance-groups managed create` command, including whether you want it zonal or regional (regional is generally better for production — survives a single zone outage — but changes the Instance Template's zone assumptions).
-
-Run the list command and paste the result.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed list --project=pg-ae-n-app-125609 --filter="name:cn-backend-mig"
+NAME            LOCATION       SCOPE  BASE_INSTANCE_NAME  SIZE  TARGET_SIZE  INSTANCE_TEMPLATE       AUTOSCALED
+cn-backend-mig  me-central2-c  zone   cn-backend          1     2            cn-backend-template-v5  yes (*)
+(*) - there are errors in your autoscaling setup, please describe the resource to see details
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
