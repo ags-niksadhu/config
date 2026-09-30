@@ -1,34 +1,44 @@
-**Root cause found: PM2 process list is empty.** `sudo pm2 list` shows **no processes at all** — the app was never started on this instance, or it crashed so completely that PM2 dropped it entirely from its list (not even shown as "errored").
+That makes sense — it got auto-healed away. Your MIG's `defaultActionOnFailure: REPAIR` was set, so since the health check kept failing (`TIMEOUT`), GCP automatically killed that instance and tried to recreate a fresh one. That's why your SSH session died mid-diagnosis — the instance disappeared out from under you.
 
-This connects back to something important: notice you ran `sudo pm2 list` — this connects to **root's** PM2 daemon (`/root/.pm2`). But recall from tonight's Packer provisioner, we start PM2 as the OS Login user (`$(whoami)`, which resolved to `sa_108691235514385689272` during the build), **not as root**. So this could simply be looking in the wrong place.
+**This is actually a real problem** — we can't diagnose a boot-time bug if the platform keeps killing the evidence every few minutes. Let's stop that churn and debug on a stable, isolated test VM instead.
 
-**Check if PM2 is running under a different user's daemon:**
+**Step 1 — stop the MIG from replacing instances while we investigate:**
+```bash
+gcloud compute instance-groups managed set-autoscaling cn-backend-mig-regional \
+  --project=pg-ae-n-app-125609 \
+  --region=me-central2 \
+  --min-num-replicas=1 \
+  --max-num-replicas=1 \
+  --target-cpu-utilization=0.6 \
+  --cool-down-period=60
+```
+
+**Step 2 — create a standalone, non-MIG test VM from the same image** so nothing auto-heals it away while we look:
+```bash
+gcloud compute instances create cn-backend-debug-vm \
+  --project=pg-ae-n-app-125609 \
+  --zone=me-central2-a \
+  --machine-type=e2-medium \
+  --image=cn-backend-image-fd726a3 \
+  --network=default \
+  --subnetwork=default \
+  --no-address
+```
+
+**Step 3 — SSH into this stable debug VM:**
+```bash
+gcloud compute ssh cn-backend-debug-vm \
+  --project=pg-ae-n-app-125609 \
+  --zone=me-central2-a \
+  --tunnel-through-iap
+```
+
+**Then run the same diagnostics — this instance won't disappear on us:**
 ```bash
 ps aux | grep -i pm2
 ps aux | grep -i node
-```
-
-```bash
-sudo ls -la /home/ | grep sa_
-```
-
-If you find a `sa_...` home directory, check its PM2 state directly:
-```bash
-sudo -u sa_108691235514385689272 pm2 list
-```
-(Adjust the username to whatever the `ps aux` output shows.)
-
-**Also check systemd**, since Packer configured a PM2 systemd service to auto-start on boot:
-```bash
-sudo systemctl status 'pm2-*' --no-pager
 sudo systemctl list-units --type=service | grep pm2
-```
-
-Paste all of this. This will tell us whether:
-1. PM2 never started at all (systemd service failed) — likely a boot-time failure we need the journal for, or
-2. PM2 is running fine under a different user and `sudo pm2 list` was just looking at the wrong daemon
-
-If it's case 1, check the systemd journal for the actual crash reason:
-```bash
 sudo journalctl -u 'pm2-*' --no-pager -n 100
 ```
+
+Paste all output. This will finally show us why the app isn't starting — without the platform pulling the rug out mid-investigation.
