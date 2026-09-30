@@ -1,29 +1,40 @@
-We **are** already using that exact scenario — that's exactly what `cn-backend-template-fd726a3` is.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute ssh cn-backend-mig-regional-r4q2 \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-a \
+>   --tunnel-through-iap
+WARNING:
 
-To be clear on what each template actually is:
+To increase the performance of the tunnel, consider installing NumPy. For instructions,
+please see https://cloud.google.com/iap/docs/using-tcp-forwarding#increasing_the_tcp_upload_bandwidth
 
-| Template | How it was made | What's wrong with it |
-|---|---|---|
-| `cn-backend-template-v5` | Old method — boots a generic base image, then a **startup script runs at boot time** to download the app from a GCS bucket (`latest.txt`) | That GCS file no longer exists (we removed the upload step), so new instances from this template fail |
-| `cn-backend-template-fd726a3` | **This is your clean-OS scenario** — built tonight by Packer: clean Ubuntu image → install Node/PM2/Apache → copy app code in → bake it all into one final image | This is the correct one. Instance `r4q2` is running it right now — but its health check is timing out, meaning something inside the app itself isn't responding correctly once booted |
+ERROR: [0] Error during local connection to [stdin]: Error while connecting [4033: 'not authorized'].
+Traceback (most recent call last):
+  File "/snap/google-cloud-cli/501/lib/googlecloudsdk/command_lib/compute/iap_tunnel.py", line 805, in RunReceiveLocalData
+    websocket_conn = self._InitiateConnection(
+        conn,
+    ...<4 lines>...
+        conn_id=conn_id,
+    )
+  File "/snap/google-cloud-cli/501/lib/googlecloudsdk/command_lib/compute/iap_tunnel.py", line 771, in _InitiateConnection
+    new_websocket.InitiateConnection()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/snap/google-cloud-cli/501/lib/googlecloudsdk/api_lib/compute/iap_tunnel_websocket.py", line 158, in InitiateConnection
+    self._WaitForOpenOrRaiseError()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/snap/google-cloud-cli/501/lib/googlecloudsdk/api_lib/compute/iap_tunnel_websocket.py", line 512, in _WaitForOpenOrRaiseError
+    raise ConnectionCreationError(error_msg)
+googlecloudsdk.api_lib.compute.iap_tunnel_websocket.ConnectionCreationError: Error while connecting [4033: 'not authorized'].
+Connection closed by UNKNOWN port 65535
 
-So we're not avoiding your approach — we're already on it. The current problem is a **new, separate bug**: the app on this correctly-built image isn't passing its health check. That could be a crashed process, a missing permission, wrong port, or something else — we don't know yet because we haven't looked at the actual logs.
+Recommendation: To check for possible causes of SSH connectivity issues and get
+recommendations, rerun the ssh command with the --troubleshoot option.
 
-**This is the one thing blocking everything else.** I can't skip past it — if we cut over the load balancer to a MIG where the app doesn't actually respond, that's an outage, not a fix.
+gcloud compute ssh cn-backend-mig-regional-r4q2 --project=pg-ae-n-app-125609 --zone=me-central2-a --troubleshoot
 
-**Please SSH in and run the diagnostic commands so we can see what's actually happening:**
-```bash
-gcloud compute ssh cn-backend-mig-regional-r4q2 \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-a \
-  --tunnel-through-iap
-```
+Or, to investigate an IAP tunneling issue:
 
-Then:
-```bash
-sudo pm2 list
-sudo pm2 logs careernavigator-backend --lines 50 --nostream
-curl -v http://localhost:3024/
-```
+gcloud compute ssh cn-backend-mig-regional-r4q2 --project=pg-ae-n-app-125609 --zone=me-central2-a --troubleshoot --tunnel-through-iap
 
-Paste the output — this is the fastest way to find the actual root cause instead of guessing further.
+ERROR: (gcloud.compute.ssh) [/usr/bin/ssh] exited with return code [255].
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
+
