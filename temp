@@ -1,48 +1,87 @@
-**Real root cause found — same capacity issue as before, just in a different zone this time.** `cn-backend-1t43` is stuck in `CREATING` with the exact same error we hit earlier: `ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS` — GCP has no `e2-medium` capacity in `me-central2-c` right now. This is not our config's fault; it's Google-side capacity for this zone specifically.
-
-**Good news:** your two existing production instances (`cn-backend-4chz`, `cn-backend-cj1f`) are still `RUNNING` and `HEALTHY` on the old template — **your live service is unaffected**. Only the rollout's new third instance is stuck.
-
-**Current situation:**
-- 2 healthy instances still serving traffic on old template ✅
-- 1 new instance permanently stuck trying to create, failing repeatedly ⚠️
-- This is why `wait-until --stable` timed out — it never will become stable on its own; the MIG will keep retrying and keep failing until capacity frees up in that zone
-
-**This needs a decision, not just a timeout increase** (increasing the timeout won't help — it'll just wait longer for something that can't succeed right now).
-
-**Options:**
-
-| | A. Wait and retry later | B. Reduce target size temporarily | C. Try a different zone in me-central2 |
-|---|---|---|---|
-| What it does | Do nothing, retry the trigger later when GCP capacity frees up | Lower target size from 3 to 2 so no new instance is needed right now | Move the MIG (or add instances) to `me-central2-a` or another zone with capacity |
-| Downtime | None | None — you already have 2 healthy instances | None to prod, but requires MIG changes |
-| Complexity | None | One command | High — zonal MIGs are pinned to one zone; can't easily add capacity elsewhere without becoming regional |
-| Risk | Rollout stays incomplete indefinitely if zone stays constrained | Reduces headroom/redundancy until capacity returns | Bigger change, same regional-MIG conversion discussed earlier |
-
-**Recommended immediate step: stop the current rollout attempt cleanly, don't leave it retrying forever.**
-
-```bash
-gcloud compute instance-groups managed rolling-action stop-proactive-update cn-backend-mig \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-c
-```
-
-**Then check target size and consider setting it back to 2 temporarily**, since the third instance can't be created right now anyway:
-```bash
-gcloud compute instance-groups managed describe cn-backend-mig \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-c \
-  --format="value(targetSize)"
-```
-
-**This also confirms something important:** your **existing** template `cn-backend-template-v5` instances are healthy, meaning the deployment mechanism itself isn't broken — this is purely a transient capacity problem hitting the *new* instance being created, unrelated to anything in our pipeline. The pipeline logic (Packer build → template → rolling update trigger) worked correctly; GCP just couldn't fulfill the resource request at this moment.
-
-**For the pipeline going forward:** this kind of capacity issue is normal and expected occasionally in cloud environments — it isn't something to "fix" in your YAML. What's worth adding is resilience: a shorter, sane timeout (e.g., 900s) plus a **clear rollback instruction** if this happens in a real deployment, which I already gave you earlier:
-```bash
-gcloud compute instance-groups managed rolling-action start-update cn-backend-mig \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-c \
-  --version=template=cn-backend-template-<PREVIOUS_SHORT_SHA> \
-  --max-surge=1 --max-unavailable=0
-```
-
-Run the stop command above first, then tell me if you want to just retry the trigger now (capacity may have freed up) or wait — either is reasonable.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed rolling-action stop-proactive-update cn-backend-mig \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-c
+Updated [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroupManagers/cn-backend-mig].
+---
+autoHealingPolicies:
+- healthCheck: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/healthChecks/backend-health-3024
+  initialDelaySec: 300
+baseInstanceName: cn-backend
+creationTimestamp: '2026-09-22T01:51:30.811-07:00'
+currentActions:
+  abandoning: 0
+  creating: 0
+  creatingWithoutRetries: 0
+  deleting: 1
+  none: 1
+  recreating: 0
+  refreshing: 0
+  restarting: 0
+  resuming: 0
+  starting: 0
+  stopping: 0
+  suspending: 0
+  verifying: 0
+fingerprint: U0tEQD1_I5Q=
+id: '8660718095601500029'
+instanceGroup: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroups/cn-backend-mig
+instanceLifecyclePolicy:
+  defaultActionOnFailure: REPAIR
+  forceUpdateOnRepair: NO
+  onFailedHealthCheck: DEFAULT_ACTION
+  onRepair:
+    allowChangingZone: NO
+instanceTemplate: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-fd726a3
+kind: compute#instanceGroupManager
+listManagedInstancesResults: PAGELESS
+name: cn-backend-mig
+satisfiesPzi: false
+satisfiesPzs: true
+selfLink: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroupManagers/cn-backend-mig
+standbyPolicy:
+  initialDelaySec: 0
+  mode: MANUAL
+status:
+  allInstancesConfig:
+    effective: true
+  autoscaler: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/autoscalers/cn-backend-mig
+  isStable: false
+  stateful:
+    hasStatefulConfig: false
+    perInstanceConfigs:
+      allEffective: true
+  versionTarget:
+    isReached: false
+targetSize: 1
+targetSizePolicy:
+  mode: INDIVIDUAL
+targetStoppedSize: 0
+targetSuspendedSize: 0
+updatePolicy:
+  maxSurge:
+    calculated: 1
+    fixed: 1
+  maxUnavailable:
+    calculated: 0
+    fixed: 0
+  minimalAction: REPLACE
+  mostDisruptiveAllowedAction: REPLACE
+  replacementMethod: SUBSTITUTE
+  type: OPPORTUNISTIC
+versions:
+- instanceTemplate: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-fd726a3
+  targetSize:
+    calculated: 1
+zone: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed describe cn-backend-mig \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-c \
+>   --format="value(targetSize)"
+1
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed rolling-action start-update cn-backend-mig \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-c \
+>   --version=template=cn-backend-template-<PREVIOUS_SHORT_SHA> \
+>   --max-surge=1 --max-unavailable=0
+-bash: PREVIOUS_SHORT_SHA: No such file or directory
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
