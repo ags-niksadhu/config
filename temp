@@ -1,25 +1,48 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute instance-groups managed list-instances cn-backend-mig \
->   --project=pg-ae-n-app-125609 \
->   --zone=me-central2-c
-NAME             ZONE           STATUS   HEALTH_STATE  ACTION    INSTANCE_TEMPLATE            VERSION_NAME     LAST_ERROR
-cn-backend-1t43  me-central2-c           UNKNOWN       CREATING  cn-backend-template-fd726a3                   Error ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS: Instance 'cn-backend-1t43' creation failed: The zone 'projects/pg-ae-n-app-125609/zones/me-central2-c' does not have enough resources available to fulfill the request.  '(resource type:compute)'.
-cn-backend-4chz  me-central2-c  RUNNING  HEALTHY       NONE      cn-backend-template-v5       0-1790266088265
-cn-backend-cj1f  me-central2-c  RUNNING  HEALTHY       NONE      cn-backend-template-v5       0-1790266088265
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ gcloud compute operations list \
->   --project=pg-ae-n-app-125609 \
->   --filter="targetLink:cn-backend-mig" \
->   --sort-by=~startTime \
->   --limit=10 \
->   --format="table(name,operationType,status,statusMessage,startTime)"
-NAME                                                     TYPE                                           STATUS  STATUS_MESSAGE  START_TIME
-operation-1790775429037-65cb36551ff76-dbbabaf3-72d2e4e5  patch                                          DONE                    2026-09-30T06:37:11.293-07:00
-operation-1790362796509-65c5352814ad9-54864fad-461a6a1c  compute.autoscalers.update                     DONE                    2026-09-25T11:59:56.584-07:00
-operation-1790362632030-65c5348b38b02-3a0f6581-97b3172b  compute.instanceGroupManagers.resize           DONE                    2026-09-25T11:57:12.297-07:00
-operation-1790327433483-65c4b16b453c3-0d5a2099-e858a4ca  patch                                          DONE                    2026-09-25T02:10:36.361-07:00
-operation-1790327249741-65c4b0bc0a817-81455352-971d0a50  patch                                          DONE                    2026-09-25T02:07:31.960-07:00
-operation-1790327032588-65c4afecf297a-0c2b5499-bb0925b0  patch                                          DONE                    2026-09-25T02:03:54.897-07:00
-operation-1790266295222-65c3cda94816c-11902523-f52425c0  compute.autoscalers.update                     DONE                    2026-09-24T09:11:35.316-07:00
-operation-1790266282542-65c3cd9d304f7-25af9091-116b5123  patch                                          DONE                    2026-09-24T09:11:24.913-07:00
-operation-1790266209073-65c3cd571fa18-e2fcd85b-931b1c15  compute.instanceGroupManagers.deleteInstances  DONE                    2026-09-24T09:10:09.346-07:00
-operation-1790266172817-65c3cd348c004-1285038c-f7b2d943  compute.instanceGroupManagers.deleteInstances  DONE                    2026-09-24T09:09:32.956-07:00
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
+**Real root cause found — same capacity issue as before, just in a different zone this time.** `cn-backend-1t43` is stuck in `CREATING` with the exact same error we hit earlier: `ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS` — GCP has no `e2-medium` capacity in `me-central2-c` right now. This is not our config's fault; it's Google-side capacity for this zone specifically.
+
+**Good news:** your two existing production instances (`cn-backend-4chz`, `cn-backend-cj1f`) are still `RUNNING` and `HEALTHY` on the old template — **your live service is unaffected**. Only the rollout's new third instance is stuck.
+
+**Current situation:**
+- 2 healthy instances still serving traffic on old template ✅
+- 1 new instance permanently stuck trying to create, failing repeatedly ⚠️
+- This is why `wait-until --stable` timed out — it never will become stable on its own; the MIG will keep retrying and keep failing until capacity frees up in that zone
+
+**This needs a decision, not just a timeout increase** (increasing the timeout won't help — it'll just wait longer for something that can't succeed right now).
+
+**Options:**
+
+| | A. Wait and retry later | B. Reduce target size temporarily | C. Try a different zone in me-central2 |
+|---|---|---|---|
+| What it does | Do nothing, retry the trigger later when GCP capacity frees up | Lower target size from 3 to 2 so no new instance is needed right now | Move the MIG (or add instances) to `me-central2-a` or another zone with capacity |
+| Downtime | None | None — you already have 2 healthy instances | None to prod, but requires MIG changes |
+| Complexity | None | One command | High — zonal MIGs are pinned to one zone; can't easily add capacity elsewhere without becoming regional |
+| Risk | Rollout stays incomplete indefinitely if zone stays constrained | Reduces headroom/redundancy until capacity returns | Bigger change, same regional-MIG conversion discussed earlier |
+
+**Recommended immediate step: stop the current rollout attempt cleanly, don't leave it retrying forever.**
+
+```bash
+gcloud compute instance-groups managed rolling-action stop-proactive-update cn-backend-mig \
+  --project=pg-ae-n-app-125609 \
+  --zone=me-central2-c
+```
+
+**Then check target size and consider setting it back to 2 temporarily**, since the third instance can't be created right now anyway:
+```bash
+gcloud compute instance-groups managed describe cn-backend-mig \
+  --project=pg-ae-n-app-125609 \
+  --zone=me-central2-c \
+  --format="value(targetSize)"
+```
+
+**This also confirms something important:** your **existing** template `cn-backend-template-v5` instances are healthy, meaning the deployment mechanism itself isn't broken — this is purely a transient capacity problem hitting the *new* instance being created, unrelated to anything in our pipeline. The pipeline logic (Packer build → template → rolling update trigger) worked correctly; GCP just couldn't fulfill the resource request at this moment.
+
+**For the pipeline going forward:** this kind of capacity issue is normal and expected occasionally in cloud environments — it isn't something to "fix" in your YAML. What's worth adding is resilience: a shorter, sane timeout (e.g., 900s) plus a **clear rollback instruction** if this happens in a real deployment, which I already gave you earlier:
+```bash
+gcloud compute instance-groups managed rolling-action start-update cn-backend-mig \
+  --project=pg-ae-n-app-125609 \
+  --zone=me-central2-c \
+  --version=template=cn-backend-template-<PREVIOUS_SHORT_SHA> \
+  --max-surge=1 --max-unavailable=0
+```
+
+Run the stop command above first, then tell me if you want to just retry the trigger now (capacity may have freed up) or wait — either is reasonable.
