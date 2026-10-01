@@ -1,33 +1,146 @@
-**Progress — the scopes fix worked.** No more `PERMISSION_DENIED` errors; secrets are loading successfully now. This is a **new, different, application-level bug** — the infra pipeline itself is solid at this point.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ sudo sed -n '40,60p' /var/www/careernavigator-backend/src/common/services/encryption/encryption.service.ts
+        try {
+            console.log("DDDDDD", this.secretKey)
+            const [ivHex, encrypted] = encryptedText.split(":")
+            const iv = Buffer.from(ivHex, "hex")
+            const decipher = crypto.createDecipheriv(this.algorithm, Buffer.from(this.secretKey, "utf-8"), iv)
+            let decrypted = decipher.update(encrypted, "hex", "utf8")
+            decrypted += decipher.final("utf8")
+            return decrypted
+        } catch (e) {
+            console.log(e)
+            throw new HttpException(e.message, HttpStatus.BAD_REQUEST)
+        }
+    }
+}
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ sudo sed -n '175,195p' /var/www/careernavigator-backend/src/modules/career-path/career-path-ppt.service.ts
+        legendTextVertical: "2E5C8A",    // Dark blue text for vertical
+        legendTextDiagonal: "B84A4A",   // Dark red-pink text for diagonal
+        // Legacy colors (kept for backward compatibility)
+        horizontalBg: "F3EDFF",      // Alias for roleBgHorizontal
+        verticalBg: "E6F0FF",        // Alias for vertical leadership
+        diagonalBg: "FFEDED",        // Alias for roleBgDiagonal
+        leadershipStar: "FF0000",    // Red star for leadership
+    };
 
-**Root cause:** 
-```
-TypeError: Cannot read properties of undefined (reading 'split')
-at EncryptionService.decrypt (src/common/services/encryption/encryption.service.ts:50:19)
-at CareerPathPptService.onModuleInit (src/modules/career-path/career-path-ppt.service.ts:187:64)
-```
+    constructor(private readonly encryptionService: EncryptionService) { }
 
-During app startup, `CareerPathPptService` tries to decrypt something (likely a stored value or config) via `EncryptionService.decrypt()`, but `decrypt()` is calling `.split()` on a value that's `undefined` — meaning whatever it's trying to decrypt was never actually provided.
+    async onModuleInit() {
+        const AWS_ACCESS_KEY_ID = await this.encryptionService.decrypt(process.env.AWS_ACCESS_KEY_ID);
+        const AWS_SECRET_ACCESS_KEY = await this.encryptionService.decrypt(process.env.AWS_SECRET_ACCESS_KEY);
+        AWS.config.update({
+            region: process.env.AWS_DEFAULT_REGION,
+            accessKeyId: AWS_ACCESS_KEY_ID,
+            secretAccessKey: AWS_SECRET_ACCESS_KEY
+        });
+        this.s3 = new AWS.S3();
+    }
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ sudo pm2 logs careernavigator-backend --lines 50 --nostream
+sudo: pm2: command not found
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$ pm2 logs careernavigator-backend --lines 50 --nostream
+[TAILING] Tailing last 50 lines for [careernavigator-backend] process (change the value with --lines option)
+/home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-backend-out-3.log last 50 lines:
+1|careerna | 2026-10-01 04:58:15 info: 136.68.140.144 : GET : /docs : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:16 info: 136.68.140.144 : GET : /webjars/swagger-ui/index.html : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:16 info: 136.68.140.144 : GET : /api-docs/ : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:16 info: 136.68.140.144 : GET : /api/api-docs : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:16 info: 136.68.140.144 : GET : /webjars/swagger-ui/index.html : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:16 info: 136.68.140.144 : GET : /api/api-docs : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:16 info: 136.68.140.144 : GET : /api/swagger-ui.html : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:16 info: 136.68.140.144 : GET : /api/swagger-ui.html : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:16 info: 136.68.140.144 : GET : /api/docs/ : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:16 info: 136.68.140.144 : GET : /apidocs/ : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:16 info: 136.68.140.144 : GET : /swagger/ui/index : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:16 info: 136.68.140.144 : GET : /swagger-ui/index.html : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:17 info: 136.68.140.144 : GET : /api/docs/ : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:17 info: 136.68.140.144 : GET : /swagger/ : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:17 info: 136.68.140.144 : GET : /swagger.json : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:17 info: 136.68.140.144 : GET : /apidocs/ : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:17 info: 136.68.140.144 : GET : /openapi.json : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:17 info: 136.68.140.144 : GET : /swagger/ui/index : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:18 info: 136.68.140.144 : GET : /swagger-ui/index.html : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:18 info: 136.68.140.144 : GET : /swagger/ : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:18 info: 136.68.140.144 : GET : /.env : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:18 info: 136.68.140.144 : GET : /node_modules/mqtt/test/helpers/ : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:18 info: 136.68.140.144 : GET : /.git/config : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:18 info: 136.68.140.144 : GET : /index : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:18 info: 136.68.140.144 : GET : /.htpasswd : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:18 info: 136.68.140.144 : GET : /.claude/ : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:18 info: 136.68.140.144 : GET : /3K4xZaS3viv3rQaUTKA28H2Uudr : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:18 info: 136.68.140.144 : GET : /swagger.json : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:18 info: 136.68.140.144 : GET : /openapi.json : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:19 info: 136.68.140.144 : GET : /3K4xZlFTaYPPGMwVAn6IjdviHp6 : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:20 info: 136.68.140.144 : GET : /node_modules/mqtt/test/helpers/ : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:20 info: 136.68.140.144 : GET : /.env : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:20 info: 136.68.140.144 : GET : /.htpasswd : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:20 info: 136.68.140.144 : GET : /.claude/ : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:20 info: 136.68.140.144 : GET : /index : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:20 info: 136.68.140.144 : GET : /.git/config : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:21 info: 136.68.140.144 : GET : /assets/ : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 04:58:23 info: 136.68.140.144 : GET : /assets/ : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 05:04:16 info: 136.68.140.144 : GET : /robots.txt : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 05:26:42 info: 136.68.140.144 : GET : /robots.txt : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 05:38:30 info: 136.68.140.144 : GET : /v1/user : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 05:38:30 info: 136.68.140.144 : GET : /v1/employee-role/organization-chart : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 2026-10-01 05:38:36 info: 136.68.140.144 : GET : /v1/common/list?type=categories : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 200
+1|careerna | 2026-10-01 05:38:36 info: 136.68.140.144 : GET : /v1/common/list?type=users&page=2 : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 200
+1|careerna | 2026-10-01 05:38:36 info: 136.68.140.144 : GET : /v1/common/list?type=users : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 200
+1|careerna | 2026-10-01 05:38:36 info: 136.68.140.144 : GET : /v1/function/parent-child-list : Status Code :: 200 - 0ms - Body : {}
+1|careerna | 200
 
-This is almost certainly a **missing environment variable or secret specific to this service** — likely an encryption key (e.g., `ENCRYPTION_KEY`) that isn't among the `CN_STAGING_*` secrets we saw in Secret Manager, or exists there but isn't being loaded into whatever `CareerPathPptService` reads from.
+/home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-backend-error-3.log last 50 lines:
+1|careerna |     at attempt (/var/www/careernavigator-backend/node_modules/passport/lib/middleware/authenticate.js:183:28)
+1|careerna |     at strategy.fail (/var/www/careernavigator-backend/node_modules/passport/lib/middleware/authenticate.js:314:9)
+1|careerna |     at JwtStrategy.authenticate (/var/www/careernavigator-backend/node_modules/passport-jwt/lib/strategy.js:96:21)
+1|careerna |     at attempt (/var/www/careernavigator-backend/node_modules/passport/lib/middleware/authenticate.js:378:16)
+1|careerna |     at authenticate (/var/www/careernavigator-backend/node_modules/passport/lib/middleware/authenticate.js:379:7)
+1|careerna |     at /var/www/careernavigator-backend/node_modules/@nestjs/passport/dist/auth.guard.js:88:3
+1|careerna |     at new Promise (<anonymous>)
+1|careerna |     at /var/www/careernavigator-backend/node_modules/@nestjs/passport/dist/auth.guard.js:80:83
+1|careerna |     at JwtAuthGuard.canActivate (/var/www/careernavigator-backend/node_modules/@nestjs/passport/dist/auth.guard.js:44:32)
+1|careerna |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+1|careerna |   response: {
+1|careerna |     message: 'Invalid or expired token',
+1|careerna |     error: 'Unauthorized',
+1|careerna |     statusCode: 401
+1|careerna |   },
+1|careerna |   status: 401,
+1|careerna |   options: {}
+1|careerna | }
+1|careerna | Exception caught by GlobalExceptionFilter: UnauthorizedException: Invalid or expired token
+1|careerna |     at JwtAuthGuard.handleRequest (/var/www/careernavigator-backend/src/modules/auth/jwt-auth.guard.ts:44:19)
+1|careerna |     at /var/www/careernavigator-backend/node_modules/@nestjs/passport/dist/auth.guard.js:44:124
+1|careerna |     at /var/www/careernavigator-backend/node_modules/@nestjs/passport/dist/auth.guard.js:83:24
+1|careerna |     at allFailed (/var/www/careernavigator-backend/node_modules/passport/lib/middleware/authenticate.js:110:18)
+1|careerna |     at attempt (/var/www/careernavigator-backend/node_modules/passport/lib/middleware/authenticate.js:183:28)
+1|careerna |     at strategy.fail (/var/www/careernavigator-backend/node_modules/passport/lib/middleware/authenticate.js:314:9)
+1|careerna |     at JwtStrategy.authenticate (/var/www/careernavigator-backend/node_modules/passport-jwt/lib/strategy.js:96:21)
+1|careerna |     at attempt (/var/www/careernavigator-backend/node_modules/passport/lib/middleware/authenticate.js:378:16)
+1|careerna |     at authenticate (/var/www/careernavigator-backend/node_modules/passport/lib/middleware/authenticate.js:379:7)
+1|careerna |     at /var/www/careernavigator-backend/node_modules/@nestjs/passport/dist/auth.guard.js:88:3
+1|careerna |     at new Promise (<anonymous>)
+1|careerna |     at /var/www/careernavigator-backend/node_modules/@nestjs/passport/dist/auth.guard.js:80:83
+1|careerna |     at JwtAuthGuard.canActivate (/var/www/careernavigator-backend/node_modules/@nestjs/passport/dist/auth.guard.js:44:32)
+1|careerna |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+1|careerna |   response: {
+1|careerna |     message: 'Invalid or expired token',
+1|careerna |     error: 'Unauthorized',
+1|careerna |     statusCode: 401
+1|careerna |   },
+1|careerna |   status: 401,
+1|careerna |   options: {}
+1|careerna | }
+1|careerna | Exception caught by GlobalExceptionFilter: HttpException: Organizer ID is required.
+1|careerna |     at FunctionServices.parentChildList (/var/www/careernavigator-backend/src/modules/function/function.services.ts:95:19)
+1|careerna |     at FunctionController.parentChildList (/var/www/careernavigator-backend/src/modules/function/function.controller.ts:59:49)
+1|careerna |     at /var/www/careernavigator-backend/node_modules/@nestjs/core/router/router-execution-context.js:38:29
+1|careerna |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+1|careerna |   response: 'Organizer ID is required.',
+1|careerna |   status: 400,
+1|careerna |   options: undefined
+1|careerna | }
 
-**Need to see the actual code to confirm, not guess:**
-
-```bash
-sudo sed -n '40,60p' /var/www/careernavigator-backend/src/common/services/encryption/encryption.service.ts
-```
-
-```bash
-sudo sed -n '175,195p' /var/www/careernavigator-backend/src/modules/career-path/career-path-ppt.service.ts
-```
-
-(Run these on `cn-staging-backapp-vm-01`, where the full source is checked out, or any instance with the repo — paste output.)
-
-**Also check: does this exact error happen on your *currently running, working* production instance too?**
-```bash
-sudo pm2 logs careernavigator-backend --lines 50 --nostream
-```
-
-If the **old** `v5`-template instance has this same error in its logs (just maybe suppressed/retried differently), this isn't a regression from tonight's work at all — it's a pre-existing bug that the build-time health check is simply the first thing to ever catch. If the old instance does **not** have this error, something about env/secret loading differs between the old and new deployment paths.
-
-Paste all three outputs — this determines whether we're fixing an app bug or an env/secrets wiring gap.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:/var/www/careernavigator-backend$
