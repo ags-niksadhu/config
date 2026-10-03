@@ -1,14 +1,34 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute health-checks describe backend-health-3024 \
->   --project=pg-ae-n-app-125609 \
->   --format="yaml(httpHealthCheck,checkIntervalSec,timeoutSec,healthyThreshold,unhealthyThreshold)"
-checkIntervalSec: 10
-healthyThreshold: 2
-httpHealthCheck:
-  port: 3024
-  portSpecification: USE_FIXED_PORT
-  proxyHeader: NONE
-  requestPath: /health
-timeoutSec: 5
-unhealthyThreshold: 3
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+Confirmed: health check hits **port 3024, path `/health`**, specifically — but Packer's build-time verification only checked `http://localhost:3024/` (root), not `/health`. That's a real gap, though not necessarily the actual bug — from earlier logs we did see `Mapped {/health, GET} route` registered, so the endpoint exists in the app.
 
+**Need to confirm `/health` actually responds correctly** — check current instance state and test directly:
+
+```bash
+gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
+  --project=pg-ae-n-app-125609 \
+  --region=me-central2
+```
+
+**SSH into whichever `cn-backend-template-0460def` instance currently exists** (use the real zone/name from the list above):
+```bash
+gcloud compute ssh <instance-name> \
+  --project=pg-ae-n-app-125609 \
+  --zone=<its-zone> \
+  --tunnel-through-iap
+```
+
+**Then run specifically:**
+```bash
+curl -v http://localhost:3024/health
+sudo pm2 logs careernavigator-backend --lines 80 --nostream
+```
+
+This tells us directly whether `/health` works (in which case the failure is something else — maybe just timing/propagation) or whether it errors (in which case we've found the real gap).
+
+**Regardless of what we find, fix the Packer build-time check to match the real health check exactly** — this closes the gap for future builds:
+
+```hcl
+"curl -sf http://localhost:3024/health > /dev/null || (echo 'FATAL: /health did not respond after 30s — failing build' && sudo pm2 logs careernavigator-backend --lines 100 --nostream && exit 1)"
+```
+(Replace the `http://localhost:3024/` in the existing loop with `http://localhost:3024/health`.)
+
+Paste the SSH diagnostic output first — let's see the actual behavior before finalizing the Packer fix.
