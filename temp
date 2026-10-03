@@ -1,33 +1,39 @@
-**Huge milestone — the app fix worked.** `APP IS UP` confirms Packer's build-time health check passed — the app starts cleanly now that the dead AWS code is gone. Image and template (`cn-backend-template-0460def`) both built successfully.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
+>   --project=pg-ae-n-app-125609 \
+>   --region=me-central2
+NAME                          ZONE           STATUS   HEALTH_STATE  ACTION      INSTANCE_TEMPLATE            VERSION_NAME  LAST_ERROR
+cn-backend-mig-regional-g2p4  me-central2-c  RUNNING  HEALTHY       NONE        cn-backend-template-v5
+cn-backend-mig-regional-j69n  me-central2-c  RUNNING  TIMEOUT       RECREATING  cn-backend-template-0460def
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed set-autoscaling cn-backend-mig-regional \
+>   --project=pg-ae-n-app-125609 \
+>   --region=me-central2 \
+>   --min-num-replicas=1 \
+>   --max-num-replicas=5 \
+>   --target-cpu-utilization=0.6 \
+>   --cool-down-period=60
+Updated [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-backend-mig-regional-np3m].
+---
+autoscalingPolicy:
+  coolDownPeriodSec: 60
+  cpuUtilization:
+    utilizationTarget: 0.6
+  maxNumReplicas: 5
+  minNumReplicas: 1
+  mode: ON
+creationTimestamp: '2026-09-30T07:47:28.193-07:00'
+id: '3472513171012493295'
+kind: compute#autoscaler
+name: cn-backend-mig-regional-np3m
+recommendedSize: 1
+region: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2
+selfLink: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-backend-mig-regional-np3m
+status: ACTIVE
+statusDetails:
+- message: The min_num_replicas is equal to max_num_replicas. This means the autoscaler
+    cannot add or remove instances from the instance group. Make sure this is the
+    correct setting.
+  type: MIN_EQUALS_MAX
+target: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-backend-mig-regional
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
 
-**The only remaining failure is the final step, `Verify Rollout Health`, which just timed out** waiting for the regional MIG to stabilize. Looking at the log: `targetSize: 1`, and it churned through `verifying` → `creating` → `deleting` for the full 1200s without ever reaching `isStable: true`.
 
-**Root cause:** this is almost certainly the **300-second health check delay stacking up** across sequential zone replacements, combined with `maxUnavailable: 3` on a region that currently only has 1 target instance — there's a mismatch between your autoscaler's current state (we set `min=1, max=1` earlier tonight to stop churn) and the rollout trying to replace instances across 3 zones. With `targetSize: 1`, a `maxSurge`/`maxUnavailable` of 3 doesn't make sense — it's over-provisioned for a 1-instance target, which can cause odd scheduling behavior, plus simply 1200s may not have been enough given sequential zone handling.
-
-**Check current actual state first — don't guess:**
-```bash
-gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2
-```
-
-Paste this. If the instance(s) show `RUNNING`/`HEALTHY` on the new template (`cn-backend-template-0460def`), **the rollout actually succeeded** — it just took longer than our timeout to report back cleanly, and the `wait-until` command simply gave up waiting, not that the update failed.
-
-**If confirmed healthy:**
-1. Restore autoscaler to its real intended range (`min=1, max=5`) — we throttled it to `max=1` as a temporary stop-the-churn measure:
-```bash
-gcloud compute instance-groups managed set-autoscaling cn-backend-mig-regional \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2 \
-  --min-num-replicas=1 \
-  --max-num-replicas=5 \
-  --target-cpu-utilization=0.6 \
-  --cool-down-period=60
-```
-
-2. Increase `Verify Rollout Health` timeout in `cloudbuild.yaml` to `1800` (30 min) to accommodate future multi-zone rollouts without falsely failing:
-```yaml
-          --timeout=1800
-```
-
-Paste the instance list first — this tells us whether tonight's actual deployment succeeded (just a slow/timed-out verification step) or genuinely needs more work.
