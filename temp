@@ -1,25 +1,11 @@
-Image/template built successfully again (`cn-backend-image-5a879da`, `cn-backend-template-5a879da`), `APP IS UP` confirmed. Now let's verify two things: did the `--tags=cn-backend` actually get applied this time, and what's the real current instance state.
-
-**Check the template has the tag now:**
-```bash
-gcloud compute instance-templates describe cn-backend-template-5a879da \
-  --project=pg-ae-n-app-125609 \
-  --format="value(properties.tags.items)"
-```
-
-**Check actual instance health right now:**
-```bash
-gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2
-```
-
-Paste both. 
-
-If the tag is now present and the instance shows `HEALTHY`, then the `wait-until --timeout=1800` change may not have actually gotten pushed before this run triggered (the `GitCommit` in this log is `5a879da5...` with message "Update cloudbuild.yaml" — so it did include some cloudbuild change, but let's confirm the timeout value actually took effect by checking the file as committed:
-
-```bash
-grep -A2 "Verify Rollout Health" -A 15 cloudbuild.yaml | grep timeout
-```
-
-This will show us the actual timeout value in the version that just ran — if it still says 1200 instead of 1800, that explains why it's still timing out at the same point, and we just need to confirm the increase actually got applied for the next run.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-templates describe cn-backend-template-5a879da \
+>   --project=pg-ae-n-app-125609 \
+>   --format="value(properties.tags.items)"
+cn-backend
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
+>   --project=pg-ae-n-app-125609 \
+>   --region=me-central2
+NAME                          ZONE           STATUS   HEALTH_STATE  ACTION    INSTANCE_TEMPLATE            VERSION_NAME  LAST_ERROR
+cn-backend-mig-regional-g2p4  me-central2-c  RUNNING  HEALTHY       NONE      cn-backend-template-v5
+cn-backend-mig-regional-h4jz  me-central2-c           UNKNOWN       CREATING  cn-backend-template-5a879da                Error ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS: Instance 'cn-backend-mig-regional-h4jz' creation failed: The zone 'projects/pg-ae-n-app-125609/zones/me-central2-c' does not have enough resources available to fulfill the request.  '(resource type:compute)'.
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ 
