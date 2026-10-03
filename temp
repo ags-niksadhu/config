@@ -1,44 +1,125 @@
+ikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$ ps aus | grep -i node
+error: conflicting format options
+
+Usage:
+ ps [options]
+
+ Try 'ps --help <simple|list|output|threads|misc|all>'
+  or 'ps --help <s|l|o|t|m|a>'
+ for additional help text.
+
+For more details see ps(1).
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$ ps aux | grep -i node
+nikul_s+    1950  0.0  0.0   6556  2420 pts/0    S+   06:35   0:00 grep --color=auto -i node
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$ ps aux | grep -i pm2
+sa_1086+    1121  0.0  1.6 1123412 65092 ?       Ssl  06:26   0:00 PM2 v7.0.4: God Daemon (/home/sa_10869123551438568927
+root        1554  0.0  1.6 1123156 64844 ?       Ssl  06:29   0:00 PM2 v7.0.4: God Daemon (/root/.pm2)
+nikul_s+    1953  0.0  0.0   6556  2424 pts/0    S+   06:35   0:00 grep --color=auto -i pm2
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$ pm2 list
+
+                        -------------
+
+__/\\\\\\\\\\\\\____/\\\\____________/\\\\____/\\\\\\\\\_____
+ _\/\\\/////////\\\_\/\\\\\\________/\\\\\\__/\\\///////\\\___
+  _\/\\\_______\/\\\_\/\\\//\\\____/\\\//\\\_\///______\//\\\__
+   _\/\\\\\\\\\\\\\/__\/\\\\///\\\/\\\/_\/\\\___________/\\\/___
+    _\/\\\/////////____\/\\\__\///\\\/___\/\\\________/\\\//_____
+     _\/\\\_____________\/\\\____\///_____\/\\\_____/\\\//________
+      _\/\\\_____________\/\\\_____________\/\\\___/\\\/___________
+       _\/\\\_____________\/\\\_____________\/\\\__/\\\\\\\\\\\\\\\_
+        _\///______________\///______________\///__\///////////////__
 
 
+                          Runtime Edition
+
+        PM2 is a Production Process Manager for Node.js applications
+                     with a built-in Load Balancer.
+
+                Start and Daemonize any application:
+                $ pm2 start app.js
+
+                Load Balance 4 instances of api.js:
+                $ pm2 start api.js -i 4
+
+                Monitor in production:
+                $ pm2 monitor
+
+                Make pm2 auto-boot at server restart:
+                $ pm2 startup
+
+                To go further checkout:
+                http://pm2.io/
 
 
+                        -------------
 
-
-
-
-
-
-
-
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
->   --project=pg-ae-n-app-125609 \
->   --region=me-central2
-NAME                          ZONE           STATUS   HEALTH_STATE  ACTION     INSTANCE_TEMPLATE            VERSION_NAME  LAST_ERROR
-cn-backend-mig-regional-g2p4  me-central2-c  RUNNING  HEALTHY       NONE       cn-backend-template-v5
-cn-backend-mig-regional-j69n  me-central2-c  RUNNING  TIMEOUT       VERIFYING  cn-backend-template-0460def
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
-
-
-
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$ curl -v http://localhost:3024/health
-* Host localhost:3024 was resolved.
-* IPv6: ::1
-* IPv4: 127.0.0.1
-*   Trying [::1]:3024...
-* connect to ::1 port 3024 from ::1 port 60044 failed: Connection refused
-*   Trying 127.0.0.1:3024...
-* connect to 127.0.0.1 port 3024 from 127.0.0.1 port 49434 failed: Connection refused
-* Failed to connect to localhost port 3024 after 0 ms: Couldn't connect to server
-* Closing connection
-curl: (7) Failed to connect to localhost port 3024 after 0 ms: Couldn't connect to server
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$ sudo pm2 logs careernavigator-backend --lines 80 --nostream
+[PM2] Spawning PM2 daemon with pm2_home=/home/nikul_sadhu_gcp_pwc_com/.pm2
+[PM2] PM2 Successfully daemonized
+┌────┬───────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name      │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+└────┴───────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$ pm2 logs careernavigator-backend --lines 80 --nostream
 [TAILING] Tailing last 80 lines for [careernavigator-backend] process (change the value with --lines option)
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$^C
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$ "curl -sf http://localhost:3024/health > /dev/null || (echo 'FATAL: /health did not respond after 30s — failing build' && sudo pm2 logs careernavigator-backend --lines 100 --nostream && exit 1)"
--bash: curl -sf http://localhost:3024/health > /dev/null || (echo 'FATAL: /health did not respond after 30s — failing build' && sudo pm2 logs careernavigator-backend --lines 100 --nostream && exit 1): No such file or directory
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$ sudo systemctl status 'pm2-*' --no-pager
+● pm2-sa_108691235514385689272.service - PM2 process manager
+     Loaded: loaded (/etc/systemd/system/pm2-sa_108691235514385689272.service; enabled; preset: enabled)
+     Active: active (running) since Sat 2026-10-03 06:26:56 UTC; 9min ago
+       Docs: https://pm2.keymetrics.io/
+   Main PID: 1121 (PM2 v7.0.4: God)
+      Tasks: 11 (limit: 3917)
+     Memory: 86.8M (peak: 106.3M)
+        CPU: 817ms
+     CGroup: /system.slice/pm2-sa_108691235514385689272.service
+             └─1121 "PM2 v7.0.4: God Daemon (/home/sa_10869123551438568927"
+
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: [PM2] Resurrecting
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: [PM2] Restoring processes located in /home/sa_108691235514385689272/.pm2/dump.pm2
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: [PM2][ERROR] Failed to read dump file in /home/sa_108691235514385689272/.pm2/dump.pm2
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: [PM2] Restoring processes located in /home/sa_108691235514385689272/.pm2/dump.pm2.bak
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: [PM2][ERROR] Failed to read dump file in /home/sa_108691235514385689272/.pm2/dump.pm2.bak
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: [PM2][ERROR] No processes saved; DUMP file doesn't exist
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: ┌────┬───────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: │ id │ name      │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: └────┴───────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal systemd[1]: Started pm2-sa_108691235514385689272.service - PM2 process manager.
+Warning: The unit file, source configuration file or drop-ins of pm2-sa_108691235514385689272.service changed on disk. Run 'systemctl daemon-reload' to reload units.
+Hint: Some lines were ellipsized, use -l to show in full.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$ sudo journalctl -u 'pm2-*' --no-pager -n 100
+Oct 03 06:26:46 cn-backend-mig-regional-j69n systemd[1]: Starting pm2-sa_108691235514385689272.service - PM2 process manager...
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:                         -------------
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: __/\\\\\\\\\\\\\____/\\\\____________/\\\\____/\\\\\\\\\_____
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:  _\/\\\/////////\\\_\/\\\\\\________/\\\\\\__/\\\///////\\\___
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:   _\/\\\_______\/\\\_\/\\\//\\\____/\\\//\\\_\///______\//\\\__
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:    _\/\\\\\\\\\\\\\/__\/\\\\///\\\/\\\/_\/\\\___________/\\\/___
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:     _\/\\\/////////____\/\\\__\///\\\/___\/\\\________/\\\//_____
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:      _\/\\\_____________\/\\\____\///_____\/\\\_____/\\\//________
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:       _\/\\\_____________\/\\\_____________\/\\\___/\\\/___________
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:        _\/\\\_____________\/\\\_____________\/\\\__/\\\\\\\\\\\\\\\_
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:         _\///______________\///______________\///__\///////////////__
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:                           Runtime Edition
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:         PM2 is a Production Process Manager for Node.js applications
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:                      with a built-in Load Balancer.
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:                 Start and Daemonize any application:
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:                 $ pm2 start app.js
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:                 Load Balance 4 instances of api.js:
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:                 $ pm2 start api.js -i 4
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:                 Monitor in production:
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:                 $ pm2 monitor
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:                 Make pm2 auto-boot at server restart:
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:                 $ pm2 startup
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:                 To go further checkout:
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:                 http://pm2.io/
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]:                         -------------
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: [PM2] Spawning PM2 daemon with pm2_home=/home/sa_108691235514385689272/.pm2
+Oct 03 06:26:55 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: [PM2] PM2 Successfully daemonized
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: [PM2] Resurrecting
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: [PM2] Restoring processes located in /home/sa_108691235514385689272/.pm2/dump.pm2
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: [PM2][ERROR] Failed to read dump file in /home/sa_108691235514385689272/.pm2/dump.pm2
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: [PM2] Restoring processes located in /home/sa_108691235514385689272/.pm2/dump.pm2.bak
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: [PM2][ERROR] Failed to read dump file in /home/sa_108691235514385689272/.pm2/dump.pm2.bak
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: [PM2][ERROR] No processes saved; DUMP file doesn't exist
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: ┌────┬───────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: │ id │ name      │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal pm2[620]: └────┴───────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Oct 03 06:26:56 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal systemd[1]: Started pm2-sa_108691235514385689272.service - PM2 process manager.
 nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$
-
-
-
-
-
