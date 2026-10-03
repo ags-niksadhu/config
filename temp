@@ -1,39 +1,33 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
->   --project=pg-ae-n-app-125609 \
->   --region=me-central2
-NAME                          ZONE           STATUS   HEALTH_STATE  ACTION      INSTANCE_TEMPLATE            VERSION_NAME  LAST_ERROR
-cn-backend-mig-regional-g2p4  me-central2-c  RUNNING  HEALTHY       NONE        cn-backend-template-v5
-cn-backend-mig-regional-j69n  me-central2-c  RUNNING  TIMEOUT       RECREATING  cn-backend-template-0460def
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed set-autoscaling cn-backend-mig-regional \
->   --project=pg-ae-n-app-125609 \
->   --region=me-central2 \
->   --min-num-replicas=1 \
->   --max-num-replicas=5 \
->   --target-cpu-utilization=0.6 \
->   --cool-down-period=60
-Updated [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-backend-mig-regional-np3m].
----
-autoscalingPolicy:
-  coolDownPeriodSec: 60
-  cpuUtilization:
-    utilizationTarget: 0.6
-  maxNumReplicas: 5
-  minNumReplicas: 1
-  mode: ON
-creationTimestamp: '2026-09-30T07:47:28.193-07:00'
-id: '3472513171012493295'
-kind: compute#autoscaler
-name: cn-backend-mig-regional-np3m
-recommendedSize: 1
-region: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2
-selfLink: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-backend-mig-regional-np3m
-status: ACTIVE
-statusDetails:
-- message: The min_num_replicas is equal to max_num_replicas. This means the autoscaler
-    cannot add or remove instances from the instance group. Make sure this is the
-    correct setting.
-  type: MIN_EQUALS_MAX
-target: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-backend-mig-regional
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+Good — this confirms the deployment is genuinely still failing on the new template, not just a slow verification. Let's find the real cause before assuming it's just timing.
 
+**Check the actual health check configuration** — it may be checking something different than what Packer verified during build:
+```bash
+gcloud compute health-checks describe backend-health-3024 \
+  --project=pg-ae-n-app-125609 \
+  --format="yaml(httpHealthCheck,checkIntervalSec,timeoutSec,healthyThreshold,unhealthyThreshold)"
+```
 
+**Check the actual instance's live logs right now, before it gets recreated again** (if it still exists):
+```bash
+gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
+  --project=pg-ae-n-app-125609 \
+  --region=me-central2
+```
+
+If `j69n` (or its replacement) is still there, SSH in immediately and check:
+```bash
+gcloud compute ssh cn-backend-mig-regional-j69n \
+  --project=pg-ae-n-app-125609 \
+  --zone=me-central2-c \
+  --tunnel-through-iap
+```
+```bash
+sudo pm2 logs careernavigator-backend --lines 50 --nostream
+curl -v http://localhost:3024/
+curl -v http://localhost/
+sudo systemctl status apache2 --no-pager
+```
+
+**My leading hypothesis, to confirm or rule out:** Packer's build-time check only verified port `3024` (direct to Node/PM2) responds. The actual GCP health check (`backend-health-3024`) may be checking a **specific path** (e.g., `/health`) rather than `/`, or may be routed through **Apache on port 80** rather than directly to 3024 — if there's a mismatch between what Packer validated and what the real health check expects, that would explain this exact pattern (app genuinely starts fine, but the specific health check endpoint fails).
+
+Run the `health-checks describe` command first — paste that output, it'll immediately show us the exact path/port the health check expects, and I can tell you if it matches what we verified in Packer.
