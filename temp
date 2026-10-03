@@ -1,9 +1,14 @@
-Looks like that came back as an echo of my own message rather than command output — no results included yet. Please actually run the commands and paste what they return:
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute health-checks describe backend-health-3024 \
+>   --project=pg-ae-n-app-125609 \
+>   --format="yaml(httpHealthCheck,checkIntervalSec,timeoutSec,healthyThreshold,unhealthyThreshold)"
+checkIntervalSec: 10
+healthyThreshold: 2
+httpHealthCheck:
+  port: 3024
+  portSpecification: USE_FIXED_PORT
+  proxyHeader: NONE
+  requestPath: /health
+timeoutSec: 5
+unhealthyThreshold: 3
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
 
-```bash
-gcloud compute health-checks describe backend-health-3024 \
-  --project=pg-ae-n-app-125609 \
-  --format="yaml(httpHealthCheck,checkIntervalSec,timeoutSec,healthyThreshold,unhealthyThreshold)"
-```
-
-That one first — it's quick and will immediately tell us if there's a path/port mismatch between what Packer validated and what the live health check expects. Paste its actual output.
