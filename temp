@@ -1,33 +1,193 @@
-Good — this confirms the deployment is genuinely still failing on the new template, not just a slow verification. Let's find the real cause before assuming it's just timing.
 
-**Check the actual health check configuration** — it may be checking something different than what Packer verified during build:
-```bash
-gcloud compute health-checks describe backend-health-3024 \
-  --project=pg-ae-n-app-125609 \
-  --format="yaml(httpHealthCheck,checkIntervalSec,timeoutSec,healthyThreshold,unhealthyThreshold)"
-```
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute health-checks describe backend-health-3024 \
+>   --project=pg-ae-n-app-125609 \
+>   --format="yaml(httpHealthCheck,checkIntervalSec,timeoutSec,healthyThreshold,unhealthyThreshold)"
+checkIntervalSec: 10
+healthyThreshold: 2
+httpHealthCheck:
+  port: 3024
+  portSpecification: USE_FIXED_PORT
+  proxyHeader: NONE
+  requestPath: /health
+timeoutSec: 5
+unhealthyThreshold: 3
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
+>   --project=pg-ae-n-app-125609 \
+>   --region=me-central2
+NAME                          ZONE           STATUS   HEALTH_STATE  ACTION     INSTANCE_TEMPLATE            VERSION_NAME  LAST_ERROR
+cn-backend-mig-regional-g2p4  me-central2-c  RUNNING  HEALTHY       NONE       cn-backend-template-v5
+cn-backend-mig-regional-j69n  me-central2-c  RUNNING  TIMEOUT       VERIFYING  cn-backend-template-0460def
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute ssh cn-backend-mig-regional-j69n \
+>   --project=pg-ae-n-app-125609 \
+>   --zone=me-central2-c \
+>   --tunnel-through-iap
+WARNING:
 
-**Check the actual instance's live logs right now, before it gets recreated again** (if it still exists):
-```bash
-gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2
-```
+To increase the performance of the tunnel, consider installing NumPy. For instructions,
+please see https://cloud.google.com/iap/docs/using-tcp-forwarding#increasing_the_tcp_upload_bandwidth
 
-If `j69n` (or its replacement) is still there, SSH in immediately and check:
-```bash
-gcloud compute ssh cn-backend-mig-regional-j69n \
-  --project=pg-ae-n-app-125609 \
-  --zone=me-central2-c \
-  --tunnel-through-iap
-```
-```bash
-sudo pm2 logs careernavigator-backend --lines 50 --nostream
-curl -v http://localhost:3024/
-curl -v http://localhost/
-sudo systemctl status apache2 --no-pager
-```
+ERROR: [0] Error during local connection to [stdin]: Error while connecting [4033: 'not authorized'].
+Traceback (most recent call last):
+  File "/snap/google-cloud-cli/503/lib/googlecloudsdk/command_lib/compute/iap_tunnel.py", line 805, in RunReceiveLocalData
+    websocket_conn = self._InitiateConnection(
+        conn,
+    ...<4 lines>...
+        conn_id=conn_id,
+    )
+  File "/snap/google-cloud-cli/503/lib/googlecloudsdk/command_lib/compute/iap_tunnel.py", line 771, in _InitiateConnection
+    new_websocket.InitiateConnection()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/snap/google-cloud-cli/503/lib/googlecloudsdk/api_lib/compute/iap_tunnel_websocket.py", line 158, in InitiateConnection
+    self._WaitForOpenOrRaiseError()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/snap/google-cloud-cli/503/lib/googlecloudsdk/api_lib/compute/iap_tunnel_websocket.py", line 512, in _WaitForOpenOrRaiseError
+    raise ConnectionCreationError(error_msg)
+googlecloudsdk.api_lib.compute.iap_tunnel_websocket.ConnectionCreationError: Error while connecting [4033: 'not authorized'].
+Connection closed by UNKNOWN port 65535
 
-**My leading hypothesis, to confirm or rule out:** Packer's build-time check only verified port `3024` (direct to Node/PM2) responds. The actual GCP health check (`backend-health-3024`) may be checking a **specific path** (e.g., `/health`) rather than `/`, or may be routed through **Apache on port 80** rather than directly to 3024 — if there's a mismatch between what Packer validated and what the real health check expects, that would explain this exact pattern (app genuinely starts fine, but the specific health check endpoint fails).
+Recommendation: To check for possible causes of SSH connectivity issues and get
+recommendations, rerun the ssh command with the --troubleshoot option.
 
-Run the `health-checks describe` command first — paste that output, it'll immediately show us the exact path/port the health check expects, and I can tell you if it matches what we verified in Packer.
+gcloud compute ssh cn-backend-mig-regional-j69n --project=pg-ae-n-app-125609 --zone=me-central2-c --troubleshoot
+
+Or, to investigate an IAP tunneling issue:
+
+gcloud compute ssh cn-backend-mig-regional-j69n --project=pg-ae-n-app-125609 --zone=me-central2-c --troubleshoot --tunnel-through-iap
+
+ERROR: (gcloud.compute.ssh) [/usr/bin/ssh] exited with return code [255].
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Welcome to Ubuntu 24.04.5 LTS (GNU/Linux 7.0.0-1011-gcp x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Sat Oct  3 06:29:05 UTC 2026
+
+  System load:  0.25              Processes:             129
+  Usage of /:   4.1% of 95.82GB   Users logged in:       0
+  Memory usage: 8%                IPv4 address for ens4: 10.216.15.205
+  Swap usage:   0%
+
+
+Expanded Security Maintenance for Applications is not enabled.
+
+32 updates can be applied immediately.
+20 of these updates are standard security updates.
+To see these additional updates run: apt list --upgradable
+
+Enable ESM Apps to receive additional future security updates.
+See https://ubuntu.com/esm or run: sudo pro status
+
+New release '26.04.1 LTS' available.
+Run 'do-release-upgrade' to upgrade to it.
+
+
+
+The programs included with the Ubuntu system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
+
+
+The programs included with the Ubuntu system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
+
+Creating directory '/home/nikul_sadhu_gcp_pwc_com'.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$ sudo pm2 logs careernavigator-backend --lines 50 --nostream
+[PM2] Spawning PM2 daemon with pm2_home=/root/.pm2
+[PM2] PM2 Successfully daemonized
+[TAILING] Tailing last 50 lines for [careernavigator-backend] process (change the value with --lines option)
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$ curl -v http://localhost:3024/
+* Host localhost:3024 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+*   Trying [::1]:3024...
+* connect to ::1 port 3024 from ::1 port 59520 failed: Connection refused
+*   Trying 127.0.0.1:3024...
+* connect to 127.0.0.1 port 3024 from 127.0.0.1 port 59322 failed: Connection refused
+* Failed to connect to localhost port 3024 after 0 ms: Couldn't connect to server
+* Closing connection
+curl: (7) Failed to connect to localhost port 3024 after 0 ms: Couldn't connect to server
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$ curl -v http://localhost/
+* Host localhost:80 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+*   Trying [::1]:80...
+* Connected to localhost (::1) port 80
+> GET / HTTP/1.1
+> Host: localhost
+> User-Agent: curl/8.5.0
+> Accept: */*
+>
+< HTTP/1.1 301 Moved Permanently
+< Date: Sat, 03 Oct 2026 06:29:27 GMT
+< Server: Apache/2.4.58 (Ubuntu)
+< X-Content-Type-Options: nosniff
+< X-XSS-Protection: 1; mode=block
+< Referrer-Policy: strict-origin-when-cross-origin
+< Permissions-Policy: geolocation=(), microphone=(), camera=()
+< Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';
+< Location: https://localhost/
+< Content-Length: 301
+< Content-Type: text/html; charset=iso-8859-1
+<
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>301 Moved Permanently</title>
+</head><body>
+<h1>Moved Permanently</h1>
+<p>The document has moved <a href="https://localhost/">here</a>.</p>
+<hr>
+<address>Apache/2.4.58 (Ubuntu) Server at localhost Port 80</address>
+</body></html>
+* Connection #0 to host localhost left intact
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$ sudo systemctl status apache2 --no-pager
+● apache2.service - The Apache HTTP Server
+     Loaded: loaded (/usr/lib/systemd/system/apache2.service; enabled; preset: enabled)
+     Active: active (running) since Sat 2026-10-03 06:26:53 UTC; 2min 39s ago
+       Docs: https://httpd.apache.org/docs/2.4/
+   Main PID: 962 (apache2)
+      Tasks: 105 (limit: 3917)
+     Memory: 14.8M (peak: 14.8M)
+        CPU: 118ms
+     CGroup: /system.slice/apache2.service
+             ├─962 /usr/sbin/apache2 -k start
+             ├─965 /usr/sbin/apache2 -k start
+             └─966 /usr/sbin/apache2 -k start
+
+Oct 03 06:26:46 cn-backend-mig-regional-j69n systemd[1]: Starting apache2.service - The Apache HTTP Server...
+Oct 03 06:26:53 cn-backend-mig-regional-j69n.c.pg-ae-n-app-125609.internal systemd[1]: Started apache2.service - The Apache HTTP Server.
+Warning: The unit file, source configuration file or drop-ins of apache2.service changed on disk. Run 'systemctl daemon-reload' to reload units.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-j69n:~$
