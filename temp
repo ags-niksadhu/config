@@ -1,36 +1,44 @@
-**Excellent — this is the real breakthrough:** `APP IS UP` appears in the Packer build log, and the image (`cn-backend-image-551a568`) + template (`cn-backend-template-551a568`) both built successfully. **The PM2 user-fix and `/health` endpoint fix both worked.** This confirms the actual application-deployment bug from earlier tonight is now resolved.
+Welcome to Ubuntu 24.04.5 LTS (GNU/Linux 7.0.0-1011-gcp x86_64)
 
-**The only remaining issue is the final `Verify Rollout Health` step timing out** — same symptom as before, but now it's almost certainly just the 1200s timeout being too short for a 3-zone regional rollout with sequential churn, not an app problem.
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
 
-**Check current real state right now:**
-```bash
-gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
-  --project=pg-ae-n-app-125609 \
-  --region=me-central2
-```
+ System information as of Sat Oct  3 06:53:47 UTC 2026
 
-Paste this. If all instances show `RUNNING`/`HEALTHY` on `cn-backend-template-551a568`, **the deployment actually succeeded** — the verify step just gave up waiting too early, same pattern as the previous attempt.
+  System load:  0.15               Processes:             149
+  Usage of /:   24.7% of 95.82GB   Users logged in:       1
+  Memory usage: 49%                IPv4 address for ens4: 10.216.0.7
+  Swap usage:   0%
 
-**If confirmed healthy, apply the final, permanent fix — increase the timeout so this stops producing false failures:**
+ * Canonical Workshop gives developers fast, composable, reproducible, and
+   secure developer environments that are perfect for agentic workflows.
 
-```yaml
-  - id: Verify Rollout Health
-    name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        gcloud compute instance-groups managed wait-until cn-backend-mig-regional \
-          --project=pg-ae-n-app-125609 \
-          --region=me-central2 \
-          --stable \
-          --timeout=1800
-```
+   https://ubuntu.com/workshop
 
-```bash
-git add cloudbuild.yaml
-git commit -m "Increase Verify Rollout Health timeout to 1800s for 3-zone regional MIG rollouts"
-git push origin staging
-```
+Expanded Security Maintenance for Applications is not enabled.
 
-At this point, with the app bug fixed and the timeout extended, the pipeline should go fully green end-to-end on the next run. Paste the instance list — let's confirm the current state before calling tonight's work done.
+54 updates can be applied immediately.
+20 of these updates are standard security updates.
+To see these additional updates run: apt list --upgradable
+
+3 additional security updates can be applied with ESM Apps.
+Learn more about enabling ESM Apps service at https://ubuntu.com/esm
+
+New release '26.04.1 LTS' available.
+Run 'do-release-upgrade' to upgrade to it.
+
+
+2 updates could not be installed automatically. For more details,
+see /var/log/unattended-upgrades/unattended-upgrades.log
+
+
+Last login: Sat Oct  3 05:48:48 2026 from 35.235.244.168
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed list-instances cn-backend-mig-regional \
+>   --project=pg-ae-n-app-125609 \
+>   --region=me-central2
+NAME                          ZONE           STATUS   HEALTH_STATE  ACTION     INSTANCE_TEMPLATE            VERSION_NAME  LAST_ERROR
+cn-backend-mig-regional-4bhw  me-central2-c  RUNNING  TIMEOUT       VERIFYING  cn-backend-template-551a568
+cn-backend-mig-regional-g2p4  me-central2-c  RUNNING  HEALTHY       NONE       cn-backend-template-v5
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+
