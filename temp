@@ -1,3 +1,7 @@
-gcloud compute instance-templates describe cn-backend-template-551a568 \
-  --project=pg-ae-n-app-125609 \
-  --format="value(properties.tags.items)"
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-templates describe cn-backend-template-551a568 \
+>   --project=pg-ae-n-app-125609 \
+>   --format="value(properties.tags.items)"
+
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-templates describe cn-backend-template-551a568   --project=pg-ae-n-app-125609   --format="value(properties.tags.items)"
+
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
