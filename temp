@@ -1,11 +1,2 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$ gcloud compute instances list --project=pg-ae-n-app-125609 --format="table(name,zone.basename(),shieldedInstanceConfig.enableSecureBoot,shieldedInstanceConfig.enableVtpm,shieldedInstanceConfig.enableIntegrityMonitoring)"
-NAME                          ZONE           ENABLE_SECURE_BOOT  ENABLE_VTPM  ENABLE_INTEGRITY_MONITORING
-cn-staging-backapp-vm-01      me-central2-c  True                True         True
-cn-staging-frontapp-vm-01     me-central2-c  True                True         True
-cn-backend-mig-regional-f9rw  me-central2-a  False               True         True
-cn-backend-mig-regional-mxrt  me-central2-a  False               True         True
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$ gcloud compute images describe clean-ubuntu-26092026-img --project=pg-ae-n-app-125609 --format="value(guestOsFeatures[].type)"
-VIRTIO_SCSI_MULTIQUEUE;SEV_CAPABLE;SEV_SNP_CAPABLE;SEV_LIVE_MIGRATABLE;SEV_LIVE_MIGRATABLE_V2;SNP_SVSM_CAPABLE;IDPF;TDX_CAPABLE;UEFI_COMPATIBLE;GVNIC
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$
-
-
+gcloud compute snapshots list --project=pg-ae-n-app-125609 --format="table(name,sourceDisk.basename(),creationTimestamp.date(),snapshotEncryptionKey.kmsKeyName)"
+gcloud compute resource-policies list --project=pg-ae-n-app-125609 --format="table(name,region.basename(),snapshotSchedulePolicy.schedule.dailySchedule.startTime)"
