@@ -1,1 +1,5 @@
-gcloud compute resource-policies describe default-schedule-1 --region=me-central2 --project=pg-ae-n-app-125609 --format="yaml(snapshotSchedulePolicy.snapshotProperties)"
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$ gcloud compute resource-policies describe default-schedule-1 --region=me-central2 --project=pg-ae-n-app-125609 --format="yaml(snapshotSchedulePolicy.snapshotProperties)"
+snapshotSchedulePolicy:
+  snapshotProperties:
+    guestFlush: false
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$
