@@ -1,11 +1,30 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ P=pg-ae-n-app-125609; L=me-central2
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ rg() { CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER="https://secretmanager.$L.rep.googleapis.com/" gcloud "$@"; }
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ type rg
-rg is a function
-rg ()
-{
-    CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER="https://secretmanager.$L.rep.googleapis.com/" gcloud "$@"
-}
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ rg secrets create CN_STAGING_MAIL_DRIVER --location=$L --project=$P
-Created secret [CN_STAGING_MAIL_DRIVER].
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$
+The regional secret `CN_STAGING_MAIL_DRIVER` was created in `me-central2`. That also settles two earlier uncertainties: the `rg` wrapper works, and a regional secret can share its name with the global one. The secret has no value yet, so nothing reads it.
+
+## Next: add the value and compare hashes
+
+Run these in the same shell session, where `rg`, `P` and `L` are still defined:
+```bash
+gcloud secrets versions access latest --secret=CN_STAGING_MAIL_DRIVER --project=$P | rg secrets versions add CN_STAGING_MAIL_DRIVER --location=$L --project=$P --data-file=-
+echo "global:"; gcloud secrets versions access latest --secret=CN_STAGING_MAIL_DRIVER --project=$P | sha256sum
+echo "regional:"; rg secrets versions access latest --secret=CN_STAGING_MAIL_DRIVER --location=$L --project=$P | sha256sum
+```
+The first command pipes the global value straight into the regional secret, and nothing is printed. The two hashes must match. Your earlier global hash was `4ae524ef0a54bc56e3844482dff66d3dd1c07170a36531500327556e4eb58a66`.
+
+## Then test the two endpoint forms
+
+```bash
+T=$(gcloud auth print-access-token)
+curl -s -o /dev/null -w "older host (what the app uses): %{http_code}\n" -H "Authorization: Bearer $T" "https://me-central2-secretmanager.googleapis.com/v1/projects/$P/locations/$L/secrets/CN_STAGING_MAIL_DRIVER/versions/latest:access"
+curl -s -o /dev/null -w "rep host (documented form): %{http_code}\n" -H "Authorization: Bearer $T" "https://secretmanager.$L.rep.googleapis.com/v1/projects/$P/locations/$L/secrets/CN_STAGING_MAIL_DRIVER/versions/latest:access"
+```
+The output is discarded, so no value is printed.
+
+- **Both 200:** the app needs no code change.
+- **Only the `rep` host returns 200:** it needs the one-line `apiEndpoint` change I described.
+- **A 403 on both:** the permissions on regional secrets differ from the global ones. Paste it, and I'll look at the access setup before we go on.
+
+## Rollback
+
+If you want to undo the test, delete the regional secret in the Console: Secret Manager → Regional secrets tab → `CN_STAGING_MAIL_DRIVER` → Delete. The global secret and the running app are untouched.
+
+Paste the two hashes and the two status codes. Don't run the bulk copy script yet.
