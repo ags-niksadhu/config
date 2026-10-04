@@ -1,39 +1,38 @@
-## What your outputs show
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ curl -s -o /dev/null -w "%{http_code}\n" -A "GoogleHC/1.0" http://$(gcloud compute instances describe cn-backend-mig-regional-t5md --zone=me-central2-a --project=pg-ae-n-app-125609 --format="value(networkInterfaces[0].networkIP)")/
+200
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute ssh cn-backend-mig-regional-t5md --zone=me-central2-a --project=pg-ae-n-app-125609 --tunnel-through-iap --command="sudo tail -n 40 /home/sa_108691235514385689272/.pm2/logs/careernavigator-backend-error-0.log"
+WARNING:
 
-- **The zonal `cn-backend-mig` is gone.** I was wrong earlier to say it might still be billing. `app-instance-group` has 0 instances and costs nothing.
-- **The LB health check probes port 80, path `/`, and expects a 200.** It does not probe `/health` on 3024. Packer and the MIG's own autohealing only verified `/health` on 3024, so `/` through Apache on port 80 has never been tested.
-- **Firewall is covered.** `allow-lb-to-vm` allows port 80 from the Google health-check ranges to all instances, so the new tag doesn't matter here.
-- **Apache redirects non-HTTPS requests to HTTPS, except health checks.** Your vhost skips that redirect for the `GoogleHC/` user agent, so the test below has to use that agent. Without it you'd see a 301.
+To increase the performance of the tunnel, consider installing NumPy. For instructions,
+please see https://cloud.google.com/iap/docs/using-tcp-forwarding#increasing_the_tcp_upload_bandwidth
 
-## Checks to run before touching the load balancer
+ERROR: [0] Error during local connection to [stdin]: Error while connecting [4033: 'not authorized'].
+Traceback (most recent call last):
+  File "/snap/google-cloud-cli/503/lib/googlecloudsdk/command_lib/compute/iap_tunnel.py", line 805, in RunReceiveLocalData
+    websocket_conn = self._InitiateConnection(
+        conn,
+    ...<4 lines>...
+        conn_id=conn_id,
+    )
+  File "/snap/google-cloud-cli/503/lib/googlecloudsdk/command_lib/compute/iap_tunnel.py", line 771, in _InitiateConnection
+    new_websocket.InitiateConnection()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/snap/google-cloud-cli/503/lib/googlecloudsdk/api_lib/compute/iap_tunnel_websocket.py", line 158, in InitiateConnection
+    self._WaitForOpenOrRaiseError()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/snap/google-cloud-cli/503/lib/googlecloudsdk/api_lib/compute/iap_tunnel_websocket.py", line 512, in _WaitForOpenOrRaiseError
+    raise ConnectionCreationError(error_msg)
+googlecloudsdk.api_lib.compute.iap_tunnel_websocket.ConnectionCreationError: Error while connecting [4033: 'not authorized'].
+Connection closed by UNKNOWN port 65535
 
-**1. Does `/` through Apache return 200 on the new instance?** This runs from your current VM, which is on the same VPC:
-```bash
-curl -s -o /dev/null -w "%{http_code}\n" -A "GoogleHC/1.0" http://$(gcloud compute instances describe cn-backend-mig-regional-t5md --zone=me-central2-a --project=pg-ae-n-app-125609 --format="value(networkInterfaces[0].networkIP)")/
-```
-It must print `200`. Anything else, including a 301 or 404, means the LB would mark the backend unhealthy.
+Recommendation: To check for possible causes of SSH connectivity issues and get
+recommendations, rerun the ssh command with the --troubleshoot option.
 
-**2. Is the app erroring on its DB or Redis connections?** `/health` passing doesn't prove those work:
-```bash
-gcloud compute ssh cn-backend-mig-regional-t5md --zone=me-central2-a --project=pg-ae-n-app-125609 --tunnel-through-iap --command="sudo tail -n 40 /home/sa_108691235514385689272/.pm2/logs/careernavigator-backend-error-0.log"
-```
-Look for DB or Redis connection errors. A DB that only allows the old VM's IP would show up here.
+gcloud compute ssh cn-backend-mig-regional-t5md --project=pg-ae-n-app-125609 --zone=me-central2-a --troubleshoot
 
-Paste both. Don't continue if check 1 isn't `200`.
+Or, to investigate an IAP tunneling issue:
 
-## Cutover steps, only after both checks pass
+gcloud compute ssh cn-backend-mig-regional-t5md --project=pg-ae-n-app-125609 --zone=me-central2-a --troubleshoot --tunnel-through-iap
 
-1. **Add the named port.** Compute Engine → Instance groups → `cn-backend-mig-regional` → Edit → Specify port name mapping → add name `http`, port `80` → Save.
-2. **Attach to the backend service.** Network services → Backend services → `app-backend-service` → Edit → Backends → Add a backend:
-   - Instance group: `cn-backend-mig-regional`
-   - Port numbers: `80`
-   - Balancing mode: Utilization, max 80%, capacity 100%, same as `backend-ig`
-3. Click Update.
-4. **Wait for health.** Open `app-backend-service` details. Both groups should show healthy before you go further.
-5. **Test through the real URL.** Request `https://stagingapi.careerdevelopmentnavigator.mer.pwc.com` repeatedly and confirm it responds normally.
-
-**Rollout approach:** with both attached, traffic is split between the old VM and the new instance, which works as a canary. Removing `backend-ig` only after real requests succeed costs nothing extra and keeps an instant fallback.
-
-⚠️ **Rollback:** Edit `app-backend-service` → remove `cn-backend-mig-regional` → Update. `backend-ig` is still attached, so traffic returns to the old VM immediately.
-
-After cutover, set connection draining to about 30 seconds on `app-backend-service`. That stops in-flight requests being cut when a server is replaced during deploys.
+ERROR: (gcloud.compute.ssh) [/usr/bin/ssh] exited with return code [255].
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
