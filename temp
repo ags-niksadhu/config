@@ -1,94 +1,28 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ cat package.json
-{
-  "name": "my-app",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
-  },
-  "dependencies": {
-    "@dnd-kit/core": "^6.3.1",
-    "@dnd-kit/sortable": "^10.0.0",
-    "@dnd-kit/utilities": "^3.2.2",
-    "@reduxjs/toolkit": "^2.11.2",
-    "@tanstack/react-query": "^5.85.9",
-    "@tiptap/extension-bullet-list": "^2.10.2",
-    "@tiptap/extension-link": "^2.10.2",
-    "@tiptap/extension-list-item": "^2.10.2",
-    "@tiptap/extension-ordered-list": "^2.10.2",
-    "@tiptap/pm": "^2.10.2",
-    "@tiptap/react": "^2.10.2",
-    "@tiptap/starter-kit": "^2.10.2",
-    "aos": "^2.3.4",
-    "axios": "^1.11.0",
-    "crypto": "^1.0.1",
-    "formik": "^2.4.6",
-    "js-cookie": "^3.0.5",
-    "moment": "^2.30.1",
-    "next": "^16.1.6",
-    "react": "18.2.0",
-    "react-content-loader": "^7.1.1",
-    "react-d3-tree": "^3.6.6",
-    "react-dom": "18.2.0",
-    "react-icons": "^5.5.0",
-    "react-otp-input": "^3.1.1",
-    "react-redux": "^8.1.3",
-    "react-select": "^5.10.2",
-    "react-toastify": "^11.0.5",
-    "recharts": "^3.6.0",
-    "redux-persist": "^6.0.0",
-    "socket.io-client": "^4.8.1",
-    "yup": "^1.7.0"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/js-cookie": "^3.0.6",
-    "@types/node": "^20",
-    "@types/react": "^18.3.0",
-    "@types/react-dom": "^18.3.0",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
-}
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ cat next.config.ts
-import type { NextConfig } from "next";
+The Console only enables a template when it's compatible with the location you've selected, so I need two facts first: whether the template exists, and what it's bound to.
 
-const nextConfig: NextConfig = {
-  output: "standalone",
-  distDir: "build",
-  reactStrictMode: false,
-  env: {
-    WEBSITE_URL: "https://staging.careerdevelopmentnavigator.mer.pwc.com/",
-    API_BASE_URL: "https://stagingapi.careerdevelopmentnavigator.mer.pwc.com/v1/",
-    SOCKET_URL: "https://stagingapi.careerdevelopmentnavigator.mer.pwc.com",
-    SECRET_KEY: "abc",
-  },
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "**",
-      },
-      {
-        protocol: "http",
-        hostname: "**",
-      },
-    ],
-  },
-};
+**1. Does the frontend template exist, and where is it bound?**
+```bash
+gcloud compute instance-templates list --project=pg-ae-n-app-125609 --filter="name~cn-frontend" --format="table(name,creationTimestamp.date(),properties.networkInterfaces[0].subnetwork.basename(),properties.machineType)"
+```
 
-export default nextConfig;
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ ls -la | grep -i env
--rw-rw-r--   1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com    288 Sep 14 11:11 next-env.d.ts
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ grep -rhoE "process\.env\.[A-Z_]+" src | sort -u
-process.env.API_BASE_URL
-process.env.SECRET_KEY
-process.env.SOCKET_URL
-process.env.WEBSITE_URL
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ curl -s -o /dev/null -w "login: %{http_code}\n" http://localhost:3027/login
-login: 200
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ curl -s -o /dev/null -w "health: %{http_code}\n" http://localhost:3027/health
-health: 200
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$
+**2. Did the frontend build reach the template step?**
+```bash
+gcloud builds list --region=me-central2 --project=pg-ae-n-app-125609 --limit=5 --format="table(id,status,createTime,substitutions.TRIGGER_NAME,substitutions.SHORT_SHA)"
+```
+
+## What each result means
+
+- **Command 1 returns nothing:** the template was never created. The build either hasn't run on the frontend repo or failed before the `Create Instance Template` step. Open the latest `careernavigator-frontend-staging` build in Console → Cloud Build → History (region `me-central2`) and paste the failing step's log tail.
+- **Command 1 lists a template:** it exists, so the grey-out is a compatibility filter in the form. The template's subnet is `default` in `me-central2`, so it's greyed out whenever the MIG's location is a different region.
+
+## Quick try in the Console (only if the template exists)
+
+The Console form can default to a different region.
+
+1. In the create-MIG form, set **Location → Multiple zones**.
+2. Set **Region** to `me-central2` and select zones `a`, `b` and `c`.
+3. Reopen the **Instance template** dropdown. It should now be selectable.
+
+If it's still greyed out after that, tell me the exact text shown next to the greyed-out entry (a tooltip or hint line). It usually names the reason.
+
+Paste both command outputs.
