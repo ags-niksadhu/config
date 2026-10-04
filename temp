@@ -7,12 +7,16 @@ steps:
   - id: Run Tests
     name: 'node:22'
     entrypoint: npm
-    args: ['run', 'test', '--if-present']
+    args:
+      - run
+      - test
+      - --
+      - --passWithNoTests
 
   - id: Build Staging
     name: 'node:22'
     entrypoint: npm
-    args: ['run', 'build']
+    args: ['run', 'build:staging']
 
   - id: Build Packer Image
     name: 'hashicorp/packer:latest'
@@ -30,21 +34,21 @@ steps:
     args:
       - -c
       - |
-        gcloud compute instance-templates create cn-frontend-template-$SHORT_SHA \
+        gcloud compute instance-templates create cn-backend-template-$SHORT_SHA \
           --instance-template-region=me-central2 \
           --project=pg-ae-n-app-125609 \
           --region=me-central2 \
           --machine-type=e2-medium \
-          --image=cn-frontend-image-$SHORT_SHA \
+          --image=cn-backend-image-$SHORT_SHA \
           --network=default \
           --subnet=default \
           --no-address \
           --scopes=cloud-platform \
-          --tags=cn-frontend \
+          --tags=cn-backend \
           --shielded-secure-boot \
           --shielded-vtpm \
           --shielded-integrity-monitoring \
-          --labels=managed-by=cloudbuild-packer,app=cn-frontend
+          --labels=managed-by=cloudbuild-packer,app=cn-backend
 
   - id: Rolling Update MIG
     name: 'gcr.io/cloud-builders/gcloud'
@@ -52,10 +56,10 @@ steps:
     args:
       - -c
       - |
-        gcloud compute instance-groups managed rolling-action start-update cn-frontend-mig-regional \
+        gcloud compute instance-groups managed rolling-action start-update cn-backend-mig-regional \
           --project=pg-ae-n-app-125609 \
           --region=me-central2 \
-          --version=template=projects/pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-$SHORT_SHA \
+          --version=template=projects/pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-backend-template-$SHORT_SHA \
           --max-surge=3 \
           --max-unavailable=0
 
@@ -65,7 +69,7 @@ steps:
     args:
       - -c
       - |
-        gcloud compute instance-groups managed wait-until cn-frontend-mig-regional \
+        gcloud compute instance-groups managed wait-until cn-backend-mig-regional \
           --project=pg-ae-n-app-125609 \
           --region=me-central2 \
           --stable \
@@ -82,13 +86,13 @@ steps:
         KEEP=5
         DRY_RUN=1
         PROJECT=pg-ae-n-app-125609
-        IN_USE=$$(gcloud compute instance-groups managed describe cn-frontend-mig-regional --region=me-central2 --project=$$PROJECT --format="value(versions[].instanceTemplate.basename())")
+        IN_USE=$$(gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --project=$$PROJECT --format="value(versions[].instanceTemplate.basename())")
         gcloud compute instance-templates list --project=$$PROJECT \
-          --filter="labels.managed-by=cloudbuild-packer AND labels.app=cn-frontend AND name~^cn-frontend-template-[0-9a-f]{7}$$" \
+          --filter="labels.managed-by=cloudbuild-packer AND labels.app=cn-backend AND name~^cn-backend-template-[0-9a-f]{7}$$" \
           --sort-by=~creationTimestamp --format="value(name)" | tail -n +$$((KEEP+1)) | while read T; do
             if echo "$$IN_USE" | grep -qw "$$T"; then echo "SKIP in use: $$T"; continue; fi
-            SHA=$${T#cn-frontend-template-}
-            IMG=$$(gcloud compute images list --project=$$PROJECT --filter="name=cn-frontend-image-$$SHA AND labels.managed-by=cloudbuild-packer" --format="value(name)")
+            SHA=$${T#cn-backend-template-}
+            IMG=$$(gcloud compute images list --project=$$PROJECT --filter="name=cn-backend-image-$$SHA AND labels.managed-by=cloudbuild-packer" --format="value(name)")
             if [ "$$DRY_RUN" = "1" ]; then
               echo "DRY RUN would delete template $$T and image $${IMG:-none}"
             else
