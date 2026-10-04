@@ -12,7 +12,54 @@ cn-frontend-mig-regional-j51l.c.pg-ae-n-app-125609.internal
 cn-frontend-mig-regional-jvmm.c.pg-ae-n-app-125609.internal
  18:11:58 up  1:02,  1 user,  load average: 0.28, 0.12, 0.09
 47
-cn-frontend-mig-regional-vqp1.c.pg-ae-n-app-125609.internal
+cn-frontend-mig-regional-vqp1.c.pg-ae-n-app-125609.internal## What the new outputs show
+
+| Server | Created (PDT) | Real requests (non-health-check) | Load average |
+|---|---|---|---|
+| `jvmm` | 10:09 | 47 in about an hour | 0.28 |
+| `vqp1` | 10:55:49 | 2 | 0.03 |
+| `j51l` | 10:56:25 | 0 | 0.08 |
+
+- **The two extra servers were created together, about 46 minutes after `jvmm`.** Two instances appearing within 36 seconds of each other is a single autoscaler step from 1 to 3, not manual action.
+- **Real traffic is negligible.** The three servers together served about 50 real requests. The rest of the log is the load balancer's health checker.
+- **Nothing is busy now.** All three are idle.
+
+## What I still can't tell you
+
+Why the autoscaler wanted 3 at 10:55 PDT, which is 17:55 UTC. Only a CPU spike on `jvmm` at that moment would explain it, and none of these outputs shows one. Candidates are boot-time work on a new `e2-medium`, a test or scan hitting the site, or the load balancer attach. I won't guess which.
+
+## Check now
+
+Scale-in has a 600s stabilization wait, and the new servers are over 15 minutes old. If CPU stayed idle, the group may already be shrinking:
+```bash
+gcloud compute instance-groups managed list --project=pg-ae-n-app-125609
+curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://compute.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-frontend-mig-regional" | grep -E "recommendedSize|status"
+```
+If `recommendedSize` has dropped to 1 and the size follows, the 3 was a one-off and needs no change.
+
+To find the cause itself, I still need the Monitoring graph (Console → Instance groups → `cn-frontend-mig-regional` → Monitoring, last 3 hours), or the time you attached the frontend to `frontend-service`.
+
+## Options, but don't change anything yet
+
+| | Cost | Effort | Notes |
+|---|---|---|---|
+| **A. Observe** | none | none | Recommended. Costs at most up to 3 `e2-medium` while you wait, and it's already capped. |
+| **B. Cap max at 1 or 2** (Console → autoscaler edit) | lowest | low | Safe for staging. Removes the autoscaler's ability to absorb a real spike. |
+| **C. Leave as is** | up to 3 servers | none | Fine if traffic is expected to grow. |
+
+## New: the backend also grew
+
+The backend MIG had 1 instance earlier. Now there are two: `rs57` (05:14 PDT) and `37kx`, created at 11:06 PDT, about 6 minutes before your command. Did you push anything to the backend repo in the last few minutes? Then run:
+```bash
+gcloud compute instance-groups managed list-instances cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609
+```
+A different template on `37kx` would mean a rolling update is running. The same template would mean the autoscaler scaled out.
+
+## Hold the Packer push
+
+Both MIGs should be back at 1 instance before you push the `me-central2` image change. A rolling update with `--max-surge=3` adds up to 3 extra servers, which in zone `a` right now would stack on top of the current ones.
+
+Paste the two checks and the backend list.
  18:12:06 up 15 min,  1 user,  load average: 0.03, 0.08, 0.14
 2
 nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$
