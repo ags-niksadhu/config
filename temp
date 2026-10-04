@@ -1,1 +1,91 @@
-gcloud builds describe 0128d9e9-51e5-4dca-a3e6-f424dee87ec6 --region=me-central2 --project=pg-ae-n-app-125609 --format="yaml(status,failureInfo,steps[].id,steps[].status)"
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ gcloud builds describe 0128d9e9-51e5-4dca-a3e6-f424dee87ec6 --region=me-central2 --project=pg-ae-n-app-125609 --format="yaml(status,failureInfo,steps[].id,steps[].status)"
+failureInfo:
+  detail: 'Build step failure: build step 0 "node:22" failed: step exited with non-zero
+    status: 1'
+  type: USER_BUILD_STEP
+status: FAILURE
+steps:
+- id: Install Dependencies
+  status: FAILURE
+- id: Run Tests
+  status: QUEUED
+- id: Build Staging
+  status: QUEUED
+- id: Build Packer Image
+  status: QUEUED
+- id: Create Instance Template
+  status: QUEUED
+- id: Rolling Update MIG
+  status: QUEUED
+- id: Verify Rollout Health
+  status: QUEUED
+- id: Cleanup Old Packer Artifacts
+  status: QUEUED
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$
+
+
+
+ERROR: build step 0 "node:22" failed: step exited with non-zero status: 1
+ERROR
+Finished Step #0 - "Install Dependencies"
+npm error A complete log of this run can be found in: /builder/home/.npm/_logs/2026-10-04T15_59_07_275Z-debug-0.log
+npm error aliases: clean-install, ic, install-clean, isntall-clean
+npm error
+npm error [--no-bin-links] [--no-fund] [--dry-run]
+npm error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts] [--no-audit]
+npm error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+npm error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+npm error
+npm error npm ci
+npm error later to generate a package-lock.json file, then try again.
+npm error The `npm ci` command can only install with an existing package-lock.json or
+npm error code EUSAGE
+docker.io/library/node:22
+Status: Downloaded newer image for node:22
+Digest: sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
+0c06829c34ad: Pull complete
+105754cf457c: Pull complete
+0d48f423dff0: Pull complete
+b92563fa790f: Pull complete
+de9e8d0a0071: Pull complete
+81578410df16: Pull complete
+de9e8d0a0071: Download complete
+de9e8d0a0071: Verifying Checksum
+7b2de2423ebd: Pull complete
+eaac70c68abd: Pull complete
+81578410df16: Download complete
+81578410df16: Verifying Checksum
+0d48f423dff0: Download complete
+0d48f423dff0: Verifying Checksum
+eaac70c68abd: Download complete
+eaac70c68abd: Verifying Checksum
+0c06829c34ad: Download complete
+0c06829c34ad: Verifying Checksum
+7b2de2423ebd: Download complete
+7b2de2423ebd: Verifying Checksum
+105754cf457c: Download complete
+105754cf457c: Verifying Checksum
+b92563fa790f: Download complete
+b92563fa790f: Verifying Checksum
+0c06829c34ad: Waiting
+105754cf457c: Waiting
+0c06829c34ad: Pulling fs layer
+105754cf457c: Pulling fs layer
+0d48f423dff0: Pulling fs layer
+b92563fa790f: Pulling fs layer
+de9e8d0a0071: Pulling fs layer
+81578410df16: Pulling fs layer
+7b2de2423ebd: Pulling fs layer
+eaac70c68abd: Pulling fs layer
+22: Pulling from library/node
+Pulling image: node:22
+Starting Step #0 - "Install Dependencies"
+BUILD
+12e7c5ac7520df91e5310772c81e6b115bdcd49c
+GitCommit:
+HEAD is now at 12e7c5a Update frontend.pkr.hcl
+ * branch            12e7c5ac7520df91e5310772c81e6b115bdcd49c -> FETCH_HEAD
+From https://github.com/pwc-me-adv-careernavigator/careernavigator-frontend
+FETCHSOURCE
+starting build "f58d1d1e-9326-4860-9df9-3152b05f324c"
+
