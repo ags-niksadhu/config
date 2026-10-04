@@ -1,4 +1,27 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud secrets create CN_STAGING_MAIL_DRIVER --location=$L --project=$P
-ERROR: (gcloud.secrets.create) INVALID_ARGUMENT: The provided Project ID [projects/pg-ae-n-app-125609/locations/me-central2] does not match the expected format [projects/*]
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$
+That's the original command without `rg` in front, so gcloud again used the global endpoint and failed the same way. The `rg` wrapper has to be defined first, and the regional command run through it.
 
+## Run these in the same shell session, in order
+
+```bash
+P=pg-ae-n-app-125609; L=me-central2
+rg() { CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER="https://secretmanager.$L.rep.googleapis.com/" gcloud "$@"; }
+type rg
+rg secrets create CN_STAGING_MAIL_DRIVER --location=$L --project=$P
+```
+`type rg` should say `rg is a function`. The create command now starts with `rg`, not `gcloud`.
+
+## If it still gives the same error
+
+That would mean gcloud ignored the environment variable. Please paste these, and I'll choose the fallback:
+```bash
+type rg
+gcloud version | head -1
+```
+The documented fallback is a named gcloud configuration that carries the endpoint setting, so the global commands stay untouched. I'd rather not give it before knowing it's needed.
+
+## Where things stand
+
+- Nothing has been created. The failed attempts left no resources, so there's nothing to clean up.
+- No running service is affected. Everything so far is read-only or rejected.
+
+Run the block above and paste the output of `rg secrets create`. If it succeeds, go on to the add-version and hash steps from my last message.
