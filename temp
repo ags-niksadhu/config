@@ -1,15 +1,46 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ git ls-files pack
-package.json  packer/
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ git ls-files package.json
-package.json
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ git check-ignore -v package
-package.json       package-lock.json
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ git check-ignore -v package-lock.json
-.gitignore:6:/package-lock.json package-lock.json
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ git status --short package-lock.json
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ git ls-files package-lock.json
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ grep -m1 lockfileVersion package-lock.json
-  "lockfileVersion": 3,
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$
+Confirmed: `.gitignore` line 6 (`/package-lock.json`) is excluding the lockfile, so it was never committed and Cloud Build's clone doesn't have it. The VM has one only because it was generated locally.
 
+## Fix (run in `/var/www/careernavigator-frontend`)
 
+**1. Remove the ignore rule.** Check the line first:
+```bash
+sed -n '6p' .gitignore
+```
+It must print `/package-lock.json`. Then:
+```bash
+sed -i '6d' .gitignore
+```
+
+**2. Check the lockfile matches `package.json`.** `npm ci` fails if they differ, and `--dry-run` changes nothing:
+```bash
+npm ci --dry-run 2>&1 | tail -n 5
+```
+No `npm error` lines means it's in sync. If it errors, paste the output before committing.
+
+**3. Make the test step safe.** Your `package.json` has no `test` script, so `Run Tests` would fail right after `npm ci` passes. In the frontend `cloudbuild.yaml`, replace the whole `Run Tests` step with:
+```yaml
+  - id: Run Tests
+    name: 'node:22'
+    entrypoint: npm
+    args: ['run', 'test', '--if-present']
+```
+This runs tests only if a `test` script exists, so it's ready if you add tests later.
+
+**4. Check what will be committed, then push:**
+```bash
+git status --short
+```
+Expect only `.gitignore`, `package-lock.json` and `cloudbuild.yaml`. If anything else appears, stop and tell me.
+```bash
+git add .gitignore package-lock.json cloudbuild.yaml
+git commit -m "Track package-lock.json for npm ci; skip tests when no test script"
+git push origin staging
+```
+
+## Verify
+
+In the next build's log, `Install Dependencies` should print `added N packages`. `Run Tests` should finish quickly with no tests. Then `Build Staging` runs `next build` and writes `build/`, which Packer uploads.
+
+**If a later step fails**, paste that step's log from Console → Cloud Build → History. The next likely issue is the Packer upload or the `/login` checks, and the log will show which.
+
+**Rollback:** nothing live is touched. `frontend-service` still serves from the old VM, so reverting this commit only affects the build.
