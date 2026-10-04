@@ -1,45 +1,26 @@
-Glad the scaling settled. Before closing step 1, I need to confirm the image deletes didn't remove something a live template still points to. I can't see which images you deleted, and the risk is specific:
-
-- **Current templates:** `cn-backend-template-a249720` and `cn-frontend-template-01d17a8` use images that were in `eu`. If either image was deleted, running servers are fine, but any new server (autoscale or autohealing) would fail to create.
-- **Base image:** if `clean-ubuntu-26092026-img` was deleted before the Packer files point at `-v2`, the next build fails at its first step.
-
-## Check (read-only)
-
-**1. What images remain and where:**
-```bash
-gcloud compute images list --project=pg-ae-n-app-125609 --filter="name~cn-backend-image OR name~cn-frontend-image OR name~clean-ubuntu" --format="table(name,creationTimestamp.date(),storageLocations.list())"
-```
-
-**2. Which image each template uses:**
-```bash
-gcloud compute instance-templates list --project=pg-ae-n-app-125609 --sort-by=~creationTimestamp --format="table(name,properties.disks[0].initializeParams.sourceImage.basename())"
-```
-
-**3. MIGs still healthy:**
-```bash
-gcloud compute instance-groups managed list --project=pg-ae-n-app-125609
-```
-
-**4. Packer files in both repos:**
-```bash
-grep -n "source_image\|image_storage_locations" packer/*.pkr.hcl
-```
-Run it in each repo folder.
-
-## Reading the results
-
-- **Every template's image appears in list 1:** safe.
-- **A template's image is missing:** that template can't create new servers. The cleanest fix is a push to `staging` for that service. The pipeline builds a new image, creates a new template and rolls it out.
-- **The Packer files still say `clean-ubuntu-26092026-img`, and that image is gone:** builds will fail. Recreate it from the v2 copy in Console → Images → Create image, source Image `clean-ubuntu-26092026-img-v2`, name `clean-ubuntu-26092026-img`, location Regional → `me-central2`. This restores the old name without relying on `eu`. Then push the Packer change.
-- **The Packer files already show `-v2` and `image_storage_locations = ["me-central2"]`:** the change was pushed. Check for new `cn-*` images in `me-central2` in list 1.
-
-## Once that's clean
-
-1. **Push the two Packer edits** if not done yet. Frontend first, then backend once both MIGs are at size 1.
-2. **Decide on the unlabeled `eu` images** you kept earlier, if they're still there.
-3. **Secrets:** still needs `secret-manager.ts` and the `gcloud secrets locations list` output.
-4. **Other data stores:** the buckets and SQL commands from my earlier message.
-
-I haven't seen the backend autoscaler check yet either. If you still want its min, max and recommended size, the command is in my last message.
-
-Paste the first three outputs, or the whole set, and I'll tell you if anything needs fixing.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rkfp:~$ gcloud compute images list --project=pg-ae-n-app-125609 --filter="name~cn-backend-image OR name~cn-frontend-image OR name~clean-ubuntu" --format="table(name,creationTimestamp.date(),storageLocations.list())"
+NAME                          CREATION_TIMESTAMP   STORAGE_LOCATIONS
+clean-ubuntu-26092026-img-v2  2026-10-04T10:52:45  me-central2
+cn-backend-image-41f3935      2026-10-04T11:27:13  me-central2
+cn-frontend-image-d3dff86     2026-10-04T11:25:47  me-central2
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rkfp:~$ gcloud compute instance-templates list --project=pg-ae-n-app-125609 --sort-by=~creationTimestamp --format="table(name,properties.disks[0].initializeParams.sourceImage.basename())"
+NAME                                                SOURCE_IMAGE
+cn-backend-template-41f3935                         cn-backend-image-41f3935
+cn-frontend-template-d3dff86                        cn-frontend-image-d3dff86
+cn-frontend-template-01d17a8                        cn-frontend-image-01d17a8
+cn-frontend-template-423fe8f                        cn-frontend-image-423fe8f
+cn-backend-template-a249720                         cn-backend-image-a249720
+cn-backend-template-f4714a7                         cn-backend-image-f4714a7
+cn-backend-template-a4a4748                         cn-backend-image-a4a4748
+cn-backend-template-7d991de                         cn-backend-image-7d991de
+cn-backend-template-17d6b89                         cn-backend-image-17d6b89
+clean-ubuntu-26092026                               linux-ubuntu2404-base-2026-08-1
+cn-backend-template-v5                              cn-backend-os-image-v1
+cnstagingbackend-instance-template-22-sept-2026-v2  cn-backend-os-image-v1
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rkfp:~$ gcloud compute instance-groups managed list --project=pg-ae-n-app-125609
+NAME                      LOCATION     SCOPE   BASE_INSTANCE_NAME        SIZE  TARGET_SIZE  INSTANCE_TEMPLATE             AUTOSCALED
+cn-backend-mig-regional   me-central2  region  cn-backend-mig-regional   1     1            cn-backend-template-41f3935   yes
+cn-frontend-mig-regional  me-central2  region  cn-frontend-mig-regional  1     1            cn-frontend-template-d3dff86  yes
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rkfp:~$ grep -n "source_image\|image_storage_locations" packer/*.pkr.hcl
+grep: packer/*.pkr.hcl: No such file or directory
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rkfp:~$
