@@ -1,4 +1,10 @@
-P=pg-ae-n-app-125609
-gcloud storage buckets describe gs://pg-ae-n-app-125609-logs-116609 --format="yaml(name,location,timeCreated,labels,retentionPolicy)"
-gcloud logging sinks list --project=$P --format="table(name,destination,disabled)"
-gcloud storage ls gs://pg-ae-n-app-125609-logs-116609 | head
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ P=pg-ae-n-app-125609
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud storage buckets describe gs://pg-ae-n-app-125609-logs-116609 --format="yaml(name,location,timeCreated,labels,retentionPolicy)"
+location: US
+name: pg-ae-n-app-125609-logs-116609
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud logging sinks list --project=$P --format="table(name,destination,disabled)"
+NAME       DESTINATION                                                                            DISABLED
+_Required  logging.googleapis.com/projects/pg-ae-n-app-125609/locations/global/buckets/_Required
+_Default   logging.googleapis.com/projects/pg-ae-n-app-125609/locations/global/buckets/_Default
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud storage ls gs://pg-ae-n-app-125609-logs-116609 | head
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$
