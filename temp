@@ -1,11 +1,113 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ sed -n '6p' .gitignore
-/package-lock.json
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ sed -i '6d' .gitignore
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ npm ci --dry-run 2>&1 | tail -n 5
-npm notice
-npm notice New major version of npm available! 10.9.7 -> 12.2.0
-npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
-npm notice To update run: npm install -g npm@12.2.0
-npm notice
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ git pull
+remote: Enumerating objects: 15, done.
+remote: Counting objects: 100% (15/15), done.
+remote: Compressing objects: 100% (5/5), done.
+remote: Total 11 (delta 6), reused 11 (delta 6), pack-reused 0 (from 0)
+Unpacking objects: 100% (11/11), 3.97 KiB | 68.00 KiB/s, done.
+From github-frontend:pwc-me-adv-careernavigator/careernavigator-frontend
+   d60ac70..6445931  staging    -> origin/staging
+Updating d60ac70..6445931
+Fast-forward
+ cloudbuild.yaml         |  6 +-----
+ packer/frontend.pkr.hcl | 24 +++++++++++++++++++-----
+ 2 files changed, 20 insertions(+), 10 deletions(-)
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ git status --short
+ M .gitignore
+?? app-scaling-assessment-cn-staging-frontapp-vm-01.c.pg-ae-n-app-125609.internal-20260921-113416.txt
+?? app-scaling-assessment.sh
+?? package-lock.json
 nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ERROR: build step 0 "node:22" failed: step exited with non-zero status: 1
+ERROR
+Finished Step #0 - "Install Dependencies"
+npm error A complete log of this run can be found in: /builder/home/.npm/_logs/2026-10-04T16_13_56_363Z-debug-0.log
+npm error Run "npm help ci" for more info
+npm error
+npm error aliases: clean-install, ic, install-clean, isntall-clean
+npm error
+npm error [-ws|--workspaces] [--include-workspace-root] [--install-links]
+npm error [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]
+npm error [--no-bin-links] [--no-fund] [--dry-run]
+npm error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts] [--no-audit]
+npm error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+npm error [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]
+npm error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+npm error Options:
+npm error
+npm error npm ci
+npm error Usage:
+npm error
+npm error Clean install a project
+npm error
+npm error later to generate a package-lock.json file, then try again.
+npm error npm-shrinkwrap.json with lockfileVersion >= 1. Run an install with npm@5 or
+npm error The `npm ci` command can only install with an existing package-lock.json or
+npm error
+npm error code EUSAGE
+docker.io/library/node:22
+Status: Downloaded newer image for node:22
+Digest: sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
+0c06829c34ad: Pull complete
+105754cf457c: Pull complete
+0d48f423dff0: Pull complete
+b92563fa790f: Pull complete
+de9e8d0a0071: Pull complete
+81578410df16: Pull complete
+7b2de2423ebd: Pull complete
+de9e8d0a0071: Download complete
+de9e8d0a0071: Verifying Checksum
+eaac70c68abd: Pull complete
+81578410df16: Download complete
+81578410df16: Verifying Checksum
+0d48f423dff0: Download complete
+0d48f423dff0: Verifying Checksum
+eaac70c68abd: Download complete
+eaac70c68abd: Verifying Checksum
+7b2de2423ebd: Download complete
+7b2de2423ebd: Verifying Checksum
+0c06829c34ad: Download complete
+0c06829c34ad: Verifying Checksum
+105754cf457c: Download complete
+105754cf457c: Verifying Checksum
+b92563fa790f: Download complete
+b92563fa790f: Verifying Checksum
+0c06829c34ad: Waiting
+105754cf457c: Waiting
+0c06829c34ad: Pulling fs layer
+105754cf457c: Pulling fs layer
+0d48f423dff0: Pulling fs layer
+b92563fa790f: Pulling fs layer
+de9e8d0a0071: Pulling fs layer
+81578410df16: Pulling fs layer
+7b2de2423ebd: Pulling fs layer
+eaac70c68abd: Pulling fs layer
+22: Pulling from library/node
+Pulling image: node:22
+Starting Step #0 - "Install Dependencies"
+BUILD
+64459316164a533a1373b2d3d877f0d73904acd7
+GitCommit:
+HEAD is now at 6445931 Update cloudbuild.yaml
+ * branch            64459316164a533a1373b2d3d877f0d73904acd7 -> FETCH_HEAD
+From https://github.com/pwc-me-adv-careernavigator/careernavigator-frontend
+FETCHSOURCE
+starting build "d67bd312-d710-4d89-bb58-43e49a526652"
