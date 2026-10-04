@@ -1,20 +1,27 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute ssh cn-backend-mig-regional-t5md --zone=me-central2-a --project=pg-ae-n-app-125609 --internal-ip --command="sudo tail -n 40 /home/sa_108691235514385689272/.pm2/logs/careernavigator-backend-error-0.log"
-[bootstrap] Could not load .env.staging: ENOENT: no such file or directory, open '.env.staging'
-(node:3422) NOTE: The AWS SDK for JavaScript (v2) is in maintenance mode.
- SDK releases are limited to address critical bug fixes and security issues only.
+I can't reach your GCP project from here, so these commands will show me the state. Run all three and paste the output.
 
-Please migrate your code to use AWS SDK for JavaScript (v3).
-For more information, check the blog post at https://a.co/cUPnyil
-(Use `node --trace-warnings ...` to show where the warning was created)
-[bootstrap] Could not load .env.staging: ENOENT: no such file or directory, open '.env.staging'
-(node:1161) NOTE: The AWS SDK for JavaScript (v2) is in maintenance mode.
- SDK releases are limited to address critical bug fixes and security issues only.
+**1. Backend health as the load balancer sees it:**
+```bash
+gcloud compute backend-services get-health app-backend-service --global --project=pg-ae-n-app-125609
+```
+Both groups should show `healthState: HEALTHY`. The state for `cn-backend-mig-regional` is the one to check.
 
-Please migrate your code to use AWS SDK for JavaScript (v3).
-For more information, check the blog post at https://a.co/cUPnyil
-(Use `node --trace-warnings ...` to show where the warning was created)
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ curl -s -o /dev/null -w "%{http_code}\n" http://$(gcloud compute instances describe cn-backend-mig-regional-t5md --zone=me-central2-a --project=pg-ae-n-app-125609 --format="value(networkInterfaces[0].networkIP)"):3024/v1/common/list?type=categories
-200
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+**2. Backends attached and named port set:**
+```bash
+gcloud compute backend-services describe app-backend-service --global --project=pg-ae-n-app-125609 --format="yaml(backends[].group,backends[].balancingMode,backends[].maxUtilization)"
+```
+```bash
+gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609 --format="yaml(namedPorts)"
+```
+Expect `cn-backend-mig-regional` listed next to `backend-ig`, and `namedPorts` showing `http: 80`.
 
+**3. Real requests through the public URL:**
+```bash
+for i in $(seq 1 10); do curl -s -o /dev/null -w "%{http_code}\n" https://stagingapi.careerdevelopmentnavigator.mer.pwc.com/v1/common/list?type=categories; done
+```
+A mix of `200` and `401` is fine. `5xx` or timeouts mean stop and tell me.
 
+**What I'll look for:**
+- **`HEALTHY` on both:** the cutover works. I'll then give you the remaining steps (connection draining, removing `backend-ig`, autoscaler min).
+- **`UNHEALTHY` on the new group:** check the named port first, then I'll look at the health check path.
+- **Any `5xx`:** use the rollback and remove `cn-backend-mig-regional` from the backend service.
