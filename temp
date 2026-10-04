@@ -1,1 +1,30 @@
-gcloud compute backend-services describe app-backend-service --global --project=pg-ae-n-app-125609 --format="value(connectionDraining.drainingTimeoutSec)"
+Run these three commands first. I need the current state before recommending any deletions.
+
+**1. Images, with size and age:**
+```bash
+gcloud compute images list --project=pg-ae-n-app-125609 --filter="name~cn-backend-image" --sort-by=~creationTimestamp --format="table(name,creationTimestamp.date(),archiveSizeBytes.size())"
+```
+
+**2. Templates, with the image each one uses:**
+```bash
+gcloud compute instance-templates list --project=pg-ae-n-app-125609 --sort-by=~creationTimestamp --format="table(name,creationTimestamp.date(),properties.disks[0].initializeParams.sourceImage.basename())"
+```
+
+**3. Which template the MIG is using now:**
+```bash
+gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609 --format="value(versions[].instanceTemplate.basename())"
+```
+
+Paste all three.
+
+**Rules for what's safe to delete:**
+- A template used by the MIG can't be deleted, and I'd keep it regardless.
+- An image used by any template can't be deleted. Templates must go first, then their images.
+- Keep the 5 newest templates and images so a rollback always has a target.
+- `cn-backend-template-v5` and `clean-ubuntu-26092026-img` are special cases:
+  - **`v5`** depends on the removed GCS file, so it's useless for rollback and safe to delete once nothing uses it.
+  - **`clean-ubuntu-26092026-img`** must not be deleted. Packer uses it as its source image.
+
+⚠️ Deleting images and templates can't be undone. I'll give you an exact delete list based on your output, and you'll do the deletes through the Console, not the CLI, so you can see what you're removing.
+
+**Long-term:** once the manual cleanup is done, I can add a pipeline step that keeps only the last 5 and deletes older ones automatically. That requires the Cloud Build service account to have `compute.instanceTemplates.delete` and `compute.images.delete`, so it's a permission decision. Tell me if you want it after we see the lists.
