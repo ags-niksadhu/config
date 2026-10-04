@@ -1,85 +1,56 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ git pull
-remote: Enumerating objects: 15, done.
-remote: Counting objects: 100% (15/15), done.
-remote: Compressing objects: 100% (5/5), done.
-remote: Total 11 (delta 6), reused 11 (delta 6), pack-reused 0 (from 0)
-Unpacking objects: 100% (11/11), 3.97 KiB | 68.00 KiB/s, done.
-From github-frontend:pwc-me-adv-careernavigator/careernavigator-frontend
-   d60ac70..6445931  staging    -> origin/staging
-Updating d60ac70..6445931
-Fast-forward
- cloudbuild.yaml         |  6 +-----
- packer/frontend.pkr.hcl | 24 +++++++++++++++++++-----
- 2 files changed, 20 insertions(+), 10 deletions(-)
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ git status --short
- M .gitignore
-?? app-scaling-assessment-cn-staging-frontapp-vm-01.c.pg-ae-n-app-125609.internal-20260921-113416.txt
-?? app-scaling-assessment.sh
-?? package-lock.json
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ git pull
-remote: Enumerating objects: 5, done.
-remote: Counting objects: 100% (5/5), done.
-remote: Compressing objects: 100% (1/1), done.
-remote: Total 3 (delta 2), reused 3 (delta 2), pack-reused 0 (from 0)
-Unpacking objects: 100% (3/3), 957 bytes | 319.00 KiB/s, done.
-From github-frontend:pwc-me-adv-careernavigator/careernavigator-frontend
-   6445931..d962913  staging    -> origin/staging
-Updating 6445931..d962913
-error: Your local changes to the following files would be overwritten by merge:
-        .gitignore
-Please commit your changes or stash them before you merge.
-Aborting
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ git status --short
- M .gitignore
-?? app-scaling-assessment-cn-staging-frontapp-vm-01.c.pg-ae-n-app-125609.internal-20260921-113416.txt
-?? app-scaling-assessment.sh
-?? package-lock.json
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ cat .gitignore
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+`git pull` aborted because the new remote commit `d962913` also changes `.gitignore`, and your local edit to it is uncommitted. Git won't overwrite it. Nothing is broken, and your `package-lock.json` is untouched.
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+The remote commit is only 3 git objects (the commit, the root tree and one file). That means it changed a single file, and the error says it's `.gitignore`. It may already contain the same rule removal, but check before assuming.
 
-# testing
-/coverage
+## 1. See what the remote commit changed
 
-# next.js
-/.next/
-/out/
+```bash
+git show --stat --format="%h %an %s" origin/staging
+git diff HEAD origin/staging -- .gitignore
+```
 
-# production
-/build
+## 2. Discard your local `.gitignore` edit and pull
 
-# misc
-.DS_Store
-*.pem
+This only loses your one-line deletion. Step 3 shows whether it needs redoing.
+```bash
+git checkout -- .gitignore
+git pull
+```
 
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
+## 3. Check whether the lockfile is still ignored
 
-# env files (can opt-in for committing if needed)
-.env*
+```bash
+git check-ignore -v package-lock.json || echo "NOT IGNORED"
+```
+- **`NOT IGNORED`:** go to step 4.
+- **A rule is printed:** run `grep -n "package-lock" .gitignore`, delete that line, and paste the output if you're unsure.
 
-# vercel
-.vercel
+## 4. Commit only the lockfile
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ git pull
-Updating 6445931..d962913
-error: Your local changes to the following files would be overwritten by merge:
-        .gitignore
-Please commit your changes or stash them before you merge.
-Aborting
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$
+First confirm the lockfile uses the public npm registry. An internal registry here would break the cloud build:
+```bash
+grep -o '"resolved": "https\?://[^/]*' package-lock.json | sort | uniq -c
+```
+Expect only `registry.npmjs.org`. Then commit:
+```bash
+git add package-lock.json
+git status --short
+```
+Staged should be only `package-lock.json`, plus `.gitignore` if you had to redo step 3. The `app-scaling-assessment…` files must stay as `??`.
+```bash
+git commit -m "Track package-lock.json so npm ci works in Cloud Build"
+git push origin staging
+```
+
+## Check the build
+
+Pushes to `staging` trigger `careernavigator-frontend-staging` automatically, so `d962913` may already have started a build. Check Console → Cloud Build → History (region `me-central2`).
+
+The newest build should show `Install Dependencies` printing `added N packages`. The earlier diff for `cloudbuild.yaml` (1 line added, 5 removed) matches the `Run Tests` change. Confirm it with:
+```bash
+grep -n -A4 "Run Tests" cloudbuild.yaml
+```
+
+Nothing live is affected. `frontend-service` still serves from the old VM.
+
+Paste the step 1 output and the step 3 result, and tell me if the push goes through.
