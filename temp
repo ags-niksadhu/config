@@ -1,16 +1,4 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud secrets versions access latest --secret=CN_STAGING_MAIL_DRIVER --project=$P | rg secrets versions add CN_STAGING_MAIL_DRIVER --location=$L --project=$P --data-file=-
-Created version [1] of the secret [CN_STAGING_MAIL_DRIVER].
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ echo "global:"; gcloud secrets versions access latest --secret=CN_STAGING_MAIL_DRIVER --project=$P | sha256sum
-global:
-4ae524ef0a54bc56e3844482dff66d3dd1c07170a36531500327556e4eb58a66  -
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ echo "regional:"; rg secrets versions access latest --secret=CN_STAGING_MAIL_DRIVER --location=$L --project=$P | sha256sum
-regional:
-4ae524ef0a54bc56e3844482dff66d3dd1c07170a36531500327556e4eb58a66  -
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ T=$(gcloud auth print-access-token)
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ curl -s -o /dev/null -w "older host (what the app uses): %{http_code}\n" -H "Authorization: Bearer $T" "https://me-central2-secretmanager.googleapis.com/v1/projects/$P/locations/$L/secrets/CN_STAGING_MAIL_DRIVER/versions/latest:access"
-older host (what the app uses): 404
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ curl -s -o /dev/null -w "rep host (documented form): %{http_code}\n" -H "Authorization: Bearer $T" "https://secretmanager.$L.rep.googleapis.com/v1/projects/$P/locations/$L/secrets/CN_STAGING_MAIL_DRIVER/versions/latest:access"
-rep host (documented form): 200
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$
-
-
+P=pg-ae-n-app-125609
+gcloud logging buckets list --project=$P
+gcloud logging logs list --project=$P
+systemctl list-units --type=service | grep -i ops-agent
