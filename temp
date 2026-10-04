@@ -1,18 +1,4 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ gcloud compute instances list --project=pg-ae-n-app-125609 --filter="name~cn-frontend-mig OR name~cn-backend-mig" --format="table(name,zone.basename(),creationTimestamp)"
-NAME                           ZONE           CREATION_TIMESTAMP
-cn-backend-mig-regional-37kx   me-central2-a  2026-10-04T11:06:21.249-07:00
-cn-backend-mig-regional-rs57   me-central2-a  2026-10-04T05:14:59.864-07:00
-cn-frontend-mig-regional-j51l  me-central2-a  2026-10-04T10:56:25.561-07:00
-cn-frontend-mig-regional-jvmm  me-central2-a  2026-10-04T10:09:10.774-07:00
-cn-frontend-mig-regional-vqp1  me-central2-a  2026-10-04T10:55:49.675-07:00
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ for n in j51l jvmm vqp1; do gcloud compute ssh cn-frontend-mig-regional-$n --zone=me-central2-a --project=pg-ae-n-app-125609 --internal-ip --command="hostname; uptime; sudo grep -vc GoogleHC /var/log/apache2/careernavigator-frontend-staging-access.log"; done
-cn-frontend-mig-regional-j51l.c.pg-ae-n-app-125609.internal
- 18:11:53 up 15 min,  1 user,  load average: 0.08, 0.06, 0.08
-0
-cn-frontend-mig-regional-jvmm.c.pg-ae-n-app-125609.internal
- 18:11:58 up  1:02,  1 user,  load average: 0.28, 0.12, 0.09
-47
-cn-frontend-mig-regional-vqp1.c.pg-ae-n-app-125609.internal## What the new outputs show
+## What the new outputs show
 
 | Server | Created (PDT) | Real requests (non-health-check) | Load average |
 |---|---|---|---|
@@ -60,9 +46,3 @@ A different template on `37kx` would mean a rolling update is running. The same 
 Both MIGs should be back at 1 instance before you push the `me-central2` image change. A rolling update with `--max-surge=3` adds up to 3 extra servers, which in zone `a` right now would stack on top of the current ones.
 
 Paste the two checks and the backend list.
- 18:12:06 up 15 min,  1 user,  load average: 0.03, 0.08, 0.14
-2
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$
-
-
-
