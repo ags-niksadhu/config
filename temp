@@ -1,16 +1,45 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ gcloud compute snapshot-settings describe
-storageLocation:
-  policy: NEAREST_MULTI_REGION
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ gcloud compute snapshot-settings update --storage-location-policy=specific-locations --storage-location-names=me-central2
-Request issued for: [pg-ae-n-app-125609]
-Waiting for operation [projects/pg-ae-n-app-125609/global/operations/operation-1791135674504-65d07459f93f9-11d4e3ff-42791e0a] to complete...done.
-Updated compute_project [pg-ae-n-app-125609].
-storageLocation:
-  locations: me-central2
-  policy: SPECIFIC_LOCATIONS
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ gcloud compute snapshot-settings describe
-storageLocation:
-  locations: me-central2
-  policy: SPECIFIC_LOCATIONS
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$
+Step 1 is done. The project default is now `SPECIFIC_LOCATIONS` with `me-central2`, and the `describe` output confirms it. All snapshots created from here on go to `me-central2`.
 
+## What stopping the two VMs changes
+
+- **The instant fallback is gone for the frontend.** `frontend-ig` is still attached to `frontend-service`, but its only member is the stopped frontend VM, so that backend is unhealthy and gets no traffic. If the frontend MIG ever failed, traffic would not fall back automatically. To roll back you'd start `cn-staging-frontapp-vm-01`, wait a few minutes for it to pass the health check, then remove the MIG from the backend service.
+- **The backend has no fallback either.** `backend-ig` was already removed from `app-backend-service`. A rollback means starting `cn-staging-backapp-vm-01` and re-adding `backend-ig`.
+- **Unhealthy `frontend-ig` is expected** in the load balancer view. It's harmless while the MIG is healthy.
+- **Cost:** stopped VMs don't bill for compute, but their disks still bill.
+
+## Step 3: schedules
+
+I recommend no recurring schedule. The VMs are stopped, so their disks don't change and a schedule would only produce identical snapshots. If you want a safety copy before ever deleting those VMs, take one on-demand snapshot of each disk.
+
+**Optional one-time snapshots (Console):**
+1. Compute Engine → Snapshots → Create snapshot.
+2. Source disk: `cn-staging-backapp-vm-01`. Location: Regional → `me-central2`, set explicitly.
+3. Repeat for `cn-staging-frontapp-vm-01`.
+
+**Effect:** a small recurring storage cost until you delete them, based on used data and not the 100 GB disk size. They also give you something to verify the new location against, since no scheduled snapshots will appear.
+
+## Step 2: delete the 8 `eu` snapshots
+
+Do this now. Step 1 is in place, so nothing new lands in `eu`. ⚠️ Deletion is irreversible.
+1. Compute Engine → Snapshots.
+2. Tick the 8 `clean-ubuntu-260920-me-central2-a-…` entries.
+3. Delete.
+
+The running servers and `clean-ubuntu-26092026-img` are unaffected, since the image was made from the disk, not from these snapshots.
+
+## Step 4: verify
+
+```bash
+gcloud compute snapshots list --project=pg-ae-n-app-125609 --format="table(name,sourceDisk.basename(),storageLocations.list())"
+```
+After step 2, nothing should show `eu`. If you took the optional snapshots, they should show `me-central2`.
+
+## Still open for point 1
+
+I still need the image and secret location outputs. Images and Secret Manager replication also count as data stores under your rule:
+```bash
+gcloud compute images list --project=pg-ae-n-app-125609 --filter="name~cn-backend-image OR name~cn-frontend-image OR name~clean-ubuntu" --format="table(name,storageLocations.list())"
+gcloud secrets describe CN_STAGING_DB_HOST --project=pg-ae-n-app-125609 --format="yaml(replication)"
+```
+
+Paste those two outputs, and the snapshot list once step 2 is done. Then point 1 can be closed.
