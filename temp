@@ -1,111 +1,52 @@
-steps:
-  - id: Install Dependencies
-    name: 'node:22'
-    entrypoint: npm
-    args: ['ci']
+Run this block once. It checks every data store we've touched, and it's read-only, so nothing changes.
 
-  - id: Run Tests
-    name: 'node:22'
-    entrypoint: npm
-    args:
-      - run
-      - test
-      - --
-      - --passWithNoTests
+```bash
+P=pg-ae-n-app-125609
+echo "== TEMPLATES =="; gcloud compute instance-templates list --project=$P --sort-by=~creationTimestamp --format="table(name,selfLink.scope(projects))"
+echo "== MIG TEMPLATES =="; for m in cn-backend-mig-regional cn-frontend-mig-regional; do gcloud compute instance-groups managed describe $m --region=me-central2 --project=$P --format="value(name,versions[].instanceTemplate)"; done
+echo "== INSTANCES =="; gcloud compute instances list --project=$P --format="table(name,zone.basename(),status)"
+echo "== DISKS =="; gcloud compute disks list --project=$P --format="table(name,zone.basename(),sizeGb)"
+echo "== IMAGES =="; gcloud compute images list --project=$P --no-standard-images --format="table(name,storageLocations.list())"
+echo "== SNAPSHOTS =="; gcloud compute snapshots list --project=$P --format="table(name,storageLocations.list())"; gcloud compute snapshot-settings describe
+echo "== SECRET SAMPLE =="; gcloud secrets describe CN_STAGING_DB_HOST --project=$P --format="yaml(replication)"
+echo "== BUCKETS =="; gcloud storage buckets list --project=$P --format="table(name,location,locationType)"
+echo "== SQL =="; gcloud sql instances list --project=$P --format="table(name,region)"
+echo "== LOG BUCKETS =="; gcloud logging buckets list --project=$P --format="table(name,location)"
+```
 
-  - id: Build Staging
-    name: 'node:22'
-    entrypoint: npm
-    args: ['run', 'build:staging']
+I haven't verified the `logging buckets list` flags. If that line errors, paste the error.
 
-  - id: Build Packer Image
-    name: 'hashicorp/packer:latest'
-    entrypoint: sh
-    args:
-      - -c
-      - |
-        cd packer
-        packer init .
-        packer build -var="commit_sha=$SHORT_SHA" .
+## What you should see
 
-  - id: Create Instance Template
-    name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        gcloud compute instance-templates create cn-backend-template-$SHORT_SHA \
-          --instance-template-region=me-central2 \
-          --project=pg-ae-n-app-125609 \
-          --region=me-central2 \
-          --machine-type=e2-medium \
-          --image=cn-backend-image-$SHORT_SHA \
-          --network=default \
-          --subnet=default \
-          --no-address \
-          --scopes=cloud-platform \
-          --tags=cn-backend \
-          --shielded-secure-boot \
-          --shielded-vtpm \
-          --shielded-integrity-monitoring \
-          --labels=managed-by=cloudbuild-packer,app=cn-backend
+| Section | Compliant result |
+|---|---|
+| Templates | The newest backend and frontend templates under `regions/me-central2`. Older ones still show `global`, and they're leftovers, not in use. |
+| MIG templates | The URLs contain `/regions/me-central2/instanceTemplates/`. A `/global/` URL means that MIG didn't pick up the regional template. |
+| Instances and disks | Every zone is `me-central2-a`, `-b` or `-c` |
+| Images | All `me-central2` |
+| Snapshots | Empty list, or `me-central2` only. The settings show `SPECIFIC_LOCATIONS` with `me-central2` |
+| Secret sample | **Not compliant yet.** `automatic` replication means multiple regions, and it can't be changed on an existing secret |
+| Buckets, SQL | Not seen yet. `location` should be `ME-CENTRAL2`. Cloud SQL may be empty if the DB is external |
+| Log buckets | I expect `_Default` and `_Required` in `global`. That's Google's default, so it's not compliant until compliance says logs are out of scope or you move them |
 
-  - id: Rolling Update MIG
-    name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        gcloud compute instance-groups managed rolling-action start-update cn-backend-mig-regional \
-          --project=pg-ae-n-app-125609 \
-          --region=me-central2 \
-          --version=template=projects/pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-backend-template-$SHORT_SHA \
-          --max-surge=3 \
-          --max-unavailable=0
+## Expect to remain global
 
-  - id: Verify Rollout Health
-    name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        gcloud compute instance-groups managed wait-until cn-backend-mig-regional \
-          --project=pg-ae-n-app-125609 \
-          --region=me-central2 \
-          --stable \
-          --timeout=1800
+- **Old global templates:** `clean-ubuntu-26092026`, `cn-backend-template-v5`, `cnstagingbackend-instance-template-22-sept-2026-v2`, plus `41f3935` and `d3dff86`. You kept the legacy ones on purpose, and the current pair can go once the regional rollout has been stable for a few days.
+- **Global by design:** the VPC network, firewall rules, health checks, backend services, URL maps and the load balancer. They hold configuration, not application data, and can't simply be made regional. Confirm with compliance whether they count under your rule.
 
-  - id: Cleanup Old Packer Artifacts
-    name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        # Deletes ONLY labeled pipeline-created templates/images beyond the newest KEEP.
-        # DRY_RUN=1 prints only. Set DRY_RUN=0 after reviewing a dry-run log.
-        KEEP=5
-        DRY_RUN=1
-        PROJECT=pg-ae-n-app-125609
-        IN_USE=$$(gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --project=$$PROJECT --format="value(versions[].instanceTemplate.basename())")
-        gcloud compute instance-templates list --project=$$PROJECT \
-          --filter="labels.managed-by=cloudbuild-packer AND labels.app=cn-backend AND name~^cn-backend-template-[0-9a-f]{7}$$" \
-          --sort-by=~creationTimestamp --format="value(name)" | tail -n +$$((KEEP+1)) | while read T; do
-            if echo "$$IN_USE" | grep -qw "$$T"; then echo "SKIP in use: $$T"; continue; fi
-            SHA=$${T#cn-backend-template-}
-            IMG=$$(gcloud compute images list --project=$$PROJECT --filter="name=cn-backend-image-$$SHA AND labels.managed-by=cloudbuild-packer" --format="value(name)")
-            if [ "$$DRY_RUN" = "1" ]; then
-              echo "DRY RUN would delete template $$T and image $${IMG:-none}"
-            else
-              gcloud compute instance-templates delete "$$T" --project=$$PROJECT --quiet
-              if [ -n "$$IMG" ]; then gcloud compute images delete "$$IMG" --project=$$PROJECT --quiet; fi
-            fi
-          done
-        exit 0
+## Regional by construction (no check needed)
 
-options:
-  pool:
-    name: 'projects/pg-ae-n-app-125609/locations/me-central2/workerPools/cn-backend-private-pool'
-  logging: CLOUD_LOGGING_ONLY
-  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
+Cloud Build triggers and the worker pool `cn-backend-private-pool` live in `me-central2`. Both MIGs are regional.
 
-timeout: 3000s
+## Still open after this check
+
+| Item | Why |
+|---|---|
+| Secrets (23, automatic replication) | needs `secret-manager.ts` (no values) and `gcloud secrets locations list --project=pg-ae-n-app-125609 \| grep -i me-central2` |
+| Buckets and SQL | depends on the output above |
+| Logs | need a scope decision from compliance |
+| The cleanup step on regional templates | needs the log from the frontend's `Cleanup Old Packer Artifacts` step |
+
+Keep the output of this block, or screenshots of the Console list pages, as evidence.
+
+Paste the full output and I'll mark each item compliant or not.
