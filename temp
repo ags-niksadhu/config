@@ -1,30 +1,31 @@
-Run these three commands first. I need the current state before recommending any deletions.
-
-**1. Images, with size and age:**
-```bash
-gcloud compute images list --project=pg-ae-n-app-125609 --filter="name~cn-backend-image" --sort-by=~creationTimestamp --format="table(name,creationTimestamp.date(),archiveSizeBytes.size())"
-```
-
-**2. Templates, with the image each one uses:**
-```bash
-gcloud compute instance-templates list --project=pg-ae-n-app-125609 --sort-by=~creationTimestamp --format="table(name,creationTimestamp.date(),properties.disks[0].initializeParams.sourceImage.basename())"
-```
-
-**3. Which template the MIG is using now:**
-```bash
-gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609 --format="value(versions[].instanceTemplate.basename())"
-```
-
-Paste all three.
-
-**Rules for what's safe to delete:**
-- A template used by the MIG can't be deleted, and I'd keep it regardless.
-- An image used by any template can't be deleted. Templates must go first, then their images.
-- Keep the 5 newest templates and images so a rollback always has a target.
-- `cn-backend-template-v5` and `clean-ubuntu-26092026-img` are special cases:
-  - **`v5`** depends on the removed GCS file, so it's useless for rollback and safe to delete once nothing uses it.
-  - **`clean-ubuntu-26092026-img`** must not be deleted. Packer uses it as its source image.
-
-⚠️ Deleting images and templates can't be undone. I'll give you an exact delete list based on your output, and you'll do the deletes through the Console, not the CLI, so you can see what you're removing.
-
-**Long-term:** once the manual cleanup is done, I can add a pipeline step that keeps only the last 5 and deletes older ones automatically. That requires the Cloud Build service account to have `compute.instanceTemplates.delete` and `compute.images.delete`, so it's a permission decision. Tell me if you want it after we see the lists.
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$ gcloud compute images list --project=pg-ae-n-app-125609 --filter="name~cn-backend-image" --sort-by=~creationTimestamp --format="table(name,creationTimestamp.date(),archiveSizeBytes.size())"
+NAME                      CREATION_TIMESTAMP   ARCHIVE_SIZE_BYTES
+cn-backend-image-a4a4748  2026-10-04T04:22:18  2.0 GiB
+cn-backend-image-7d991de  2026-10-04T03:08:06  2.0 GiB
+cn-backend-image-03f1b68  2026-10-03T01:16:18  2.0 GiB
+cn-backend-image-5a879da  2026-10-03T00:40:31  2.1 GiB
+cn-backend-image-551a568  2026-10-03T00:03:18  2.0 GiB
+cn-backend-image-0460def  2026-10-02T23:00:46  2.0 GiB
+cn-backend-image-17d6b89  2026-10-01T16:08:32  1.9 GiB
+cn-backend-image-fd726a3  2026-09-30T06:35:36  1.9 GiB
+cn-backend-image-64b2930  2026-09-30T06:19:17  2.0 GiB
+cn-backend-image-5262057  2026-09-30T05:47:58  2.0 GiB
+cn-backend-image-manual   2026-09-30T05:01:06  2.3 GiB
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$ gcloud compute instance-templates list --project=pg-ae-n-app-125609 --sort-by=~creationTimestamp --format="table(name,creationTimestamp.date(),properties.disks[0].initializeParams.sourceImage.basename())"
+NAME                                                CREATION_TIMESTAMP   SOURCE_IMAGE
+cn-backend-template-a4a4748                         2026-10-04T04:24:23  cn-backend-image-a4a4748
+cn-backend-template-7d991de                         2026-10-04T03:09:59  cn-backend-image-7d991de
+cn-backend-template-03f1b68                         2026-10-03T01:18:10  cn-backend-image-03f1b68
+cn-backend-template-5a879da                         2026-10-03T00:42:55  cn-backend-image-5a879da
+cn-backend-template-551a568                         2026-10-03T00:05:41  cn-backend-image-551a568
+cn-backend-template-0460def                         2026-10-02T23:02:49  cn-backend-image-0460def
+cn-backend-template-17d6b89                         2026-10-01T16:10:22  cn-backend-image-17d6b89
+cn-backend-template-fd726a3                         2026-09-30T06:37:04  cn-backend-image-fd726a3
+cn-backend-template-64b2930                         2026-09-30T06:21:09  cn-backend-image-64b2930
+cn-backend-template-5262057                         2026-09-30T05:49:51  cn-backend-image-5262057
+clean-ubuntu-26092026                               2026-09-26T00:26:03  linux-ubuntu2404-base-2026-08-1
+cn-backend-template-v5                              2026-09-25T02:06:40  cn-backend-os-image-v1
+cnstagingbackend-instance-template-22-sept-2026-v2  2026-09-25T02:05:55  cn-backend-os-image-v1
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$ gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609 --format="value(versions[].instanceTemplate.basename())"
+cn-backend-template-a4a4748
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$
