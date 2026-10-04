@@ -1,4 +1,58 @@
-P=pg-ae-n-app-125609
-gcloud storage buckets describe gs://pg-ae-n-app-125609-logs-116609
-gcloud storage buckets describe gs://cn-staging-pg-ae-n-app-125609 | grep -i -B1 -A3 "log"
-gcloud logging read 'protoPayload.methodName="storage.buckets.create" AND protoPayload.resourceName="projects/_/buckets/pg-ae-n-app-125609-logs-116609"' --project=$P --limit=1 --format="yaml(timestamp,protoPayload.authenticationInfo.principalEmail,protoPayload.requestMetadata.callerSuppliedUserAgent)"
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ P=pg-ae-n-app-125609
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud storage buckets describe gs://pg-ae-n-app-125609-logs-116609
+acl:
+- entity: project-owners-765297732608
+  projectTeam:
+    projectNumber: '765297732608'
+    team: owners
+  role: OWNER
+- entity: project-editors-765297732608
+  projectTeam:
+    projectNumber: '765297732608'
+    team: editors
+  role: OWNER
+- entity: project-viewers-765297732608
+  projectTeam:
+    projectNumber: '765297732608'
+    team: viewers
+  role: READER
+creation_time: 2026-03-30T12:59:31+0000
+default_acl:
+- entity: project-owners-765297732608
+  projectTeam:
+    projectNumber: '765297732608'
+    team: owners
+  role: OWNER
+- entity: project-editors-765297732608
+  projectTeam:
+    projectNumber: '765297732608'
+    team: editors
+  role: OWNER
+- entity: project-viewers-765297732608
+  projectTeam:
+    projectNumber: '765297732608'
+    team: viewers
+  role: READER
+default_storage_class: STANDARD
+generation: 1774875570968215427
+lifecycle_config:
+  rule:
+  - action:
+      type: Delete
+    condition:
+      age: 365
+location: US
+location_type: multi-region
+metageneration: 1
+name: pg-ae-n-app-125609-logs-116609
+public_access_prevention: inherited
+rpo: DEFAULT
+soft_delete_policy:
+  effectiveTime: '2026-03-30T12:59:31.255000+00:00'
+  retentionDurationSeconds: '604800'
+storage_url: gs://pg-ae-n-app-125609-logs-116609/
+uniform_bucket_level_access: false
+update_time: 2026-03-30T12:59:31+0000
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud storage buckets describe gs://cn-staging-pg-ae-n-app-125609 | grep -i -B1 -A3 "log"
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud logging read 'protoPayload.methodName="storage.buckets.create" AND protoPayload.resourceName="projects/_/buckets/pg-ae-n-app-125609-logs-116609"' --project=$P --limit=1 --format="yaml(timestamp,protoPayload.authenticationInfo.principalEmail,protoPayload.requestMetadata.callerSuppliedUserAgent)"
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$
