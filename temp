@@ -1,2 +1,15 @@
-gcloud compute snapshots list --project=pg-ae-n-app-125609 --format="table(name,sourceDisk.basename(),creationTimestamp.date(),snapshotEncryptionKey.kmsKeyName)"
-gcloud compute resource-policies list --project=pg-ae-n-app-125609 --format="table(name,region.basename(),snapshotSchedulePolicy.schedule.dailySchedule.startTime)"
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$ gcloud compute snapshots list --project=pg-ae-n-app-125609 --format="table(name,sourceDisk.basename(),creationTimestamp.date(),snapshotEncryptionKey.kmsKeyName)"
+NAME                                                       SRC_DISK               CREATION_TIMESTAMP   KMS_KEY_NAME
+clean-ubuntu-260920-me-central2-a-20260926230230-2ivhuavn  clean-ubuntu-26092026  2026-09-26T16:02:31
+clean-ubuntu-260920-me-central2-a-20260927230230-pn2lj8if  clean-ubuntu-26092026  2026-09-27T16:02:31
+clean-ubuntu-260920-me-central2-a-20260928230230-7z81ebvv  clean-ubuntu-26092026  2026-09-28T16:02:31
+clean-ubuntu-260920-me-central2-a-20260929230230-rjww94r4  clean-ubuntu-26092026  2026-09-29T16:02:31
+clean-ubuntu-260920-me-central2-a-20260930230230-q0at2gyy  clean-ubuntu-26092026  2026-09-30T16:02:31
+clean-ubuntu-260920-me-central2-a-20261001230230-cxj73h3d  clean-ubuntu-26092026  2026-10-01T16:02:31
+clean-ubuntu-260920-me-central2-a-20261002230230-0u80t7kz  clean-ubuntu-26092026  2026-10-02T16:02:32
+clean-ubuntu-260920-me-central2-a-20261003230230-eqn1vyl3  clean-ubuntu-26092026  2026-10-03T16:02:31
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$ gcloud compute resource-policies list --project=pg-ae-n-app-125609 --format="table(name,region.basename(),snapshotSchedulePolicy.schedule.dailySchedule.startTime)"
+NAME                REGION       START_TIME
+default-schedule-1  me-central2  23:00
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$
+
