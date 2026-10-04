@@ -1,37 +1,19 @@
-## What the output shows
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$ gcloud compute snapshots describe clean-ubuntu-260920-me-central2-a-20261003230230-eqn1vyl3 --project=pg-ae-n-app-125609 --format="yaml(name,status,storageLocations,snapshotEncryptionKey)"
+name: clean-ubuntu-260920-me-central2-a-20261003230230-eqn1vyl3
+status: READY
+storageLocations:
+- eu
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$ gcloud compute disks list --project=pg-ae-n-app-125609 --format="table(name,zone.basename(),resourcePolicies.basename(),diskEncryptionKey.kmsKeyName)"
+NAME                                         ZONE           RESOURCE_POLICIES  KMS_KEY_NAME
+cn-staging-backapp-vm-01                     me-central2-c
+cn-staging-frontapp-vm-01                    me-central2-c
+cn-backend-mig-regional-f9rw                 me-central2-a
+packer-6ac241b5-3e05-8a42-8c5c-88b4fa1ba9e6  me-central2-a
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$
 
-- **Every snapshot is encrypted with a Google-managed key.** The `KMS_KEY_NAME` column is empty on all 8, which means no customer-managed key (CMEK).
-- **All 8 snapshots are of one disk, `clean-ubuntu-26092026`.** That's the stopped Packer base VM, taken daily at 23:00 by `default-schedule-1`. I see no snapshots of the backend or frontend VM disks.
-- **That schedule has a recurring cost.** It snapshots a VM that's only used as an image source, so snapshots keep accumulating. I won't touch it, since you said to leave the others alone.
 
-## Encryption in transit for snapshots
 
-GCP has no "in transit" switch on a snapshot. Google encrypts traffic between VMs, disks, and snapshot storage by default. So the requirement can be met in one of three ways, depending on what the auditor means:
 
-| Option | What it is | Cost | Complexity | Downtime |
-|---|---|---|---|---|
-| **A. Evidence only** | Document that Google encrypts this traffic by default, with screenshots and the snapshot describe output | none | low | none |
-| **B. CMEK on snapshots** | Cloud KMS key; snapshots encrypted with your key | small KMS cost per key and operation | medium | none for new disks |
-| **C. CMEK on disks** | Re-create disks with a KMS key so schedules inherit it | KMS cost plus rebuild effort | high | ⚠️ yes, for the standalone VMs |
 
-I haven't verified B and C against the current GCP docs, so I won't give you commands for either yet. As far as I know, existing disk encryption can't be changed in place.
 
-**Recommendation:** start with A. The wording says "encryption in transit", which Google provides by default, and A costs nothing. Move to B only if the auditor specifically asks for customer-managed keys.
 
-**Gather the evidence for A:**
-```bash
-gcloud compute snapshots describe clean-ubuntu-260920-me-central2-a-20261003230230-eqn1vyl3 --project=pg-ae-n-app-125609 --format="yaml(name,status,storageLocations,snapshotEncryptionKey)"
-```
-```bash
-gcloud compute disks list --project=pg-ae-n-app-125609 --format="table(name,zone.basename(),resourcePolicies.basename(),diskEncryptionKey.kmsKeyName)"
-```
-The second command shows which disks the schedule covers, and which use CMEK.
-
-## What I still need
-
-1. **The exact requirement wording and which tool or checklist raised it.** If it says "customer-managed keys", then B or C applies.
-2. **Your decision on A or B.** If B, I'll check the current docs before giving steps.
-
-## Shielded VM status
-
-The Secure Boot changes to `backend.pkr.hcl` and `cloudbuild.yaml` are ready from my last message. Push them once the running build finishes. For the frontend pipeline, paste its `cloudbuild.yaml` and Packer file if it has them.
