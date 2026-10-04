@@ -1,38 +1,17 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ curl -s -o /dev/null -w "%{http_code}\n" -A "GoogleHC/1.0" http://$(gcloud compute instances describe cn-backend-mig-regional-t5md --zone=me-central2-a --project=pg-ae-n-app-125609 --format="value(networkInterfaces[0].networkIP)")/
-200
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute ssh cn-backend-mig-regional-t5md --zone=me-central2-a --project=pg-ae-n-app-125609 --tunnel-through-iap --command="sudo tail -n 40 /home/sa_108691235514385689272/.pm2/logs/careernavigator-backend-error-0.log"
-WARNING:
+Check 1 passed: `/` through Apache on port 80 returns `200` with the health-check user agent, so the load balancer will see this instance as healthy.
 
-To increase the performance of the tunnel, consider installing NumPy. For instructions,
-please see https://cloud.google.com/iap/docs/using-tcp-forwarding#increasing_the_tcp_upload_bandwidth
+Check 2 failed because the IAP tunnel isn't authorized for your account (error 4033). That's the same IAM gap as earlier. You don't need IAP here, because your current VM is on the same VPC. Use the internal IP instead:
 
-ERROR: [0] Error during local connection to [stdin]: Error while connecting [4033: 'not authorized'].
-Traceback (most recent call last):
-  File "/snap/google-cloud-cli/503/lib/googlecloudsdk/command_lib/compute/iap_tunnel.py", line 805, in RunReceiveLocalData
-    websocket_conn = self._InitiateConnection(
-        conn,
-    ...<4 lines>...
-        conn_id=conn_id,
-    )
-  File "/snap/google-cloud-cli/503/lib/googlecloudsdk/command_lib/compute/iap_tunnel.py", line 771, in _InitiateConnection
-    new_websocket.InitiateConnection()
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
-  File "/snap/google-cloud-cli/503/lib/googlecloudsdk/api_lib/compute/iap_tunnel_websocket.py", line 158, in InitiateConnection
-    self._WaitForOpenOrRaiseError()
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
-  File "/snap/google-cloud-cli/503/lib/googlecloudsdk/api_lib/compute/iap_tunnel_websocket.py", line 512, in _WaitForOpenOrRaiseError
-    raise ConnectionCreationError(error_msg)
-googlecloudsdk.api_lib.compute.iap_tunnel_websocket.ConnectionCreationError: Error while connecting [4033: 'not authorized'].
-Connection closed by UNKNOWN port 65535
+```bash
+gcloud compute ssh cn-backend-mig-regional-t5md --zone=me-central2-a --project=pg-ae-n-app-125609 --internal-ip --command="sudo tail -n 40 /home/sa_108691235514385689272/.pm2/logs/careernavigator-backend-error-0.log"
+```
 
-Recommendation: To check for possible causes of SSH connectivity issues and get
-recommendations, rerun the ssh command with the --troubleshoot option.
+Look for DB or Redis connection errors. A NestJS app usually refuses to boot if its DB connection fails, and this one has been up and passing `/health`, so DB access is probably fine. The log confirms it.
 
-gcloud compute ssh cn-backend-mig-regional-t5md --project=pg-ae-n-app-125609 --zone=me-central2-a --troubleshoot
+If `--internal-ip` also fails to connect, tell me the error. As a fallback you can test a real DB-backed endpoint from your current VM:
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" http://$(gcloud compute instances describe cn-backend-mig-regional-t5md --zone=me-central2-a --project=pg-ae-n-app-125609 --format="value(networkInterfaces[0].networkIP)"):3024/v1/common/list?type=categories
+```
+A `401` means the app is running and rejecting unauthenticated requests. A `500` or a hang points to a DB problem.
 
-Or, to investigate an IAP tunneling issue:
-
-gcloud compute ssh cn-backend-mig-regional-t5md --project=pg-ae-n-app-125609 --zone=me-central2-a --troubleshoot --tunnel-through-iap
-
-ERROR: (gcloud.compute.ssh) [/usr/bin/ssh] exited with return code [255].
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+Paste whichever output you get. If the log shows no connection errors, go ahead with the named-port and backend-service steps from my last message, with `backend-ig` still attached for rollback.
