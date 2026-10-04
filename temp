@@ -1,82 +1,11 @@
-This file removes the need for a code change. The loader already supports regional secrets, and setting one environment variable turns it on. Before I write commands, I'll check the exact gcloud syntax for regional secrets.## What the file shows
-
-- **Setting `SECRET_LOCATION=me-central2` switches the app to regional secrets.** The loader then builds the path `projects/<project>/locations/me-central2/secrets/CN_STAGING_<KEY>/versions/latest` and calls the `me-central2-secretmanager.googleapis.com` endpoint. With no value set, it uses the global secrets, which is today's behavior. That means no code change, only an environment variable, with one caveat below.
-- **It reads only 18 of your 23 secrets.** These are `DB_HOST`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`, `DB_PORT`, `GCP_BUCKET`, `GCP_FILE_PATH`, `MAIL_DRIVER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_NAME`, `MAIL_FROM_ADDRESS`, `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` and `EMAIL_SENDING_ENABLED`. The other five (`BASE_URL`, `FRONTEND_URL`, `MAIL_ENCRYPTION`, `SOCKET_URL`, `SUB_DOMAIN_URL`) aren't read by this build, so I can't tell whether anything else uses them.
-
-⚠️ **The caveat:** this code uses the older endpoint form. Google's current docs show the REST address as `secretmanager.LOCATION.rep.googleapis.com`. I haven't verified that the older host still works for `me-central2`, so step 1 tests both. If only the new form works, the loader needs a one-line change.
-
-The steps use scripts, not the Console, because the Console would put 18 secret values on your screen. Nothing below prints a value.
-
-## Step 1: test with one low-risk secret
-
-Run this on the backend instance you're logged into:
-```bash
-P=pg-ae-n-app-125609; L=me-central2
-gcloud secrets create CN_STAGING_MAIL_DRIVER --location=$L --project=$P
-gcloud secrets versions access latest --secret=CN_STAGING_MAIL_DRIVER --project=$P | gcloud secrets versions add CN_STAGING_MAIL_DRIVER --location=$L --project=$P --data-file=-
-gcloud secrets versions access latest --secret=CN_STAGING_MAIL_DRIVER --project=$P | sha256sum
-gcloud secrets versions access latest --secret=CN_STAGING_MAIL_DRIVER --location=$L --project=$P | sha256sum
-```
-The two hashes must be identical, which shows the same bytes without revealing them. The docs show `--location` and `--data-file=-` for regional secrets, but also say Secret Manager must be set up to use a regional endpoint. If gcloud complains about that, paste the error.
-
-**Test both endpoint forms.** The output is discarded, so no value is printed:
-```bash
-T=$(gcloud auth print-access-token)
-curl -s -o /dev/null -w "older host: %{http_code}\n" -H "Authorization: Bearer $T" "https://me-central2-secretmanager.googleapis.com/v1/projects/$P/locations/$L/secrets/CN_STAGING_MAIL_DRIVER/versions/latest:access"
-curl -s -o /dev/null -w "rep host: %{http_code}\n" -H "Authorization: Bearer $T" "https://secretmanager.$L.rep.googleapis.com/v1/projects/$P/locations/$L/secrets/CN_STAGING_MAIL_DRIVER/versions/latest:access"
-```
-- **`older host` returns 200:** no code change needed.
-- **Only `rep host` returns 200:** the loader needs a one-line change.
-
-Paste the hashes and both status codes before going further.
-
-## Step 2: copy the remaining 17 (only after step 1 passes)
-
-The script is safe to re-run, because it skips secrets that already exist, and it prints only names and a result:
-```bash
-P=pg-ae-n-app-125609; L=me-central2
-KEYS="DB_HOST DB_USERNAME DB_PASSWORD DB_DATABASE DB_PORT GCP_BUCKET GCP_FILE_PATH MAIL_DRIVER MAIL_HOST MAIL_PORT MAIL_USERNAME MAIL_PASSWORD MAIL_FROM_NAME MAIL_FROM_ADDRESS REDIS_HOST REDIS_PORT REDIS_PASSWORD EMAIL_SENDING_ENABLED"
-for k in $KEYS; do
-  s=CN_STAGING_$k
-  if ! gcloud secrets describe $s --location=$L --project=$P >/dev/null 2>&1; then
-    gcloud secrets create $s --location=$L --project=$P >/dev/null || { echo "CREATE FAILED $s"; continue; }
-    gcloud secrets versions access latest --secret=$s --project=$P | gcloud secrets versions add $s --location=$L --project=$P --data-file=- >/dev/null
-  fi
-  a=$(gcloud secrets versions access latest --secret=$s --project=$P | sha256sum)
-  b=$(gcloud secrets versions access latest --secret=$s --location=$L --project=$P | sha256sum)
-  [ "$a" = "$b" ] && echo "OK $s" || echo "MISMATCH $s"
-done
-```
-All 18 lines should say `OK`. Nothing live changes yet, because the running app still reads the global secrets.
-
-## Step 3: switch the app, in the backend repo
-
-In `ecosystem.config.js`, add one line to `env_staging`:
-```js
-      env_staging: {
-        NODE_ENV: 'staging',
-        PORT: 3024,
-        SECRET_LOCATION: 'me-central2',
-      },
-```
-Push to `staging`. **Packer is the safety test:** the build VM starts the app with this setting, and the pipeline fails at the `/health` check if the regional secrets can't be read, before any server is replaced. Then the rolling update replaces the running server.
-
-## Step 4: remove the global copies, only after days of stable running
-
-⚠️ Deleting a secret can't be undone. Until then, rollback is removing that line and pushing. After deleting, the old global values are gone. Before deleting, disable the global versions first as a reversible trial, and watch for a successful new server boot.
-
-## Effects
-
-| | |
-|---|---|
-| Downtime | none; the global secrets stay until you remove them |
-| Cost | regional secrets are new items, small and I haven't verified the pricing. Both sets exist until step 4 |
-| Reversible | steps 1–3 yes; step 4 no |
-| Frontend | unaffected; its config is in the build, not in Secret Manager |
-
-## Decisions and questions
-
-1. **The 5 unread secrets:** migrate them too, delete them if unused, or leave them? Left alone, they stay in automatic replication, so the rule isn't fully met. I won't delete anything without confirmation.
-2. **Compliance wording:** if "data store" means at-rest storage only, option A (global secrets with `me-central2` replication) would also do, but regional secrets are the safer fit for a strict reading.
-
-Paste the step 1 hashes and both status codes.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ P=pg-ae-n-app-125609; L=me-central2
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud secrets create CN_STAGING_MAIL_DRIVER --location=$L --project=$P
+ERROR: (gcloud.secrets.create) INVALID_ARGUMENT: The provided Project ID [projects/pg-ae-n-app-125609/locations/me-central2] does not match the expected format [projects/*]
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud secrets versions access latest --secret=CN_STAGING_MAIL_DRIVER --project=$P | gcloud secrets versions add CN_STAGING_MAIL_DRIVER --location=$L --project=$P --data-file=-
+ERROR: (gcloud.secrets.versions.add) INVALID_ARGUMENT: The provided Secret ID [projects/pg-ae-n-app-125609/locations/me-central2/secrets/CN_STAGING_MAIL_DRIVER] does not match the expected format [projects/*/secrets/*]
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud secrets versions access latest --secret=CN_STAGING_MAIL_DRIVER --project=$P | sha256sum
+4ae524ef0a54bc56e3844482dff66d3dd1c07170a36531500327556e4eb58a66  -
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud secrets versions access latest --secret=CN_STAGING_MAIL_DRIVER --location=$L --project=$P | sha256sum
+ERROR: (gcloud.secrets.versions.access) INVALID_ARGUMENT: The provided Secret ID [projects/pg-ae-n-app-125609/locations/me-central2/secrets/CN_STAGING_MAIL_DRIVER/versions/latest] does not match the expected format [projects/*/secrets/*/versions/*]
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  -
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$
