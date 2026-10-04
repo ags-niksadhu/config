@@ -1,23 +1,122 @@
-ERROR: build step 5 "gcr.io/cloud-builders/gcloud" failed: step exited with non-zero status: 1
-ERROR
-Finished Step #5 - "Rolling Update MIG"
- - Required 'compute.images.useReadOnly' permission for 'projects/pg-gx-s-999309/global/images/linux-ubuntu2404-base-2026-08-1'
-ERROR: (gcloud.compute.instance-groups.managed.rolling-action.start-update) Could not fetch resource:
+DONE
+PUSH
+Finished Step #7 - "Cleanup Old Packer Artifacts"
 Already have image (with digest): gcr.io/cloud-builders/gcloud
-cn-frontend-template-423fe8f  e2-medium                  2026-10-04T09:46:44.004-07:00
+Starting Step #7 - "Cleanup Old Packer Artifacts"
+Finished Step #6 - "Verify Rollout Health"
+Group is stable
+Waiting for group to become stable, current operations: deleting: 1
+Waiting for group to become stable, current operations: deleting: 1
+Waiting for group to become stable, current operations: deleting: 1
+Waiting for group to become stable, current operations: deleting: 1
+Waiting for group to become stable, current operations: deleting: 1
+Waiting for group to become stable
+Waiting for group to become stable, current operations: verifying: 1
+Waiting for group to become stable, current operations: verifying: 1
+Waiting for group to become stable, current operations: verifying: 1
+Already have image (with digest): gcr.io/cloud-builders/gcloud
+Starting Step #6 - "Verify Rollout Health"
+Finished Step #5 - "Rolling Update MIG"
+    calculated: 1
+  targetSize:
+- instanceTemplate: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-frontend-template-01d17a8
+versions:
+  type: PROACTIVE
+  replacementMethod: SUBSTITUTE
+  minimalAction: REPLACE
+    fixed: 0
+    calculated: 0
+  maxUnavailable:
+    fixed: 3
+    calculated: 3
+  maxSurge:
+  instanceRedistributionType: NONE
+updatePolicy:
+targetSuspendedSize: 0
+targetStoppedSize: 0
+  mode: INDIVIDUAL
+targetSizePolicy:
+targetSize: 1
+    isReached: false
+  versionTarget:
+      allEffective: true
+    perInstanceConfigs:
+    hasStatefulConfig: false
+  stateful:
+  isStable: false
+  autoscaler: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-frontend-mig-regional
+    effective: true
+  allInstancesConfig:
+status:
+  mode: MANUAL
+  initialDelaySec: 0
+standbyPolicy:
+selfLink: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-frontend-mig-regional
+satisfiesPzs: true
+satisfiesPzi: true
+region: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2
+  port: 80
+- name: http
+namedPorts:
+name: cn-frontend-mig-regional
+listManagedInstancesResults: PAGINATED
+kind: compute#instanceGroupManager
+instanceTemplate: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-frontend-template-01d17a8
+    allowChangingZone: YES
+  onRepair:
+  onFailedHealthCheck: DEFAULT_ACTION
+  forceUpdateOnRepair: YES
+  defaultActionOnFailure: REPAIR
+instanceLifecyclePolicy:
+instanceGroup: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroups/cn-frontend-mig-regional
+id: '2492432175583934991'
+fingerprint: FoC_iSmQ9hU=
+  - zone: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c
+  - zone: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-b
+  - zone: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-a
+  zones:
+  targetShape: BALANCED
+distributionPolicy:
+description: ''
+  verifying: 0
+  suspending: 0
+  stopping: 0
+  starting: 0
+  resuming: 0
+  restarting: 0
+  refreshing: 0
+  recreating: 0
+  none: 1
+  deleting: 0
+  creatingWithoutRetries: 0
+  creating: 1
+  abandoning: 0
+currentActions:
+creationTimestamp: '2026-10-04T09:54:56.450-07:00'
+baseInstanceName: cn-frontend-mig-regional
+  initialDelaySec: 300
+- healthCheck: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/healthChecks/frontend-health-check
+autoHealingPolicies:
+---
+Updated [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-frontend-mig-regional].
+Already have image (with digest): gcr.io/cloud-builders/gcloud
+Starting Step #5 - "Rolling Update MIG"
+Finished Step #4 - "Create Instance Template"
+cn-frontend-template-01d17a8  e2-medium                  2026-10-04T10:08:55.166-07:00
 NAME                          MACHINE_TYPE  PREEMPTIBLE  CREATION_TIMESTAMP
  - You are creating an instance template with global DNS attributes. VM instances using global DNS are vulnerable to cross-regional outages. To reduce the risk of widespread service disruption, use zonal DNS instead. Learn more at https://cloud.google.com/compute/docs/networking/zonal-dns?utm_id=tmpl-insert
 WARNING: Some requests generated warnings:
-Created [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-frontend-template-423fe8f].
+Created [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/instanceTemplates/cn-frontend-template-01d17a8].
 Already have image (with digest): gcr.io/cloud-builders/gcloud
 Starting Step #4 - "Create Instance Template"
 Finished Step #3 - "Build Packer Image"
---> googlecompute.frontend: A disk image was created in the 'pg-ae-n-app-125609' project: cn-frontend-image-423fe8f
+--> googlecompute.frontend: A disk image was created in the 'pg-ae-n-app-125609' project: cn-frontend-image-01d17a8
 ==> Builds finished. The artifacts of successful builds are:
-==> Wait completed after 5 minutes 31 seconds
-Build 'googlecompute.frontend' finished after 5 minutes 31 seconds.
+==> Wait completed after 5 minutes 22 seconds
+Build 'googlecompute.frontend' finished after 5 minutes 22 seconds.
 ==> googlecompute.frontend: SSH public key for OSLogin has been deleted!
 ==> googlecompute.frontend: Deleting SSH public key for OSLogin...
+==> googlecompute.frontend: Disk has been deleted!
 ==> googlecompute.frontend: Deleting disk...
 ==> googlecompute.frontend: Creating image...
 ==> googlecompute.frontend: Instance has been deleted!
@@ -34,7 +133,6 @@ Build 'googlecompute.frontend' finished after 5 minutes 31 seconds.
 ==> googlecompute.frontend: +---------------------------------------+
 ==> googlecompute.frontend: [PM2] [v] Command successfully executed.
 ==> googlecompute.frontend: [PM2] [-] Executing: systemctl enable pm2-sa_108691235514385689272...
-==> googlecompute.frontend: Created symlink /etc/systemd/system/multi-user.target.wants/pm2-sa_108691235514385689272.service → /etc/systemd/system/pm2-sa_108691235514385689272.service.
 ==> googlecompute.frontend: [PM2] Making script booting at startup...
 ==> googlecompute.frontend: [PM2] Writing init configuration in /etc/systemd/system/pm2-sa_108691235514385689272.service
 ==> googlecompute.frontend: [ 'systemctl enable pm2-sa_108691235514385689272' ]
@@ -44,6 +142,7 @@ Build 'googlecompute.frontend' finished after 5 minutes 31 seconds.
 ==> googlecompute.frontend:
 ==> googlecompute.frontend: WantedBy=multi-user.target
 ==> googlecompute.frontend: [Install]
+==> googlecompute.frontend: Created symlink /etc/systemd/system/multi-user.target.wants/pm2-sa_108691235514385689272.service → /etc/systemd/system/pm2-sa_108691235514385689272.service.
 ==> googlecompute.frontend:
 ==> googlecompute.frontend: ExecStop=/usr/lib/node_modules/pm2/bin/pm2 kill
 ==> googlecompute.frontend: ExecReload=/usr/lib/node_modules/pm2/bin/pm2 reload all
@@ -104,19 +203,19 @@ Build 'googlecompute.frontend' finished after 5 minutes 31 seconds.
 ==> googlecompute.frontend:
 ==> googlecompute.frontend:                         -------------
 ==> googlecompute.frontend:
-==> googlecompute.frontend: -rw-rw-r-- 1 sa_108691235514385689272 sa_108691235514385689272 5790 Oct  4 16:43 /home/sa_108691235514385689272/.pm2/dump.pm2
+==> googlecompute.frontend: -rw-rw-r-- 1 sa_108691235514385689272 sa_108691235514385689272 5796 Oct  4 17:06 /home/sa_108691235514385689272/.pm2/dump.pm2
 ==> googlecompute.frontend: [PM2] Successfully saved in /home/sa_108691235514385689272/.pm2/dump.pm2
 ==> googlecompute.frontend: [PM2] Saving current process list...
 ==> googlecompute.frontend: PM2 running as: sa_108691235514385689272, home: /home/sa_108691235514385689272
-==> googlecompute.frontend: host metrics | cpu: 0% | ram usage: 19.9% | disk: ⇓ 0mb/s ⇑ 0mb/s
+==> googlecompute.frontend: host metrics | cpu: 0% | ram usage: 19.3% | disk: ⇓ 0mb/s ⇑ 0mb/s
 ==> googlecompute.frontend: └────┴────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
-==> googlecompute.frontend: │ 0  │ testnftapp.com_app_cpms    │ default     │ N/A     │ fork    │ 3472     │ 10s    │ 0    │ online    │ 0%       │ 67.3mb   │ sa_1086… │ disabled │
+==> googlecompute.frontend: │ 0  │ testnftapp.com_app_cpms    │ default     │ N/A     │ fork    │ 3442     │ 10s    │ 0    │ online    │ 0%       │ 67.2mb   │ sa_1086… │ disabled │
 ==> googlecompute.frontend: ├────┼────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
 ==> googlecompute.frontend: │ id │ name                       │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
 ==> googlecompute.frontend: ┌────┬────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
 ==> googlecompute.frontend: === PM2 STATUS AFTER START ===
 ==> googlecompute.frontend: └────┴────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
-==> googlecompute.frontend: │ 0  │ testnftapp.com_app_cpms    │ default     │ N/A     │ fork    │ 3472     │ 0s     │ 0    │ online    │ 0%       │ 32.7mb   │ sa_1086… │ disabled │
+==> googlecompute.frontend: │ 0  │ testnftapp.com_app_cpms    │ default     │ N/A     │ fork    │ 3442     │ 0s     │ 0    │ online    │ 0%       │ 42.8mb   │ sa_1086… │ disabled │
 ==> googlecompute.frontend: ├────┼────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
 ==> googlecompute.frontend: │ id │ name                       │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
 ==> googlecompute.frontend: ┌────┬────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
@@ -169,71 +268,40 @@ Build 'googlecompute.frontend' finished after 5 minutes 31 seconds.
 ==> googlecompute.frontend:   systemctl reload apache2
 ==> googlecompute.frontend: To activate the new configuration, you need to run:
 ==> googlecompute.frontend: Enabling site careernavigator-frontend.
-==> googlecompute.frontend: lrwxrwxrwx 1 sa_108691235514385689272 sa_108691235514385689272 21 Oct  4 16:43 /var/www/careernavigator-frontend/node_modules/.bin/next -> ../next/dist/bin/next
+==> googlecompute.frontend: lrwxrwxrwx 1 sa_108691235514385689272 sa_108691235514385689272 21 Oct  4 17:05 /var/www/careernavigator-frontend/node_modules/.bin/next -> ../next/dist/bin/next
+==> googlecompute.frontend: npm notice
+==> googlecompute.frontend: npm notice To update run: npm install -g npm@12.2.0
+==> googlecompute.frontend: npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
 ==> googlecompute.frontend: Run `npm audit` for details.
 ==> googlecompute.frontend:
 ==> googlecompute.frontend:   npm audit fix --force
 ==> googlecompute.frontend: To address all issues (including breaking changes), run:
-==> googlecompute.frontend:
-==> googlecompute.frontend:   npm audit fix
-==> googlecompute.frontend: npm notice
-==> googlecompute.frontend: npm notice To update run: npm install -g npm@12.2.0
-==> googlecompute.frontend: npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
-==> googlecompute.frontend: To address issues that do not require attention, run:
-==> googlecompute.frontend:
 ==> googlecompute.frontend: npm notice New major version of npm available! 10.9.9 -> 12.2.0
 ==> googlecompute.frontend: npm notice
+==> googlecompute.frontend:
+==> googlecompute.frontend:   npm audit fix
+==> googlecompute.frontend: To address issues that do not require attention, run:
+==> googlecompute.frontend:
 ==> googlecompute.frontend: 29 vulnerabilities (28 moderate, 1 critical)
 ==> googlecompute.frontend:
 ==> googlecompute.frontend:   run `npm fund` for details
 ==> googlecompute.frontend: 61 packages are looking for funding
 ==> googlecompute.frontend:
-==> googlecompute.frontend: added 305 packages, and audited 306 packages in 22s
+==> googlecompute.frontend: added 305 packages, and audited 306 packages in 23s
 ==> googlecompute.frontend:
 ==> googlecompute.frontend: npm warn deprecated uuid@8.3.2: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
 ==> googlecompute.frontend: npm warn deprecated crypto@1.0.1: This package is no longer supported. It's now a built-in Node module. If you've depended on crypto, you should switch to the one that's built-in.
-==> googlecompute.frontend:   run `npm fund` for details
-==> googlecompute.frontend: 8 packages are looking for funding
 ==> googlecompute.frontend: npm notice
 ==> googlecompute.frontend: npm notice To update run: npm install -g npm@12.2.0
+==> googlecompute.frontend:   run `npm fund` for details
 ==> googlecompute.frontend: npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
 ==> googlecompute.frontend: npm notice New major version of npm available! 10.9.9 -> 12.2.0
-==> googlecompute.frontend:
+==> googlecompute.frontend: 8 packages are looking for funding
 ==> googlecompute.frontend: npm notice
-==> googlecompute.frontend: added 77 packages in 14s
+==> googlecompute.frontend:
+==> googlecompute.frontend: added 77 packages in 13s
 ==> googlecompute.frontend:
 ==> googlecompute.frontend:   systemctl restart apache2
-==> googlecompute.frontend: To activate the new configuration, you need to run:
-==> googlecompute.frontend: Enabling module remoteip.
-==> googlecompute.frontend: Enabling module http2.
-==> googlecompute.frontend: See /usr/share/doc/apache2/README.Debian.gz on how to configure SSL and create self-signed certificates.
-==> googlecompute.frontend: Enabling module ssl.
-==> googlecompute.frontend: Enabling module socache_shmcb.
-==> googlecompute.frontend: Considering dependency socache_shmcb for ssl:
-==> googlecompute.frontend: Module mime already enabled
-==> googlecompute.frontend: Considering dependency mime for ssl:
-==> googlecompute.frontend: Enabling module rewrite.
-==> googlecompute.frontend: Enabling module headers.
-==> googlecompute.frontend: Enabling module proxy_http.
-==> googlecompute.frontend: Module proxy already enabled
-==> googlecompute.frontend: Considering dependency proxy for proxy_http:
-==> googlecompute.frontend: Enabling module proxy.
-==> googlecompute.frontend: No VM guests are running outdated hypervisor (qemu) binaries on this host.
-==> googlecompute.frontend:
-==> googlecompute.frontend:  sa_108691235514385689272 @ user manager service: systemd[1003]
-==> googlecompute.frontend:  sa_108691235514385689272 @ session #1: sshd[764]
-==> googlecompute.frontend: User sessions running outdated binaries:
-==> googlecompute.frontend:
-==> googlecompute.frontend: No containers need to be restarted.
-==> googlecompute.frontend:
-==> googlecompute.frontend:  systemctl restart systemd-logind.service
-==> googlecompute.frontend:  /etc/needrestart/restart.d/dbus.service
-==> googlecompute.frontend: Service restarts being deferred:
-==> googlecompute.frontend:
-==> googlecompute.frontend: Restarting services...
-==> googlecompute.frontend:
-==> googlecompute.frontend: Running kernel seems to be up-to-date.
-==> googlecompute.frontend:
 ==> googlecompute.frontend: debconf: falling back to frontend: Teletype
 ==> googlecompute.frontend: debconf: (This frontend requires a controlling tty.)
 ==> googlecompute.frontend: debconf: unable to initialize frontend: Readline
@@ -296,6 +364,13 @@ Build 'googlecompute.frontend' finished after 5 minutes 31 seconds.
 ==> googlecompute.frontend: Selecting previously unselected package nodejs.
 ==> googlecompute.frontend: Unpacking apache2 (2.4.58-1ubuntu8.15) ...
 ==> googlecompute.frontend: Preparing to unpack .../08-apache2_2.4.58-1ubuntu8.15_amd64.deb ...
+==> googlecompute.frontend: Selecting previously unselected package apache2.
+==> googlecompute.frontend: Unpacking apache2-utils (2.4.58-1ubuntu8.15) ...
+==> googlecompute.frontend: Preparing to unpack .../07-apache2-utils_2.4.58-1ubuntu8.15_amd64.deb ...
+==> googlecompute.frontend: Selecting previously unselected package apache2-utils.
+==> googlecompute.frontend: Unpacking apache2-data (2.4.58-1ubuntu8.15) ...
+==> googlecompute.frontend: Preparing to unpack .../06-apache2-data_2.4.58-1ubuntu8.15_all.deb ...
+==> googlecompute.frontend: Selecting previously unselected package apache2-data.
 ==> googlecompute.frontend: Unpacking apache2-bin (2.4.58-1ubuntu8.15) ...
 ==> googlecompute.frontend: Preparing to unpack .../05-apache2-bin_2.4.58-1ubuntu8.15_amd64.deb ...
 ==> googlecompute.frontend: Selecting previously unselected package apache2-bin.
@@ -315,7 +390,7 @@ Build 'googlecompute.frontend' finished after 5 minutes 31 seconds.
 ==> googlecompute.frontend: Preparing to unpack .../00-libapr1t64_1.7.2-3.1ubuntu0.1_amd64.deb ...
 ==> googlecompute.frontend: (Reading database ... 80287 files and directories currently installed.)
 ==> googlecompute.frontend: Selecting previously unselected package libapr1t64:amd64.
-==> googlecompute.frontend: Fetched 39.9 MB in 2s (21.1 MB/s)
+==> googlecompute.frontend: Fetched 39.9 MB in 1s (30.6 MB/s)
 ==> googlecompute.frontend: dpkg-preconfigure: unable to re-open stdin:
 ==> googlecompute.frontend: debconf: falling back to frontend: Teletype
 ==> googlecompute.frontend: debconf: (This frontend requires a controlling tty.)
@@ -323,6 +398,7 @@ Build 'googlecompute.frontend' finished after 5 minutes 31 seconds.
 ==> googlecompute.frontend: debconf: falling back to frontend: Readline
 ==> googlecompute.frontend: debconf: (Dialog frontend will not work on a dumb terminal, an emacs shell buffer, or without a controlling terminal.)
 ==> googlecompute.frontend: debconf: unable to initialize frontend: Dialog
+==> googlecompute.frontend: Get:11 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/main amd64 ssl-cert all 1.1.2ubuntu1 [17.8 kB]
 ==> googlecompute.frontend: Get:10 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 apache2 amd64 2.4.58-1ubuntu8.15 [90.2 kB]
 ==> googlecompute.frontend: Get:9 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 apache2-utils amd64 2.4.58-1ubuntu8.15 [99.7 kB]
 ==> googlecompute.frontend: Get:8 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 apache2-data all 2.4.58-1ubuntu8.15 [163 kB]
@@ -345,46 +421,45 @@ Build 'googlecompute.frontend' finished after 5 minutes 31 seconds.
 ==> googlecompute.frontend:   libaprutil1-ldap libaprutil1t64 liblua5.4-0 ssl-cert
 ==> googlecompute.frontend:   apache2-bin apache2-data apache2-utils libapr1t64 libaprutil1-dbd-sqlite3
 ==> googlecompute.frontend: The following additional packages will be installed:
+==> googlecompute.frontend: Reading state information...
+==> googlecompute.frontend: Building dependency tree...
 ==> googlecompute.frontend: Reading package lists...
 ==> googlecompute.frontend: 
-==> googlecompute.frontend: 2026-10-04 16:42:37 - To install N|solid Runtime, run: apt install nsolid -y
-==> googlecompute.frontend: 2026-10-04 16:42:37 - You can use N|solid Runtime as a node.js alternative
-==> googlecompute.frontend: 2026-10-04 16:42:37 - Repository configured successfully.
+==> googlecompute.frontend: 2026-10-04 17:05:03 - To install N|solid Runtime, run: apt install nsolid -y
+==> googlecompute.frontend: 2026-10-04 17:05:03 - You can use N|solid Runtime as a node.js alternative
+==> googlecompute.frontend: 2026-10-04 17:05:03 - To install Node.js, run: apt install nodejs -y
+==> googlecompute.frontend: 2026-10-04 17:05:03 - Repository configured successfully.
 ==> googlecompute.frontend: 26 packages can be upgraded. Run 'apt list --upgradable' to see them.
 ==> googlecompute.frontend: Reading state information...
-==> googlecompute.frontend: Fetched 24.7 kB in 1s (34.3 kB/s)
-==> googlecompute.frontend: Hit:2 http://security.ubuntu.com/ubuntu noble-security InRelease
-==> googlecompute.frontend: Hit:1 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble InRelease
+==> googlecompute.frontend: Building dependency tree...
+==> googlecompute.frontend: Reading package lists...
+==> googlecompute.frontend: Fetched 24.7 kB in 1s (32.7 kB/s)
+==> googlecompute.frontend: Hit:6 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports InRelease
+==> googlecompute.frontend: Get:5 https://deb.nodesource.com/node_22.x nodistro/main amd64 Packages [12.5 kB]
+==> googlecompute.frontend: Hit:4 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates InRelease
+==> googlecompute.frontend: Get:3 https://deb.nodesource.com/node_22.x nodistro InRelease [12.1 kB]
+==> googlecompute.frontend: Hit:2 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble InRelease
+==> googlecompute.frontend: Hit:1 http://security.ubuntu.com/ubuntu noble-security InRelease
 ==> googlecompute.frontend:
 ==> googlecompute.frontend: WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
 ==> googlecompute.frontend:
 ==> googlecompute.frontend: No VM guests are running outdated hypervisor (qemu) binaries on this host.
-==> googlecompute.frontend:
-==> googlecompute.frontend:  sa_108691235514385689272 @ user manager service: systemd[1003]
-==> googlecompute.frontend:  sa_108691235514385689272 @ session #1: sshd[764]
-==> googlecompute.frontend: User sessions running outdated binaries:
-==> googlecompute.frontend:
+==> googlecompute.frontend:  sa_108691235514385689272 @ user manager service: systemd[1004]
 ==> googlecompute.frontend: No containers need to be restarted.
-==> googlecompute.frontend:
 ==> googlecompute.frontend:  systemctl restart systemd-logind.service
-==> googlecompute.frontend:  /etc/needrestart/restart.d/dbus.service
-==> googlecompute.frontend: Service restarts being deferred:
 ==> googlecompute.frontend:
-==> googlecompute.frontend: Warning: The unit file, source configuration file or drop-ins of ssh.service changed on disk. Run 'systemctl daemon-reload' to reload units.
 ==> googlecompute.frontend: Warning: The unit file, source configuration file or drop-ins of rsyslog.service changed on disk. Run 'systemctl daemon-reload' to reload units.
 ==> googlecompute.frontend: Warning: The unit file, source configuration file or drop-ins of packagekit.service changed on disk. Run 'systemctl daemon-reload' to reload units.
 ==> googlecompute.frontend:  systemctl restart packagekit.service rsyslog.service ssh.service
 ==> googlecompute.frontend: Restarting services...
 ==> googlecompute.frontend:
 ==> googlecompute.frontend: Running kernel seems to be up-to-date.
-==> googlecompute.frontend:
 ==> googlecompute.frontend: debconf: falling back to frontend: Teletype
 ==> googlecompute.frontend: debconf: (This frontend requires a controlling tty.)
 ==> googlecompute.frontend: debconf: unable to initialize frontend: Readline
 ==> googlecompute.frontend: debconf: falling back to frontend: Readline
 ==> googlecompute.frontend: debconf: (Dialog frontend will not work on a dumb terminal, an emacs shell buffer, or without a controlling terminal.)
 ==> googlecompute.frontend: debconf: unable to initialize frontend: Dialog
-==> googlecompute.frontend: Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
 ==> googlecompute.frontend: Processing triggers for man-db (2.12.0-4build2) ...
 ==> googlecompute.frontend: Setting up curl (8.5.0-2ubuntu10.15) ...
 ==> googlecompute.frontend: Setting up libcurl3t64-gnutls:amd64 (8.5.0-2ubuntu10.15) ...
@@ -400,12 +475,16 @@ Build 'googlecompute.frontend' finished after 5 minutes 31 seconds.
 ==> googlecompute.frontend: Preparing to unpack .../apt-transport-https_2.8.3_all.deb ...
 ==> googlecompute.frontend: (Reading database ... 80283 files and directories currently installed.)
 ==> googlecompute.frontend: Selecting previously unselected package apt-transport-https.
-==> googlecompute.frontend: Fetched 910 kB in 1s (656 kB/s)
+==> googlecompute.frontend: Fetched 910 kB in 1s (1093 kB/s)
 ==> googlecompute.frontend: dpkg-preconfigure: unable to re-open stdin:
 ==> googlecompute.frontend: debconf: falling back to frontend: Teletype
 ==> googlecompute.frontend: debconf: (This frontend requires a controlling tty.)
 ==> googlecompute.frontend: debconf: unable to initialize frontend: Readline
 ==> googlecompute.frontend: debconf: falling back to frontend: Readline
+==> googlecompute.frontend: debconf: (Dialog frontend will not work on a dumb terminal, an emacs shell buffer, or without a controlling terminal.)
+==> googlecompute.frontend: debconf: unable to initialize frontend: Dialog
+==> googlecompute.frontend: Get:4 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 libcurl3t64-gnutls amd64 8.5.0-2ubuntu10.15 [336 kB]
+==> googlecompute.frontend: Get:3 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 libcurl4t64 amd64 8.5.0-2ubuntu10.15 [343 kB]
 ==> googlecompute.frontend: Get:2 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 curl amd64 8.5.0-2ubuntu10.15 [227 kB]
 ==> googlecompute.frontend: Get:1 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/universe amd64 apt-transport-https all 2.8.3 [3970 B]
 ==> googlecompute.frontend: After this operation, 36.9 kB of additional disk space will be used.
@@ -423,53 +502,54 @@ Build 'googlecompute.frontend' finished after 5 minutes 31 seconds.
 ==> googlecompute.frontend: Building dependency tree...
 ==> googlecompute.frontend: Reading package lists...
 ==> googlecompute.frontend:
+==> googlecompute.frontend: WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+==> googlecompute.frontend:
+==> googlecompute.frontend: 29 packages can be upgraded. Run 'apt list --upgradable' to see them.
+==> googlecompute.frontend: Reading state information...
 ==> googlecompute.frontend: Building dependency tree...
 ==> googlecompute.frontend: Reading package lists...
-==> googlecompute.frontend: Fetched 40.3 MB in 8s (5069 kB/s)
+==> googlecompute.frontend: Fetched 40.3 MB in 9s (4739 kB/s)
 ==> googlecompute.frontend: Get:65 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 c-n-f Metadata [116 B]
 ==> googlecompute.frontend: Get:64 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 Components [212 B]
 ==> googlecompute.frontend: Get:63 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/multiverse Translation-en [340 B]
-==> googlecompute.frontend: Get:62 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 Packages [748 B]
 ==> googlecompute.frontend: Get:57 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/universe Translation-en [18.6 kB]
-==> googlecompute.frontend: Get:56 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/universe amd64 Packages [31.0 kB]
-==> googlecompute.frontend: Get:55 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/main amd64 c-n-f Metadata [368 B]
-==> googlecompute.frontend: Get:54 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/main amd64 Components [5776 B]
-==> googlecompute.frontend: Get:53 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/main Translation-en [9172 B]
-==> googlecompute.frontend: Get:52 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports/main amd64 Packages [40.6 kB]
-==> googlecompute.frontend: Get:51 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 c-n-f Metadata [656 B]
 ==> googlecompute.frontend: Get:50 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Components [940 B]
-==> googlecompute.frontend: Get:49 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/multiverse Translation-en [13.1 kB]
-==> googlecompute.frontend: Get:48 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Packages [45.7 kB]
-==> googlecompute.frontend: Get:43 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/universe amd64 c-n-f Metadata [34.9 kB]
-==> googlecompute.frontend: Get:42 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Components [388 kB]
+==> googlecompute.frontend: Get:44 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1720 kB]
 ==> googlecompute.frontend: Get:40 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1699 kB]
+==> googlecompute.frontend: Get:39 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 c-n-f Metadata [17.7 kB]
+==> googlecompute.frontend: Get:38 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 Components [181 kB]
+==> googlecompute.frontend: Get:37 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [304 kB]
 ==> googlecompute.frontend: Get:35 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/multiverse amd64 c-n-f Metadata [8328 B]
-==> googlecompute.frontend: Get:34 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/multiverse amd64 Components [35.0 kB]
 ==> googlecompute.frontend: Get:32 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/multiverse amd64 Packages [269 kB]
+==> googlecompute.frontend: Get:31 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/restricted amd64 c-n-f Metadata [416 B]
 ==> googlecompute.frontend: Get:30 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/restricted Translation-en [18.7 kB]
 ==> googlecompute.frontend: Get:29 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/restricted amd64 Packages [93.9 kB]
-==> googlecompute.frontend: Get:28 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/universe amd64 c-n-f Metadata [301 kB]
-==> googlecompute.frontend: Get:27 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/universe amd64 Components [3871 kB]
-==> googlecompute.frontend: Get:25 http://security.ubuntu.com/ubuntu noble-security/multiverse amd64 c-n-f Metadata [468 B]
-==> googlecompute.frontend: Get:24 http://security.ubuntu.com/ubuntu noble-security/multiverse amd64 Components [208 B]
-==> googlecompute.frontend: Get:23 http://security.ubuntu.com/ubuntu noble-security/multiverse Translation-en [11.3 kB]
-==> googlecompute.frontend: Get:22 http://security.ubuntu.com/ubuntu noble-security/multiverse amd64 Packages [40.3 kB]
-==> googlecompute.frontend: Get:21 http://security.ubuntu.com/ubuntu noble-security/restricted amd64 c-n-f Metadata [444 B]
-==> googlecompute.frontend: Get:20 http://security.ubuntu.com/ubuntu noble-security/restricted amd64 Components [212 B]
-==> googlecompute.frontend: Get:19 http://security.ubuntu.com/ubuntu noble-security/restricted Translation-en [361 kB]
-==> googlecompute.frontend: Get:18 http://security.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1566 kB]
-==> googlecompute.frontend: Get:7 http://security.ubuntu.com/ubuntu noble-security/main Translation-en [221 kB]
-==> googlecompute.frontend: Get:5 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
-==> googlecompute.frontend: Get:4 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages [1069 kB]
+==> googlecompute.frontend: Get:9 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/main amd64 c-n-f Metadata [30.5 kB]
+==> googlecompute.frontend: Get:8 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/main amd64 Components [464 kB]
+==> googlecompute.frontend: Get:7 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/main Translation-en [513 kB]
+==> googlecompute.frontend: Get:6 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages [1069 kB]
+==> googlecompute.frontend: Get:5 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/main amd64 Packages [1401 kB]
+==> googlecompute.frontend: Get:4 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
 ==> googlecompute.frontend: Get:3 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
 ==> googlecompute.frontend: Get:2 http://security.ubuntu.com/ubuntu noble-security InRelease [126 kB]
 ==> googlecompute.frontend: Get:1 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble InRelease [256 kB]
+==> googlecompute.frontend:
+==> googlecompute.frontend: WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+==> googlecompute.frontend:
+==> googlecompute.frontend: 2026-10-04 17:04:23 - Installing pre-requisites
+==> googlecompute.frontend: Provisioning with shell script: /tmp/packer-shell2144177268
+==> googlecompute.frontend: Uploading files/careernavigator-frontend.conf => /tmp/careernavigator-frontend.conf
+==> googlecompute.frontend: Uploading ../ecosystem.config.js => /var/www/careernavigator-frontend/ecosystem.config.js
+==> googlecompute.frontend: Uploading ../next.config.ts => /var/www/careernavigator-frontend/next.config.ts
+==> googlecompute.frontend: Uploading ../package-lock.json => /var/www/careernavigator-frontend/package-lock.json
+==> googlecompute.frontend: Uploading ../package.json => /var/www/careernavigator-frontend/package.json
+==> googlecompute.frontend: Uploading ../public => /var/www/careernavigator-frontend/public
 ==> googlecompute.frontend: Uploading ../build => /var/www/careernavigator-frontend/build
-==> googlecompute.frontend: Provisioning with shell script: /tmp/packer-shell3021171168
+==> googlecompute.frontend: Provisioning with shell script: /tmp/packer-shell1671063251
 ==> googlecompute.frontend: Connected to SSH!
 ==> googlecompute.frontend: Waiting for SSH to become available...
-==> googlecompute.frontend: Using SSH communicator to connect: 10.216.0.9
-==> googlecompute.frontend: IP: 10.216.0.9
+==> googlecompute.frontend: Using SSH communicator to connect: 10.216.15.234
+==> googlecompute.frontend: IP: 10.216.15.234
 ==> googlecompute.frontend: Waiting for the instance to become running...
 ==> googlecompute.frontend: Instance has been created!
 ==> googlecompute.frontend: Waiting for creation operation to complete...
@@ -479,7 +559,6 @@ Build 'googlecompute.frontend' finished after 5 minutes 31 seconds.
 ==> googlecompute.frontend: Creating instance...
 ==> googlecompute.frontend: Using image: clean-ubuntu-26092026-img
 ==> googlecompute.frontend: Obtaining SSH Username for OSLogin...
-==> googlecompute.frontend: Importing SSH public key for OSLogin...
 ==> googlecompute.frontend: no persistent disk to create
 ==> googlecompute.frontend: Creating temporary RSA SSH key for instance...
 ==> googlecompute.frontend: Checking image does not exist...
@@ -491,11 +570,16 @@ Digest: sha256:9fd66d5a4ea0598036e6b50ac6f8c0e72c27746648a5abe480463119e9486ea7
 922cbb9f6017: Pull complete
 f36f987fc10e: Pull complete
 77874054d996: Pull complete
+324a271ea31e: Pull complete
+77874054d996: Download complete
 77874054d996: Verifying Checksum
+4fdc56a1d49f: Pull complete
 324a271ea31e: Download complete
+324a271ea31e: Verifying Checksum
 4fdc56a1d49f: Download complete
 4fdc56a1d49f: Verifying Checksum
 922cbb9f6017: Download complete
+922cbb9f6017: Verifying Checksum
 f36f987fc10e: Download complete
 f36f987fc10e: Verifying Checksum
 922cbb9f6017: Pulling fs layer
@@ -522,21 +606,74 @@ Finished Step #2 - "Build Staging"
 ├ ○ /training/library
 ├ ○ /training/categories/create-category
 ├ ƒ /training/categories/[id]/[slug]
+├ ○ /training/categories
+├ ƒ /set-password
+├ ○ /roles/create-role
+├ ƒ /roles/[id]/[slug]
+├ ○ /roles
+├ ○ /reset-password
+├ ○ /profile
+├ ○ /privacy-and-terms
+├ ○ /organizations/create-organization
+├ ƒ /organizations/[slug]
+├ ○ /organizations
+├ ○ /organization-chart
+├ ○ /notifications
+├ ○ /login
+├ ○ /job-families/create-job-family
+├ ƒ /job-families/[id]/[slug]
+├ ○ /job-families
+├ ○ /grades/create-grade
+├ ƒ /grades/[id]/[slug]
+├ ○ /grades
+├ ○ /functions/create-function
+├ ƒ /functions/[id]/[slug]
+├ ○ /functions
+├ ○ /forgot-password
+├ ƒ /file-manager/[id]
+├ ○ /file-manager
+├ ƒ /define-employee-role-and-add-competency/[id]
+├ ○ /define-employee-role-and-add-competency
+├ ○ /dashboard
+├ ƒ /competencies/proficiency-levels/[id]/[slug]
+├ ○ /competencies/proficiency-levels
+├ ○ /competencies/list/create-competency
+├ ƒ /competencies/list/[id]/[slug]
+├ ○ /competencies/list
+├ ○ /competencies/categories/create-category
+├ ƒ /competencies/categories/[id]/[slug]
+├ ○ /competencies/categories
+├ ○ /competencies
+├ ○ /cms/terms-and-conditions-page
+├ ○ /cms/privacy-policy-page
+├ ○ /cms/landing-page
+├ ○ /cms
+├ ○ /career-path/visualization
+├ ○ /career-path/designer/create-career-path
+├ ƒ /career-path/designer/[id]
+├ ○ /career-path/designer
+├ ○ /audit-logs
+├ ƒ /[orgSubdomain]/privacy-and-terms
+├ ƒ /[orgSubdomain]
+├ ○ /_not-found
+┌ ○ /
+Route (app)
   Finalizing page optimization ...
-✓ Generating static pages using 1 worker (48/48) in 1614ms
+✓ Generating static pages using 1 worker (48/48) in 2.3s
   Generating static pages using 1 worker (36/48) 
   Generating static pages using 1 worker (24/48) 
   Generating static pages using 1 worker (12/48) 
-  Generating static pages using 1 worker (0/48) ...
   Collecting page data using 1 worker ...
-  Finished TypeScript in 26.1s ...
+  Finished TypeScript in 41s ...
+✓ Finished writing to filesystem cache in 10.9s
   Running TypeScript ...
-✓ Compiled successfully in 45s
+✓ Compiled successfully in 56s
   Creating an optimized production build ...
 https://nextjs.org/telemetry
 You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
 This information is used to shape Next.js' roadmap and prioritize features.
-✓ Running next.config.ts took 46ms
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+✓ Running next.config.ts took 60ms
 ▲ Next.js 16.3.5 (Turbopack)
 > next build
 > my-app@0.1.0 build
@@ -554,7 +691,7 @@ To address issues that do not require attention, run:
 29 vulnerabilities (28 moderate, 1 critical)
   run `npm fund` for details
 61 packages are looking for funding
-added 305 packages, and audited 306 packages in 24s
+added 305 packages, and audited 306 packages in 23s
 npm warn deprecated uuid@8.3.2: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
 npm warn deprecated crypto@1.0.1: This package is no longer supported. It's now a built-in Node module. If you've depended on crypto, you should switch to the one that's built-in.
 docker.io/library/node:22
@@ -569,7 +706,6 @@ de9e8d0a0071: Pull complete
 7b2de2423ebd: Pull complete
 de9e8d0a0071: Download complete
 de9e8d0a0071: Verifying Checksum
-eaac70c68abd: Pull complete
 81578410df16: Download complete
 81578410df16: Verifying Checksum
 0d48f423dff0: Download complete
@@ -598,10 +734,10 @@ eaac70c68abd: Pulling fs layer
 Pulling image: node:22
 Starting Step #0 - "Install Dependencies"
 BUILD
-423fe8f5170e79a1d80908e9f20e62074bbfb714
+01d17a8a90bee071fbd1f36933912867de17f829
 GitCommit:
-HEAD is now at 423fe8f Update frontend.pkr.hcl
- * branch            423fe8f5170e79a1d80908e9f20e62074bbfb714 -> FETCH_HEAD
+HEAD is now at 01d17a8 Update README.md
+ * branch            01d17a8a90bee071fbd1f36933912867de17f829 -> FETCH_HEAD
 From https://github.com/pwc-me-adv-careernavigator/careernavigator-frontend
 FETCHSOURCE
-starting build "1841b4d3-2a50-4e0e-8a43-0b5c934b984b"
+starting build "40faa871-00e6-4f7a-8a8d-3d37f1ba91a9"
