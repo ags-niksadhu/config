@@ -1,26 +1,60 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ P=pg-ae-n-app-125609
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud logging read "logName=\"projects/$P/logs/backend_apache_access\"" --project=$P --limit=2 --format="table(timestamp,resource.labels.instance_id)"
-TIMESTAMP                       INSTANCE_ID
-2026-10-04T10:57:59.725858503Z  3718617004685695868
-2026-10-04T10:57:57.100906744Z  3718617004685695868
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud compute instances list --project=$P --format="table(name,id,status)"
-NAME                           ID                   STATUS
-cn-staging-backapp-vm-01       3718617004685695868  TERMINATED
-cn-staging-frontapp-vm-01      9026940190173994591  TERMINATED
-cn-backend-mig-regional-pwk9   3503779832853895125  RUNNING
-cn-frontend-mig-regional-71vb  3853368313659723203  RUNNING
-cn-frontend-mig-regional-lc5m  3902545959781866338  RUNNING
-cn-frontend-mig-regional-n3lk  3871362452808469995  RUNNING
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ systemctl status google-cloud-ops-agent --no-pager | head -5
-Unit google-cloud-ops-agent.service could not be found.
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ ls /etc/google-cloud-ops-agent/
-ls: cannot access '/etc/google-cloud-ops-agent/': No such file or directory
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud projects get-iam-policy $P --format="yaml(auditConfigs)"
-ERROR: (gcloud.projects.get-iam-policy) [nikul.sadhu@gcp.pwc.com] does not have permission to access projects instance [pg-ae-n-app-125609:getIamPolicy] (or it may not exist): The caller does not have permission. This command is authenticated as nikul.sadhu@gcp.pwc.com which is the active account specified by the [core/account] property
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud compute backend-services describe app-backend-service --global --project=$P --format="value(logConfig)"
-enable=True;optionalMode=EXCLUDE_ALL_OPTIONAL;sampleRate=1.0
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud compute backend-services describe frontend-service --global --project=$P --format="value(logConfig)"
-enable=True;optionalMode=EXCLUDE_ALL_OPTIONAL;sampleRate=1.0
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud compute networks subnets describe default --region=me-central2 --project=$P --format="value(logConfig)"
+Understood. I'll add the PM2 logs now, and you'll confirm the key line with the dev team. Both PM2 files are covered: `*-out*.log` holds the request and info lines (what you called access), and `*-error*.log` holds the errors. The name patterns come from your earlier logs. The suffix varies, for example `-error-0.log`, so I used wildcards.
 
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$
+## Updated `packer/files/ops-agent-config.yaml`
+
+**Backend repo:**
+```yaml
+logging:
+  receivers:
+    backend_apache_access:
+      type: files
+      include_paths: [/var/log/apache2/careernavigator-backend-staging-access.log]
+    backend_apache_error:
+      type: files
+      include_paths: [/var/log/apache2/careernavigator-backend-staging-error.log]
+    auth_log:
+      type: files
+      include_paths: [/var/log/auth.log]
+    pm2_out:
+      type: files
+      include_paths: [/home/sa_*/.pm2/logs/*-out*.log]
+    pm2_error:
+      type: files
+      include_paths: [/home/sa_*/.pm2/logs/*-error*.log]
+  service:
+    pipelines:
+      server_logs:
+        receivers: [backend_apache_access, backend_apache_error, auth_log, pm2_out, pm2_error]
+```
+
+**Frontend repo:** the same file, with the two Apache receivers renamed to `frontend_apache_access` and `frontend_apache_error`, and their paths changed to `/var/log/apache2/careernavigator-frontend-staging-access.log` and `...-error.log`. The PM2 receivers stay identical, because the frontend's log files (`testnftapp.com-app-cpms-out.log` and `-error.log`) match the same patterns.
+
+The old logs are named `pm2_logs`, and these write to `pm2_out` and `pm2_error`. Old history stays under the old name, and new entries under the new names.
+
+The Packer provisioner lines from my last message are unchanged. Without those, the file does nothing.
+
+## Two risks about the key line
+
+- **Entries can't be edited.** Cloud Logging entries can't be edited or deleted one by one afterwards. If that key is real, every `DDDDDD` line shipped now stays until the retention period ends.
+- **Safer option:** when I give you the routing step, I'd send the PM2 logs to their own bucket. If the key turns out to be real, that bucket can be deleted as a whole. Log buckets can be deleted, but I haven't verified the exact process.
+
+Tell the dev team to treat that key as exposed if it's real, since it already appears in earlier build logs and in pasted output.
+
+## Verify after the rollout
+
+```bash
+P=pg-ae-n-app-125609
+gcloud logging read "logName=\"projects/$P/logs/pm2_error\" OR logName=\"projects/$P/logs/pm2_out\"" --project=$P --limit=4 --format="table(timestamp,logName.basename(),resource.labels.instance_id)"
+```
+Expect fresh entries from a running MIG server's instance ID.
+
+**If nothing appears:** a wildcard in the directory name may not be supported. In that case, use the exact path `/home/sa_108691235514385689272/.pm2/logs/*-out*.log`, and the same with `*-error*.log`. That user name has been identical in every build, but it would change if the build identity ever changed.
+
+## Effects
+
+Same as before: no downtime, a rolling update, no new cost for the agent, and the log volume was already being ingested from the old VMs. Rollback is reverting the commit.
+
+## Two questions
+
+1. Do you want the full updated `backend.pkr.hcl` and `frontend.pkr.hcl` with these additions, or will you add the lines yourself?
+2. Has the `cn-staging-logs-me2` bucket been created? Routing is the next step.
