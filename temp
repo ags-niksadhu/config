@@ -1,52 +1,64 @@
-Run this block once. It checks every data store we've touched, and it's read-only, so nothing changes.
-
-```bash
-P=pg-ae-n-app-125609
-echo "== TEMPLATES =="; gcloud compute instance-templates list --project=$P --sort-by=~creationTimestamp --format="table(name,selfLink.scope(projects))"
-echo "== MIG TEMPLATES =="; for m in cn-backend-mig-regional cn-frontend-mig-regional; do gcloud compute instance-groups managed describe $m --region=me-central2 --project=$P --format="value(name,versions[].instanceTemplate)"; done
-echo "== INSTANCES =="; gcloud compute instances list --project=$P --format="table(name,zone.basename(),status)"
-echo "== DISKS =="; gcloud compute disks list --project=$P --format="table(name,zone.basename(),sizeGb)"
-echo "== IMAGES =="; gcloud compute images list --project=$P --no-standard-images --format="table(name,storageLocations.list())"
-echo "== SNAPSHOTS =="; gcloud compute snapshots list --project=$P --format="table(name,storageLocations.list())"; gcloud compute snapshot-settings describe
-echo "== SECRET SAMPLE =="; gcloud secrets describe CN_STAGING_DB_HOST --project=$P --format="yaml(replication)"
-echo "== BUCKETS =="; gcloud storage buckets list --project=$P --format="table(name,location,locationType)"
-echo "== SQL =="; gcloud sql instances list --project=$P --format="table(name,region)"
-echo "== LOG BUCKETS =="; gcloud logging buckets list --project=$P --format="table(name,location)"
-```
-
-I haven't verified the `logging buckets list` flags. If that line errors, paste the error.
-
-## What you should see
-
-| Section | Compliant result |
-|---|---|
-| Templates | The newest backend and frontend templates under `regions/me-central2`. Older ones still show `global`, and they're leftovers, not in use. |
-| MIG templates | The URLs contain `/regions/me-central2/instanceTemplates/`. A `/global/` URL means that MIG didn't pick up the regional template. |
-| Instances and disks | Every zone is `me-central2-a`, `-b` or `-c` |
-| Images | All `me-central2` |
-| Snapshots | Empty list, or `me-central2` only. The settings show `SPECIFIC_LOCATIONS` with `me-central2` |
-| Secret sample | **Not compliant yet.** `automatic` replication means multiple regions, and it can't be changed on an existing secret |
-| Buckets, SQL | Not seen yet. `location` should be `ME-CENTRAL2`. Cloud SQL may be empty if the DB is external |
-| Log buckets | I expect `_Default` and `_Required` in `global`. That's Google's default, so it's not compliant until compliance says logs are out of scope or you move them |
-
-## Expect to remain global
-
-- **Old global templates:** `clean-ubuntu-26092026`, `cn-backend-template-v5`, `cnstagingbackend-instance-template-22-sept-2026-v2`, plus `41f3935` and `d3dff86`. You kept the legacy ones on purpose, and the current pair can go once the regional rollout has been stable for a few days.
-- **Global by design:** the VPC network, firewall rules, health checks, backend services, URL maps and the load balancer. They hold configuration, not application data, and can't simply be made regional. Confirm with compliance whether they count under your rule.
-
-## Regional by construction (no check needed)
-
-Cloud Build triggers and the worker pool `cn-backend-private-pool` live in `me-central2`. Both MIGs are regional.
-
-## Still open after this check
-
-| Item | Why |
-|---|---|
-| Secrets (23, automatic replication) | needs `secret-manager.ts` (no values) and `gcloud secrets locations list --project=pg-ae-n-app-125609 \| grep -i me-central2` |
-| Buckets and SQL | depends on the output above |
-| Logs | need a scope decision from compliance |
-| The cleanup step on regional templates | needs the log from the frontend's `Cleanup Old Packer Artifacts` step |
-
-Keep the output of this block, or screenshots of the Console list pages, as evidence.
-
-Paste the full output and I'll mark each item compliant or not.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ P=pg-ae-n-app-125609
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ echo "== TEMPLATES =="; gcloud compute instance-templates list --project=$P --sort-by=~creationTimestamp --format="table(name,selfLink.scope(projects))"
+== TEMPLATES ==
+NAME                                                SELF_LINK
+cn-backend-template-054eefc                         pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-backend-template-054eefc
+cn-frontend-template-7696009                        pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-7696009
+cn-frontend-template-b0ad954                        pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-b0ad954
+cn-backend-template-41f3935                         pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-41f3935
+cn-frontend-template-d3dff86                        pg-ae-n-app-125609/global/instanceTemplates/cn-frontend-template-d3dff86
+clean-ubuntu-26092026                               pg-ae-n-app-125609/regions/me-central2/instanceTemplates/clean-ubuntu-26092026
+cn-backend-template-v5                              pg-ae-n-app-125609/global/instanceTemplates/cn-backend-template-v5
+cnstagingbackend-instance-template-22-sept-2026-v2  pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cnstagingbackend-instance-template-22-sept-2026-v2
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ echo "== MIG TEMPLATES =="; for m in cn-backend-mig-regional cn-frontend-mig-regional; do gcloud compute instance-groups managed describe $m --region=me-central2 --project=$P --format="value(name,versions[].instanceTemplate)"; done
+== MIG TEMPLATES ==
+cn-backend-mig-regional https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-backend-template-054eefc
+cn-frontend-mig-regional        https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-7696009
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ echo "== INSTANCES =="; gcloud compute instances list --project=$P --format="table(name,zone.basename(),status)"
+== INSTANCES ==
+NAME                           ZONE           STATUS
+cn-staging-backapp-vm-01       me-central2-c  TERMINATED
+cn-staging-frontapp-vm-01      me-central2-c  TERMINATED
+cn-backend-mig-regional-pwk9   me-central2-a  RUNNING
+cn-frontend-mig-regional-lc5m  me-central2-a  RUNNING
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ echo "== DISKS =="; gcloud compute disks list --project=$P --format="table(name,zone.basename(),sizeGb)"
+== DISKS ==
+NAME                           ZONE           SIZE_GB
+cn-staging-backapp-vm-01       me-central2-c  100
+cn-staging-frontapp-vm-01      me-central2-c  100
+cn-backend-mig-regional-pwk9   me-central2-a  100
+cn-frontend-mig-regional-lc5m  me-central2-a  100
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ echo "== IMAGES =="; gcloud compute images list --project=$P --no-standard-images --format="table(name,storageLocations.list())"
+== IMAGES ==
+NAME                          STORAGE_LOCATIONS
+clean-ubuntu-26092026-img-v2  me-central2
+cn-backend-image-054eefc      me-central2
+cn-backend-image-41f3935      me-central2
+cn-backend-os-image-v1        me-central2
+cn-frontend-image-7696009     me-central2
+cn-frontend-image-b0ad954     me-central2
+cn-frontend-image-d3dff86     me-central2
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ echo "== SNAPSHOTS =="; gcloud compute snapshots list --project=$P --format="table(name,storageLocations.list())"; gcloud compute snapshot-settings describe
+== SNAPSHOTS ==
+storageLocation:
+  locations: me-central2
+  policy: SPECIFIC_LOCATIONS
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ echo "== SECRET SAMPLE =="; gcloud secrets describe CN_STAGING_DB_HOST --project=$P --format="yaml(replication)"
+== SECRET SAMPLE ==
+replication:
+  automatic: {}
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ echo "== BUCKETS =="; gcloud storage buckets list --project=$P --format="table(name,location,locationType)"
+== BUCKETS ==
+NAME                            LOCATION     LOCATION_TYPE
+cn-staging-pg-ae-n-app-125609   ME-CENTRAL2  region
+pg-ae-n-app-125609-logs-116609  US           multi-region
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ echo "== SQL =="; gcloud sql instances list --project=$P --format="table(name,region)"
+== SQL ==
+NAME           REGION
+cn-staging-db  me-central2
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ echo "== LOG BUCKETS =="; gcloud logging buckets list --project=$P --format="table(name,location)"
+== LOG BUCKETS ==
+LOCATION  LOCATION
+global
+global
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$
