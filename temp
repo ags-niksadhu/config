@@ -1,47 +1,20 @@
-**The pipeline is green.** In this log:
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute backend-services describe app-backend-service --global --project=pg-ae-n-app-125609 --format="yaml(backends,portName,protocol,healthChecks,balancingMode)"
+backends:
+- balancingMode: UTILIZATION
+  capacityScaler: 1.0
+  group: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroups/backend-ig
+  maxUtilization: 0.8
+healthChecks:
+- https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/healthChecks/app-health-check
+portName: http
+protocol: HTTP
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609 --format="yaml(namedPorts)"
 
-- Packer ran PM2 as `sa_1086…` (not root), saved `dump.pm2`, and `/health` returned `APP IS UP`.
-- The rollout ended with `Group is stable`.
-- The last instance list shows `cn-backend-mig-regional-t5md` (`me-central2-a`) `HEALTHY` on `cn-backend-template-7d991de`.
+  null
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed list --project=pg-ae-n-app-125609 --format="table(name,location,size,instanceTemplate.basename())"
+NAME                     LOCATION  SIZE  INSTANCE_TEMPLATE
+cn-backend-mig-regional            1     cn-backend-template-7d991de
+nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
 
-The long run of `ZONE_RESOURCE_POOL_EXHAUSTED` errors in `-b` and `-c` was GCP capacity. The MIG kept retrying until the autoscaler settled at its minimum of 1. The pipeline itself isn't at fault.
 
-**Still open:**
 
-| Item | Status |
-|---|---|
-| Load balancer still points at `backend-ig` (the old VM `cn-staging-backapp-vm-01`) | Not cut over. The regional MIG gets no traffic yet. |
-| Redundancy | One instance only, because autoscaler `min=1`. Zone spreading doesn't help at size 1. |
-| Old zonal `cn-backend-mig` | Probably still running 2 `e2-medium` instances (billed). |
-
-**Autoscaler min trade-off (new recurring spend):**
-
-| | min=1 | min=2 | min=3 |
-|---|---|---|---|
-| Cost | lowest | +1 `e2-medium` | +2 `e2-medium` |
-| Survives a zone problem | no | yes, if capacity exists in another zone | yes |
-| Fit | staging cost-saving | staging with HA | prod |
-
-I recommend min=2 once you cut over, if staging needs HA. If it doesn't, keep 1 and accept no redundancy. Confirm the extra cost with whoever owns billing.
-
-**Before cutover, check these:**
-```bash
-gcloud compute backend-services describe app-backend-service --global --project=pg-ae-n-app-125609 --format="yaml(backends,portName,protocol,healthChecks,balancingMode)"
-```
-```bash
-gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609 --format="yaml(namedPorts)"
-```
-```bash
-gcloud compute instance-groups managed list --project=pg-ae-n-app-125609 --format="table(name,location,size,instanceTemplate.basename())"
-```
-Paste all three. I need the backend service's `portName` to match a named port on the regional MIG, and I need to see what's still running and billing.
-
-**Cutover steps (Console):** ⚠️ Do this only after the outputs above. Keep `backend-ig` attached until the new backend shows healthy.
-1. Compute Engine → Instance groups → `cn-backend-mig-regional` → Edit → under port name mapping, add the `portName` from the output (port 80, unless you confirm otherwise).
-2. Network services → Load balancing → the LB → Backend services → `app-backend-service` → Edit.
-3. Add backend → select `cn-backend-mig-regional`, same balancing settings as `backend-ig` → Update.
-4. Check backend health. Both groups should show healthy before you continue.
-
-**Rollback:** if the new backend misbehaves, remove `cn-backend-mig-regional` from the backend service in the same screen. `backend-ig` is still attached, so traffic returns to the old VM immediately.
-
-Only after verifying with real requests, remove `backend-ig` and delete the zonal `cn-backend-mig`.
