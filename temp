@@ -55,7 +55,7 @@ steps:
         gcloud compute instance-groups managed rolling-action start-update cn-frontend-mig-regional \
           --project=pg-ae-n-app-125609 \
           --region=me-central2 \
-          --version=template=cn-frontend-template-$SHORT_SHA \
+          --version=template=projects/pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-$SHORT_SHA \
           --max-surge=3 \
           --max-unavailable=0
 
