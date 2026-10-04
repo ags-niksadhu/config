@@ -1,4 +1,35 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ gcloud compute snapshot-settings describe
-storageLocation:
-  policy: NEAREST_MULTI_REGION
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$
+That confirms the cause. The project policy is `NEAREST_MULTI_REGION`, so every snapshot with no location of its own goes to the nearest multi-region, which resolved to `eu` for `me-central2`. It's Google's default, not a misconfiguration.
+
+## Step 1: change it
+
+```bash
+gcloud compute snapshot-settings update --storage-location-policy=specific-locations --storage-location-names=me-central2
+```
+
+**Verify:**
+```bash
+gcloud compute snapshot-settings describe
+```
+I haven't seen the exact output format, but it should show a specific-locations policy naming `me-central2`. If it still says `NEAREST_MULTI_REGION`, paste it.
+
+**If you get a permission error:** you're on a MIG instance, so gcloud may be using the VM's service account instead of your login. Check with `gcloud auth list`. Run the command as your own user from Cloud Shell or another machine, or ask whoever holds the project admin role.
+
+**Rollback:**
+```bash
+gcloud compute snapshot-settings update --storage-location-policy=nearest-multi-region
+```
+
+## What this changes
+
+- **New snapshots only.** The 8 existing `eu` snapshots stay where they are until you delete them.
+- **No downtime and no cost.**
+- **Project-wide.** Anyone who creates a snapshot in this project from now on gets `me-central2`.
+
+## Next
+
+1. **Step 2:** delete the 8 `eu` snapshots (Console steps in my last message). Do it after step 1, so nothing new lands in `eu` in between.
+2. **Step 3:** whether the two standalone VMs need a snapshot schedule depends on your answers to my last two questions:
+   - Are `cn-staging-backapp-vm-01` and `cn-staging-frontapp-vm-01` being decommissioned, or do they keep running with data that isn't in git?
+   - Does anyone else create snapshots in this project and rely on the multi-region copy?
+
+Paste the `describe` output after the update, and send your answers when you have them.
