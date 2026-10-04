@@ -1,38 +1,9 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ P=pg-ae-n-app-125609
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud logging buckets list --project=$P
-LOCATION  BUCKET_ID  RETENTION_DAYS  CMEK  RESTRICTED_FIELDS  INDEX_CONFIGS  LIFECYCLE_STATE  LOCKED  CREATE_TIME  UPDATE_TIME
-global    _Default   90                                                      ACTIVE                                2026-09-16T12:30:24.594845441Z
-global    _Required  400                                                     ACTIVE           True
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ gcloud logging logs list --project=$P
-NAME
-projects/pg-ae-n-app-125609/logs/GCEGuestAgent
-projects/pg-ae-n-app-125609/logs/OSConfigAgent
-projects/pg-ae-n-app-125609/logs/backend_apache_access
-projects/pg-ae-n-app-125609/logs/backend_apache_error
-projects/pg-ae-n-app-125609/logs/cloudaudit.googleapis.com%2Factivity
-projects/pg-ae-n-app-125609/logs/cloudaudit.googleapis.com%2Fdata_access
-projects/pg-ae-n-app-125609/logs/cloudaudit.googleapis.com%2Fpolicy
-projects/pg-ae-n-app-125609/logs/cloudaudit.googleapis.com%2Fsystem_event
-projects/pg-ae-n-app-125609/logs/cloudbuild
-projects/pg-ae-n-app-125609/logs/cloudsql.googleapis.com%2Fpostgres.log
-projects/pg-ae-n-app-125609/logs/compute.googleapis.com%2Ffirewall
-projects/pg-ae-n-app-125609/logs/compute.googleapis.com%2Fhealthchecks
-projects/pg-ae-n-app-125609/logs/compute.googleapis.com%2Finstance_group_manager_events
-projects/pg-ae-n-app-125609/logs/compute.googleapis.com%2Fnat_flows
-projects/pg-ae-n-app-125609/logs/compute.googleapis.com%2Fshielded_vm_integrity
-projects/pg-ae-n-app-125609/logs/diagnostic-log
-projects/pg-ae-n-app-125609/logs/frontend_apache_access
-projects/pg-ae-n-app-125609/logs/frontend_apache_error
-projects/pg-ae-n-app-125609/logs/google_metadata_script_runner
-projects/pg-ae-n-app-125609/logs/networkanalyzer.googleapis.com%2Fanalyzer_reports
-projects/pg-ae-n-app-125609/logs/ops-agent-fluent-bit
-projects/pg-ae-n-app-125609/logs/ops-agent-health
-projects/pg-ae-n-app-125609/logs/ping
-projects/pg-ae-n-app-125609/logs/pm2_logs
-projects/pg-ae-n-app-125609/logs/redis.googleapis.com%2Fredis
-projects/pg-ae-n-app-125609/logs/requests
-projects/pg-ae-n-app-125609/logs/syslog
-projects/pg-ae-n-app-125609/logs/websecurityscanner.googleapis.com%2Fscan_activity
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ systemctl list-units --type=service | grep -i ops-agent
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$
-
+P=pg-ae-n-app-125609
+gcloud logging read "logName=\"projects/$P/logs/backend_apache_access\"" --project=$P --limit=2 --format="table(timestamp,resource.labels.instance_id)"
+gcloud compute instances list --project=$P --format="table(name,id,status)"
+systemctl status google-cloud-ops-agent --no-pager | head -5
+ls /etc/google-cloud-ops-agent/
+gcloud projects get-iam-policy $P --format="yaml(auditConfigs)"
+gcloud compute backend-services describe app-backend-service --global --project=$P --format="value(logConfig)"
+gcloud compute backend-services describe frontend-service --global --project=$P --format="value(logConfig)"
+gcloud compute networks subnets describe default --region=me-central2 --project=$P --format="value(logConfig)"
