@@ -1,14 +1,58 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rkfp:~$ gcloud builds list --region=me-central2 --project=pg-ae-n-app-125609 --limit=4 --format="table(id,status,createTime,substitutions.TRIGGER_NAME,substitutions.SHORT_SHA)"
-ID                                    STATUS   CREATE_TIME                TRIGGER_NAME                      SHORT_SHA
-e52a27b0-6c08-4d40-8206-d68f61a88944  SUCCESS  2026-10-04T18:20:04+00:00  careernavigator-backend-staging   41f3935
-4df09517-0503-4b7d-8713-ca69c78c57b3  SUCCESS  2026-10-04T18:19:29+00:00  careernavigator-frontend-staging  d3dff86
-40faa871-00e6-4f7a-8a8d-3d37f1ba91a9  SUCCESS  2026-10-04T16:59:46+00:00  careernavigator-frontend-staging  01d17a8
-1841b4d3-2a50-4e0e-8a43-0b5c934b984b  FAILURE  2026-10-04T16:37:40+00:00  careernavigator-frontend-staging  423fe8f
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rkfp:~$ gcloud compute images list --project=pg-ae-n-app-125609 --no-standard-images --format="table(name,creationTimestamp.date(),storageLocations.list())"
-NAME                          CREATION_TIMESTAMP   STORAGE_LOCATIONS
-clean-ubuntu-26092026-img-v2  2026-10-04T10:52:45  me-central2
-cn-backend-image-41f3935      2026-10-04T11:27:13  me-central2
-cn-backend-os-image-v1        2026-09-22T01:43:55  me-central2
-cn-frontend-image-d3dff86     2026-10-04T11:25:47  me-central2
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rkfp:~$
+I'll check how Google treats global versus regional instance templates before recommending a change, because it affects both pipelines.Every template the pipelines create is global, which explains the Location column. Google's docs say a template is regional only if you create it with `--instance-template-region`. Without that flag it's global, and our `Create Instance Template` step never sets it. The same page says to choose regional if you want to reduce cross-region dependency.
 
+## Check which templates are global (read-only)
+
+```bash
+gcloud compute instance-templates list --project=pg-ae-n-app-125609 --sort-by=~creationTimestamp --format="table(name,selfLink.scope(projects))"
+```
+A global one shows `.../global/instanceTemplates/...`, and a regional one shows `.../regions/me-central2/instanceTemplates/...`. Paste it. I don't know which ones you saw as `me-central2`, and I haven't verified that this list includes regional templates.
+
+## Does it matter for the rule?
+
+A template holds configuration only: machine type, the image name, labels and network settings. It holds no app data. But the Console labels it Global, so an auditor may flag it. If compliance told you it matters, the fix below applies.
+
+## Fix: have both pipelines create regional templates
+
+Edit the `Create Instance Template` and `Rolling Update MIG` steps in each `cloudbuild.yaml`, backend shown. For the frontend, use the `cn-frontend-…` names.
+
+Add one flag to the create command:
+```yaml
+        gcloud compute instance-templates create cn-backend-template-$SHORT_SHA \
+          --instance-template-region=me-central2 \
+          --project=pg-ae-n-app-125609 \
+          --region=me-central2 \
+          ... (rest unchanged)
+```
+In the update step, point at the regional template by its partial URL, since Google's docs say a regional template must be given as a full or partial URL when a MIG uses it:
+```yaml
+          --version=template=projects/pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-backend-template-$SHORT_SHA \
+```
+The docs show the URL form for creating MIGs. I haven't verified that `start-update` accepts it, so the first frontend run is the test.
+
+## Order
+
+1. **Push the frontend first.** It's at size 1, and it's staging.
+2. **Verify:**
+```bash
+gcloud compute instance-groups managed list --project=pg-ae-n-app-125609
+gcloud compute instance-templates list --project=pg-ae-n-app-125609 --sort-by=~creationTimestamp --format="table(name,selfLink.scope(projects))" | head -4
+```
+The frontend MIG should show the new regional template, `HEALTHY`.
+3. **Backend after that.** If the backend autoscaler is still at its minimum.
+
+## Effects
+
+| | |
+|---|---|
+| Downtime | none; the rolling update brings up the new server before removing the old one |
+| Cost | none, but a rollout briefly runs an extra server |
+| Rollback | revert the commit and push. The current global templates `41f3935` and `d3dff86` still exist with live images, so don't delete them until the regional rollout works |
+
+## Caveats
+
+- **The cleanup step needs a matching change.** It lists and deletes by template name, and I haven't verified how those commands treat regional templates. Left alone, it probably finds nothing, which is safe while `DRY_RUN=1`. I'll give you the update after the first regional run proves the create and rollout path.
+- **Existing templates can't be converted.** The old global ones stay until you delete them. That includes the three older ones you chose to keep (`clean-ubuntu-26092026`, `cn-backend-template-v5`, `cnstagingbackend-instance-template-22-sept-2026-v2`).
+
+## Not yet done
+
+Secrets and the other data stores are still waiting on your outputs from my last message. Paste the template list first, then I'll give you full replacement `cloudbuild.yaml` steps if the small edits are unclear.
