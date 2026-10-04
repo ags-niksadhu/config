@@ -1,26 +1,40 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rkfp:~$ gcloud compute images list --project=pg-ae-n-app-125609 --filter="name~cn-backend-image OR name~cn-frontend-image OR name~clean-ubuntu" --format="table(name,creationTimestamp.date(),storageLocations.list())"
-NAME                          CREATION_TIMESTAMP   STORAGE_LOCATIONS
-clean-ubuntu-26092026-img-v2  2026-10-04T10:52:45  me-central2
-cn-backend-image-41f3935      2026-10-04T11:27:13  me-central2
-cn-frontend-image-d3dff86     2026-10-04T11:25:47  me-central2
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rkfp:~$ gcloud compute instance-templates list --project=pg-ae-n-app-125609 --sort-by=~creationTimestamp --format="table(name,properties.disks[0].initializeParams.sourceImage.basename())"
-NAME                                                SOURCE_IMAGE
-cn-backend-template-41f3935                         cn-backend-image-41f3935
-cn-frontend-template-d3dff86                        cn-frontend-image-d3dff86
-cn-frontend-template-01d17a8                        cn-frontend-image-01d17a8
-cn-frontend-template-423fe8f                        cn-frontend-image-423fe8f
-cn-backend-template-a249720                         cn-backend-image-a249720
-cn-backend-template-f4714a7                         cn-backend-image-f4714a7
-cn-backend-template-a4a4748                         cn-backend-image-a4a4748
-cn-backend-template-7d991de                         cn-backend-image-7d991de
-cn-backend-template-17d6b89                         cn-backend-image-17d6b89
-clean-ubuntu-26092026                               linux-ubuntu2404-base-2026-08-1
-cn-backend-template-v5                              cn-backend-os-image-v1
-cnstagingbackend-instance-template-22-sept-2026-v2  cn-backend-os-image-v1
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rkfp:~$ gcloud compute instance-groups managed list --project=pg-ae-n-app-125609
-NAME                      LOCATION     SCOPE   BASE_INSTANCE_NAME        SIZE  TARGET_SIZE  INSTANCE_TEMPLATE             AUTOSCALED
-cn-backend-mig-regional   me-central2  region  cn-backend-mig-regional   1     1            cn-backend-template-41f3935   yes
-cn-frontend-mig-regional  me-central2  region  cn-frontend-mig-regional  1     1            cn-frontend-template-d3dff86  yes
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rkfp:~$ grep -n "source_image\|image_storage_locations" packer/*.pkr.hcl
-grep: packer/*.pkr.hcl: No such file or directory
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rkfp:~$
+## Image step 1 is done
+
+Your output shows the images and the MIGs are in the state we wanted:
+
+- Only 3 images remain, and all are in `me-central2`: the v2 base, `cn-backend-image-41f3935` and `cn-frontend-image-d3dff86`.
+- The two new pipeline images were created at 11:25–11:27 PDT in `me-central2`. That only happens if the Packer change was pushed, so both pipelines ran with the new location setting.
+- Both MIGs now run the new templates (`41f3935` and `d3dff86`) at size 1.
+
+The last `grep` failed because you ran it on a MIG instance, which has no repo. It tells us nothing. The repos live on GitHub, and the two stopped VMs are the only copies you cloned.
+
+## Two side effects of deleting the images
+
+1. **Your rollback targets are gone.** The old templates (`a249720`, `f4714a7`, `a4a4748`, `7d991de`, `17d6b89` for the backend; `01d17a8` and `423fe8f` for the frontend) now point at images that no longer exist. A `start-update` to one of them would fail at instance creation. `maxUnavailable=0` would keep the running server up, but you'd have no working rollback. Until a couple of new builds accumulate, a rollback means reverting the commit in git and pushing, which takes about 6 minutes for a rebuild. The cleanup step keeps the newest 5 labeled builds from now on.
+2. **Those 7 templates are dead clutter.** They're harmless, since no MIG uses them. Deleting them is safe and irreversible. The unlabeled ones will never age out by themselves. If you want them gone, tell me and I'll give you the exact list for the Console.
+
+## Two checks to finish step 1
+
+**1. Do the next builds work now that the old base image is gone?** The builds that made the new images ran before or after that deletion, so I can't tell. Check the latest build results:
+```bash
+gcloud builds list --region=me-central2 --project=pg-ae-n-app-125609 --limit=4 --format="table(id,status,createTime,substitutions.TRIGGER_NAME,substitutions.SHORT_SHA)"
+```
+Both services should show `SUCCESS` for commits `41f3935` and `d3dff86`. Also open `packer/backend.pkr.hcl` and `packer/frontend.pkr.hcl` on GitHub and confirm they say `clean-ubuntu-26092026-img-v2` and `image_storage_locations = ["me-central2"]`.
+
+**2. Are there other images outside `eu` that my filter didn't catch?** The old templates `v5` and `cnstagingbackend-instance-template-22-sept-2026-v2` reference `cn-backend-os-image-v1`, which my name filter skips:
+```bash
+gcloud compute images list --project=pg-ae-n-app-125609 --no-standard-images --format="table(name,creationTimestamp.date(),storageLocations.list())"
+```
+If `cn-backend-os-image-v1` is in `eu`, the rule isn't fully met. Deleting it makes the legacy templates permanently unusable, so that's your call.
+
+## What's left for point 1
+
+| Item | Status |
+|---|---|
+| Snapshots | ✅ closed |
+| Pipeline images and base image | ✅ closed, pending the two checks above |
+| Legacy image `cn-backend-os-image-v1` | needs the command above |
+| Secrets (23, automatic replication) | needs `secret-manager.ts` (no values) and `gcloud secrets locations list ... \| grep -i me-central2` |
+| Other data stores | buckets and SQL commands from my earlier message |
+
+Paste the two command outputs, and tell me if you want the 7 dead templates removed.
