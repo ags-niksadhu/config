@@ -1,5 +1,44 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$ gcloud compute resource-policies describe default-schedule-1 --region=me-central2 --project=pg-ae-n-app-125609 --format="yaml(snapshotSchedulePolicy.snapshotProperties)"
-snapshotSchedulePolicy:
-  snapshotProperties:
-    guestFlush: false
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$
+I'll reuse the backend design for the frontend. I need to see how it's built and served today first, since I don't have its pipeline or its VM setup.
+
+**Reused as-is:**
+- The private pool `cn-backend-private-pool` (no new cost).
+- The base image `clean-ubuntu-26092026-img` as Packer's source.
+- The labels and guarded cleanup pattern.
+- Shielded VM flags (Secure Boot, vTPM, Integrity Monitoring) from the first build, so the compliance rule is met from day one.
+
+**What a frontend MIG adds:** recurring instance cost per `e2-medium`, plus two copies running during cutover. I'll size it once you tell me the minimum replicas you want.
+
+## Run these and paste the output
+
+**1. Trigger config (run anywhere):**
+```bash
+gcloud builds triggers describe careernavigator-frontend-staging --project=pg-ae-n-app-125609 --region=me-central2 --format=yaml
+```
+
+**2.** Paste the frontend repo's `cloudbuild.yaml`.
+
+**3. On `cn-staging-frontapp-vm-01`, how the app is served:**
+```bash
+ls -la /var/www/
+cat /etc/apache2/sites-enabled/*.conf
+sudo ss -tlnp
+ps aux | grep -Ei 'node|pm2|nginx|apache' | grep -v grep
+```
+
+**4. Load balancer side (run anywhere):**
+```bash
+gcloud compute backend-services describe frontend-service --global --project=pg-ae-n-app-125609 --format="yaml(backends,portName,protocol,healthChecks)"
+gcloud compute health-checks list --project=pg-ae-n-app-125609 --format="table(name,type,httpHealthCheck.port,httpHealthCheck.requestPath)"
+```
+
+**5. VM settings (keys only, so no secret values come out):**
+```bash
+gcloud compute instances describe cn-staging-frontapp-vm-01 --zone=me-central2-c --project=pg-ae-n-app-125609 --format="yaml(metadata.items[].key,tags.items,serviceAccounts[].scopes)"
+```
+
+If any output contains secrets, redact them before pasting.
+
+**What the outputs decide:**
+- **The pipeline file** shows whether the frontend still deploys from a GCS artifact like the old backend, and which build-time environment values it needs.
+- **The VM** tells me whether it's static files behind Apache or a Node server. That decides what goes in the Packer image and what the health check should probe.
+- **The load balancer** tells me whether the health check path and port will work on a new instance as they are.
