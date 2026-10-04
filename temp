@@ -1,8 +1,71 @@
-Understood. I'll add the PM2 logs now, and you'll confirm the key line with the dev team. Both PM2 files are covered: `*-out*.log` holds the request and info lines (what you called access), and `*-error*.log` holds the errors. The name patterns come from your earlier logs. The suffix varies, for example `-error-0.log`, so I used wildcards.
+## Are the log paths correct?
 
-## Updated `packer/files/ops-agent-config.yaml`
+The Apache and frontend PM2 paths come straight from your own output. The rest I'm less sure of, so check them before you push.
 
-**Backend repo:**
+| Log | Path used | Where I got it | Confidence |
+|---|---|---|---|
+| Backend Apache access and error | `/var/log/apache2/careernavigator-backend-staging-{access,error}.log` | the `CustomLog` and `ErrorLog` lines in the backend vhost you pasted | high |
+| Frontend Apache access and error | `/var/log/apache2/careernavigator-frontend-staging-{access,error}.log` | the frontend vhost you pasted | high |
+| Frontend PM2 | `/home/sa_108691235514385689272/.pm2/logs/testnftapp.com-app-cpms-{out,error}.log` | the failed Packer build output | high |
+| Backend PM2 | same folder, probably `careernavigator-backend-{out,error}-0.log` | the folder is confirmed by the PM2 unit. The file names were only seen under root's PM2 | medium-high; the wildcard covers a different suffix |
+| `/var/log/apache2/error.log`, `/var/log/auth.log` | Ubuntu defaults | not seen on your servers | medium |
+
+## Verify the actual files first, on running servers
+
+Backend server (the one you're on):
+```bash
+ls -la /var/log/apache2/ /var/log/auth.log
+sudo ls -la /home/sa_108691235514385689272/.pm2/logs/
+```
+Frontend server:
+```bash
+P=pg-ae-n-app-125609
+gcloud compute ssh cn-frontend-mig-regional-lc5m --zone=me-central2-a --project=$P --internal-ip --command="ls -la /var/log/apache2/ /var/log/auth.log; sudo ls -la /home/sa_108691235514385689272/.pm2/logs/"
+```
+Paste both, and I'll adjust before you push. The agent doesn't warn about a wrong path. It just collects nothing, which is why the check after the rollout matters.
+
+## Why a log bucket at all?
+
+You don't need a new bucket to store logs in Cloud Logging. The agent already sends logs there, into the project's `_Default` bucket. A log bucket is Cloud Logging's own storage, not a Cloud Storage bucket. Create `cn-staging-logs-me2` only for the location rule.
+
+| Your goal | Needs a new bucket? |
+|---|---|
+| Logs survive a server being deleted | No |
+| Keep them 180 days | No, raise `_Default` retention from 90 |
+| Store them in `me-central2` | **Yes**, because a bucket's location can't be changed |
+
+If compliance accepts global storage for logs, raise `_Default` to 180 days and skip the new bucket. Which one applies?
+
+## Files
+
+**`packer/files/ops-agent-config.yaml`, frontend repo:**
+```yaml
+logging:
+  receivers:
+    frontend_apache_access:
+      type: files
+      include_paths: [/var/log/apache2/careernavigator-frontend-staging-access.log]
+    frontend_apache_error:
+      type: files
+      include_paths: [/var/log/apache2/careernavigator-frontend-staging-error.log]
+    frontend_apache_server_error:
+      type: files
+      include_paths: [/var/log/apache2/error.log]
+    frontend_auth_log:
+      type: files
+      include_paths: [/var/log/auth.log]
+    frontend_pm2_out:
+      type: files
+      include_paths: [/home/sa_108691235514385689272/.pm2/logs/*-out*.log]
+    frontend_pm2_error:
+      type: files
+      include_paths: [/home/sa_108691235514385689272/.pm2/logs/*-error*.log]
+  service:
+    pipelines:
+      server_logs:
+        receivers: [frontend_apache_access, frontend_apache_error, frontend_apache_server_error, frontend_auth_log, frontend_pm2_out, frontend_pm2_error]
+```
+**Backend repo version** (replaces my earlier one, with prefixed names so logs from the two services stay separate):
 ```yaml
 logging:
   receivers:
@@ -12,49 +75,312 @@ logging:
     backend_apache_error:
       type: files
       include_paths: [/var/log/apache2/careernavigator-backend-staging-error.log]
-    auth_log:
+    backend_apache_server_error:
+      type: files
+      include_paths: [/var/log/apache2/error.log]
+    backend_auth_log:
       type: files
       include_paths: [/var/log/auth.log]
-    pm2_out:
+    backend_pm2_out:
       type: files
-      include_paths: [/home/sa_*/.pm2/logs/*-out*.log]
-    pm2_error:
+      include_paths: [/home/sa_108691235514385689272/.pm2/logs/*-out*.log]
+    backend_pm2_error:
       type: files
-      include_paths: [/home/sa_*/.pm2/logs/*-error*.log]
+      include_paths: [/home/sa_108691235514385689272/.pm2/logs/*-error*.log]
   service:
     pipelines:
       server_logs:
-        receivers: [backend_apache_access, backend_apache_error, auth_log, pm2_out, pm2_error]
+        receivers: [backend_apache_access, backend_apache_error, backend_apache_server_error, backend_auth_log, backend_pm2_out, backend_pm2_error]
+```
+The PM2 path is exact because it's deterministic. The wildcard is only in the file name, which the docs show for file receivers. That user name has been identical in every build. If the build identity ever changes, the logs would stop silently.
+
+**`backend.pkr.hcl` (full):**
+```hcl
+packer {
+  required_plugins {
+    googlecompute = {
+      version = ">= 1.1.0"
+      source  = "github.com/hashicorp/googlecompute"
+    }
+  }
+}
+
+variable "commit_sha" {
+  type    = string
+  default = "manual"
+}
+
+source "googlecompute" "backend" {
+  project_id   = "pg-ae-n-app-125609"
+  zone         = "me-central2-a"
+  machine_type = "e2-medium"
+
+  enable_secure_boot          = true
+  enable_vtpm                 = true
+  enable_integrity_monitoring = true
+
+  source_image            = "clean-ubuntu-26092026-img-v2"
+  image_storage_locations = ["me-central2"]
+  disk_size               = 100
+
+  image_name = "cn-backend-image-${var.commit_sha}"
+
+  image_labels = {
+    managed-by = "cloudbuild-packer"
+    app        = "cn-backend"
+  }
+
+  network    = "default"
+  subnetwork = "default"
+
+  omit_external_ip = true
+  use_internal_ip  = true
+
+  tags = ["packer-build-temp"]
+
+  scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+
+  ssh_username = "packer"
+}
+
+build {
+  sources = ["source.googlecompute.backend"]
+
+  provisioner "shell" {
+    inline = [
+      "sudo mkdir -p /var/www/careernavigator-backend",
+      "sudo chown $(whoami):$(whoami) /var/www/careernavigator-backend"
+    ]
+  }
+
+  provisioner "file" {
+    source      = "../dist"
+    destination = "/var/www/careernavigator-backend/dist"
+  }
+  provisioner "file" {
+    source      = "../node_modules"
+    destination = "/var/www/careernavigator-backend/node_modules"
+  }
+  provisioner "file" {
+    source      = "../package.json"
+    destination = "/var/www/careernavigator-backend/package.json"
+  }
+  provisioner "file" {
+    source      = "../package-lock.json"
+    destination = "/var/www/careernavigator-backend/package-lock.json"
+  }
+  provisioner "file" {
+    source      = "../ecosystem.config.js"
+    destination = "/var/www/careernavigator-backend/ecosystem.config.js"
+  }
+
+  provisioner "file" {
+    source      = "files/careernavigator-backend.conf"
+    destination = "/tmp/careernavigator-backend.conf"
+  }
+
+  provisioner "file" {
+    source      = "files/ops-agent-config.yaml"
+    destination = "/tmp/ops-agent-config.yaml"
+  }
+
+  provisioner "shell" {
+    inline = [
+      "curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -",
+      "sudo apt-get install -y nodejs apache2",
+      "sudo a2enmod proxy proxy_http headers rewrite ssl http2 remoteip",
+      "sudo npm install -g pm2",
+
+      "sudo mv /tmp/careernavigator-backend.conf /etc/apache2/sites-available/careernavigator-backend.conf",
+      "sudo a2ensite careernavigator-backend.conf",
+      "sudo a2dissite 000-default.conf",
+
+      "sudo systemctl enable apache2",
+
+      "curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh",
+      "sudo bash add-google-cloud-ops-agent-repo.sh --also-install",
+      "sudo mv /tmp/ops-agent-config.yaml /etc/google-cloud-ops-agent/config.yaml",
+      "sudo systemctl enable google-cloud-ops-agent",
+      "sudo systemctl restart google-cloud-ops-agent",
+      "sudo systemctl status google-cloud-ops-agent --no-pager || true",
+
+      "cd /var/www/careernavigator-backend && pm2 start ecosystem.config.js --env staging",
+      "sleep 10",
+
+      "echo '=== PM2 STATUS AFTER START ==='",
+      "pm2 list",
+      "echo \"PM2 running as: $(whoami), home: $HOME\"",
+
+      "pm2 save",
+      "ls -la $HOME/.pm2/dump.pm2",
+      "sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u $(whoami) --hp $(eval echo ~$(whoami))",
+
+      "echo '=== VERIFYING /health ==='",
+      "for i in 1 2 3 4 5 6; do curl -sf http://localhost:3024/health > /dev/null && echo 'APP IS UP' && break || (echo \"attempt $i failed, retrying...\" && sleep 5); done",
+      "curl -sf http://localhost:3024/health > /dev/null || (echo 'FATAL: /health did not respond after 30s - failing build' && pm2 logs careernavigator-backend --lines 100 --nostream && exit 1)"
+    ]
+  }
+}
 ```
 
-**Frontend repo:** the same file, with the two Apache receivers renamed to `frontend_apache_access` and `frontend_apache_error`, and their paths changed to `/var/log/apache2/careernavigator-frontend-staging-access.log` and `...-error.log`. The PM2 receivers stay identical, because the frontend's log files (`testnftapp.com-app-cpms-out.log` and `-error.log`) match the same patterns.
+**`frontend.pkr.hcl` (full):**
+```hcl
+packer {
+  required_plugins {
+    googlecompute = {
+      version = ">= 1.1.0"
+      source  = "github.com/hashicorp/googlecompute"
+    }
+  }
+}
 
-The old logs are named `pm2_logs`, and these write to `pm2_out` and `pm2_error`. Old history stays under the old name, and new entries under the new names.
+variable "commit_sha" {
+  type    = string
+  default = "manual"
+}
 
-The Packer provisioner lines from my last message are unchanged. Without those, the file does nothing.
+source "googlecompute" "frontend" {
+  project_id   = "pg-ae-n-app-125609"
+  zone         = "me-central2-a"
+  machine_type = "e2-medium"
 
-## Two risks about the key line
+  enable_secure_boot          = true
+  enable_vtpm                 = true
+  enable_integrity_monitoring = true
 
-- **Entries can't be edited.** Cloud Logging entries can't be edited or deleted one by one afterwards. If that key is real, every `DDDDDD` line shipped now stays until the retention period ends.
-- **Safer option:** when I give you the routing step, I'd send the PM2 logs to their own bucket. If the key turns out to be real, that bucket can be deleted as a whole. Log buckets can be deleted, but I haven't verified the exact process.
+  source_image            = "clean-ubuntu-26092026-img-v2"
+  image_storage_locations = ["me-central2"]
+  disk_size               = 100
 
-Tell the dev team to treat that key as exposed if it's real, since it already appears in earlier build logs and in pasted output.
+  image_name = "cn-frontend-image-${var.commit_sha}"
 
-## Verify after the rollout
+  image_labels = {
+    managed-by = "cloudbuild-packer"
+    app        = "cn-frontend"
+  }
+
+  network    = "default"
+  subnetwork = "default"
+
+  omit_external_ip = true
+  use_internal_ip  = true
+
+  tags = ["packer-build-temp"]
+
+  scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+
+  ssh_username = "packer"
+}
+
+build {
+  sources = ["source.googlecompute.frontend"]
+
+  provisioner "shell" {
+    inline = [
+      "sudo mkdir -p /var/www/careernavigator-frontend",
+      "sudo chown $(whoami):$(whoami) /var/www/careernavigator-frontend"
+    ]
+  }
+
+  provisioner "file" {
+    source      = "../build"
+    destination = "/var/www/careernavigator-frontend/build"
+  }
+  provisioner "file" {
+    source      = "../public"
+    destination = "/var/www/careernavigator-frontend/public"
+  }
+  provisioner "file" {
+    source      = "../package.json"
+    destination = "/var/www/careernavigator-frontend/package.json"
+  }
+  provisioner "file" {
+    source      = "../package-lock.json"
+    destination = "/var/www/careernavigator-frontend/package-lock.json"
+  }
+  provisioner "file" {
+    source      = "../next.config.ts"
+    destination = "/var/www/careernavigator-frontend/next.config.ts"
+  }
+  provisioner "file" {
+    source      = "../ecosystem.config.js"
+    destination = "/var/www/careernavigator-frontend/ecosystem.config.js"
+  }
+
+  provisioner "file" {
+    source      = "files/careernavigator-frontend.conf"
+    destination = "/tmp/careernavigator-frontend.conf"
+  }
+
+  provisioner "file" {
+    source      = "files/ops-agent-config.yaml"
+    destination = "/tmp/ops-agent-config.yaml"
+  }
+
+  provisioner "shell" {
+    inline = [
+      "curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -",
+      "sudo apt-get install -y nodejs apache2",
+      "sudo a2enmod proxy proxy_http headers rewrite ssl http2 remoteip",
+      "sudo npm install -g pm2",
+
+      "cd /var/www/careernavigator-frontend && npm ci",
+      "ls -la /var/www/careernavigator-frontend/node_modules/.bin/next",
+
+      "sudo mv /tmp/careernavigator-frontend.conf /etc/apache2/sites-available/careernavigator-frontend.conf",
+      "sudo a2ensite careernavigator-frontend.conf",
+      "sudo a2dissite 000-default.conf",
+
+      "sudo systemctl enable apache2",
+
+      "curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh",
+      "sudo bash add-google-cloud-ops-agent-repo.sh --also-install",
+      "sudo mv /tmp/ops-agent-config.yaml /etc/google-cloud-ops-agent/config.yaml",
+      "sudo systemctl enable google-cloud-ops-agent",
+      "sudo systemctl restart google-cloud-ops-agent",
+      "sudo systemctl status google-cloud-ops-agent --no-pager || true",
+
+      "cd /var/www/careernavigator-frontend && pm2 start ecosystem.config.js",
+      "sleep 10",
+
+      "echo '=== PM2 STATUS AFTER START ==='",
+      "pm2 list",
+      "echo \"PM2 running as: $(whoami), home: $HOME\"",
+
+      "pm2 save",
+      "ls -la $HOME/.pm2/dump.pm2",
+      "sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u $(whoami) --hp $(eval echo ~$(whoami))",
+
+      "sudo systemctl restart apache2",
+
+      "echo '=== VERIFYING APP ON 3027 /login ==='",
+      "for i in 1 2 3 4 5 6; do curl -sf http://localhost:3027/login > /dev/null && echo 'APP IS UP' && break || (echo \"attempt $i failed, retrying...\" && sleep 5); done",
+      "curl -sf http://localhost:3027/login > /dev/null || (echo 'FATAL: /login did not respond on 3027 after 30s - failing build' && ls -la /var/www/careernavigator-frontend/node_modules/.bin/next && pm2 logs testnftapp.com_app_cpms --lines 100 --nostream && exit 1)",
+
+      "echo '=== VERIFYING APACHE PATH (same as LB health check) ==='",
+      "for i in 1 2 3 4 5 6; do curl -sf -A 'GoogleHC/1.0' http://localhost/login > /dev/null && echo 'APACHE PATH OK' && break || (echo \"attempt $i failed, retrying...\" && sleep 5); done",
+      "curl -sf -A 'GoogleHC/1.0' http://localhost/login > /dev/null || (echo 'FATAL: Apache /login failed - failing build' && sudo tail -n 50 /var/log/apache2/error.log && exit 1)"
+    ]
+  }
+}
+```
+
+## Effects and notes
+
+- **Install command:** I took it from an article quoting Google's install guide, not from the official page, and the first Packer build will prove it. A failing install fails the build before any server is replaced.
+- **Packer files:** I rebuilt them from the versions I gave you earlier. If your repo files differ, diff before pushing.
+- **Downtime and cost:** none beyond a normal rolling update. The agent is free, and the logs were already being ingested from the old VMs.
+- **Rollback:** revert the commit and push.
+
+## Verify after each rollout
 
 ```bash
 P=pg-ae-n-app-125609
-gcloud logging read "logName=\"projects/$P/logs/pm2_error\" OR logName=\"projects/$P/logs/pm2_out\"" --project=$P --limit=4 --format="table(timestamp,logName.basename(),resource.labels.instance_id)"
+gcloud logging read "logName:\"projects/$P/logs/backend_\" OR logName:\"projects/$P/logs/frontend_\"" --project=$P --freshness=1h --limit=20 --format="table(timestamp,logName.basename(),resource.labels.instance_id)"
+gcloud compute instances list --project=$P --format="table(name,id,status)"
 ```
-Expect fresh entries from a running MIG server's instance ID.
+Expect fresh entries from running MIG instance IDs in all six log names, including the two PM2 ones. A log name missing from the output means that path is wrong, so tell me which one.
 
-**If nothing appears:** a wildcard in the directory name may not be supported. In that case, use the exact path `/home/sa_108691235514385689272/.pm2/logs/*-out*.log`, and the same with `*-error*.log`. That user name has been identical in every build, but it would change if the build identity ever changed.
+The key line is still open: ask the dev team to treat that key as exposed if it's real. Entries can't be edited once shipped.
 
-## Effects
-
-Same as before: no downtime, a rolling update, no new cost for the agent, and the log volume was already being ingested from the old VMs. Rollback is reverting the commit.
-
-## Two questions
-
-1. Do you want the full updated `backend.pkr.hcl` and `frontend.pkr.hcl` with these additions, or will you add the lines yourself?
-2. Has the `cn-staging-logs-me2` bucket been created? Routing is the next step.
+Paste the `ls` outputs and tell me whether global log storage is acceptable, and I'll tell you if anything needs fixing before you push.
