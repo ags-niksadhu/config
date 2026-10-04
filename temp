@@ -1,37 +1,48 @@
-The locations check settles the main unknown: `me-central2` (Dammam) is a valid Secret Manager location. Before I recommend a method, I'll check whether a recreated global secret fully meets data residency or whether regional secrets are needed.## Bucket and templates
-
-- **US bucket:** `ls -a -r` printed nothing, so it has no objects and no old versions. It's empty, so deleting it loses no data, but still confirm the owner before you delete it.
-- **3 global templates deleted:** both MIGs use regional templates, so they're unaffected. Two side effects:
-  - **Backend rollback:** it now has no older template to roll back to. A rollback means reverting the commit and rebuilding, about 6 minutes. The frontend still has `b0ad954`.
-  - **Orphaned images:** `cn-backend-image-41f3935` and `cn-frontend-image-d3dff86` are in `me-central2`, so they're compliant. They cost a little storage until you delete them.
-
-## Secrets
-
-`me-central2` (Dammam) is in the Secret Manager locations list, so recreating the secrets there is possible. The docs show two services with different guarantees:
-
-- **Global service:** this is what your 23 secrets use today. The docs describe a single global endpoint, with replication either automatic or user-managed to specific regions. A recreated secret with `me-central2` replication would store its payload only there, but requests still go through the global endpoint.
-- **Regional service:** the docs say the secret data stays within the chosen location at all times, at rest, in use or in transit, and such secrets are only accessible from within that location. Your servers are in `me-central2`.
-
-| | A. Recreate as global secrets, `me-central2` replication | B. Regional secrets in `me-central2` |
-|---|---|---|
-| Residency | Stored only in `me-central2` at rest | Strict: at rest, in use and in transit |
-| App change | none | probably a config or code change to use the regional endpoint |
-| Downtime | ⚠️ seconds per secret between delete and create | none, because they're created beside the old ones |
-| Reversible | no, once the old secret is deleted | yes |
-| Complexity | medium, 23 secrets handled by script | medium-high |
-
-I haven't verified two details of B. One is that regional secrets can reuse the same names as global ones, which should hold because they live under a different parent path. The other is that regional secrets are available in `me-central2`. The locations list suggests it but doesn't confirm it.
-
-**Recommendation:** B if the app can use it. Your compiled code had a branch that builds a regional endpoint, but I haven't seen what turns it on. Use A only if compliance accepts at-rest storage as enough, or if the app can't be changed.
-
-## Two things I need
-
-**1. The compiled secrets loader.** The backend repo isn't on your servers, but the compiled file is, so on the backend instance you're logged into:
-```bash
-cat /var/www/careernavigator-backend/dist/common/config/secret-manager.js
-```
-Paste it. It's code, not values, but scan it and redact anything that looks like a credential. It shows what turns on the regional endpoint and how secret names are built.
-
-**2. One answer from compliance:** does "data store only in `me-central2`" mean where the payload is stored, or strict residency for access and transit too? That picks between A and B.
-
-Don't change any secret yet. Whichever option we choose, I'll give you a test run on one low-risk secret first.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$ cat /var/www/careernavigator-backend/dist/common/config/secret-manager.js
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.loadSecrets = loadSecrets;
+const secret_manager_1 = require("@google-cloud/secret-manager");
+const projectId = process.env.GCP_PROJECT_ID || "pg-ae-n-app-125609";
+const prefix = process.env.SECRET_PREFIX ?? "CN_STAGING_";
+const location = process.env.SECRET_LOCATION || "";
+const client = location
+    ? new secret_manager_1.SecretManagerServiceClient({ apiEndpoint: `${location}-secretmanager.googleapis.com` })
+    : new secret_manager_1.SecretManagerServiceClient();
+function buildSecretName(key) {
+    const fullName = `${prefix}${key}`;
+    return location
+        ? `projects/${projectId}/locations/${location}/secrets/${fullName}/versions/latest`
+        : `projects/${projectId}/secrets/${fullName}/versions/latest`;
+}
+async function getSecret(key) {
+    const [version] = await client.accessSecretVersion({ name: buildSecretName(key) });
+    const value = version.payload?.data?.toString() || "";
+    if (!value) {
+        throw new Error(`Secret "${prefix}${key}" returned an empty value`);
+    }
+    return value;
+}
+async function loadSecrets() {
+    const keys = ["DB_HOST", "DB_USERNAME", "DB_PASSWORD", "DB_DATABASE", "DB_PORT",
+        "GCP_BUCKET", "GCP_FILE_PATH",
+        "MAIL_DRIVER", "MAIL_HOST", "MAIL_PORT", "MAIL_USERNAME", "MAIL_PASSWORD", "MAIL_FROM_NAME", "MAIL_FROM_ADDRESS",
+        "REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD",
+        "EMAIL_SENDING_ENABLED"
+    ];
+    const results = await Promise.allSettled(keys.map((key) => getSecret(key)));
+    const failures = [];
+    results.forEach((result, index) => {
+        const key = keys[index];
+        if (result.status === "fulfilled") {
+            process.env[key] = result.value;
+        }
+        else {
+            failures.push(`${key}: ${result.reason?.message ?? result.reason}`);
+        }
+    });
+    if (failures.length > 0) {
+        throw new Error(`[secret-manager] Failed to load ${failures.length} secret(s):\n  - ${failures.join("\n  - ")}`);
+    }
+}
+//# sourceMappingURL=secret-manager.js.mapnikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-pwk9:~$
