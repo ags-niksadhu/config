@@ -1,62 +1,32 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ gcloud compute ssh cn-frontend-mig-regional-jvmm --zone=me-central2-a --project=pg-ae-n-app-125609 --internal-ip --command="uptime; top -bn1 | head -15"
-WARNING: The private SSH key file for gcloud does not exist.
-WARNING: The public SSH key file for gcloud does not exist.
-WARNING: You do not have an SSH key for gcloud.
-WARNING: SSH keygen will be executed to generate a key.
-This tool needs to create the directory [/home/nikul_sadhu_gcp_pwc_com/.ssh] before being able to generate SSH keys.
+## What this shows
 
-Do you want to continue (Y/n)?  Y
+- **`jvmm` is idle right now.** The load average is 0.08 and the CPU is 85.7% idle, so it isn't running above the autoscaler's 60% target.
+- **Almost no real traffic reached it.** The access log has 2,210 lines after 59 minutes of uptime. Every line in the tail is the load balancer's health checker (`GoogleHC/1.0`, three probers about every 5 seconds). That rate comes to roughly 2,100 health-check lines per hour, so by my estimate only a few dozen lines are real requests.
 
-Generating public/private rsa key pair.
-Enter passphrase (empty for no passphrase):
-Enter same passphrase again:
-Your identification has been saved in /home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_engine
-Your public key has been saved in /home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_engine.pub
-The key fingerprint is:
-SHA256:EObAZlgy4UMrqg7b22Fn6atVZUe36k0O9V3WhBCXibI nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57.c.pg-ae-n-app-125609.internal
-The key's randomart image is:
-+---[RSA 3072]----+
-|  ==o o     ++o+.|
-| o.+++ .  ...o+o.|
-|. +o  o   oo. o +|
-|.. .   . oE. o oo|
-|.       S   o . o|
-|.      o   . =   |
-|o   o =     . o  |
-|oo o *           |
-|..o.o.o.         |
-+----[SHA256]-----+
- 18:09:25 up 59 min,  1 user,  load average: 0.08, 0.06, 0.07
-top - 18:09:25 up 59 min,  1 user,  load average: 0.08, 0.06, 0.07
-Tasks: 120 total,   1 running, 119 sleeping,   0 stopped,   0 zombie
-%Cpu(s):  3.6 us,  3.6 sy,  0.0 ni, 85.7 id,  7.1 wa,  0.0 hi,  0.0 si,  0.0 st
-MiB Mem :   3908.3 total,   2481.1 free,    655.5 used,   1039.5 buff/cache
-MiB Swap:      0.0 total,      0.0 free,      0.0 used.   3252.8 avail Mem
+So sustained user traffic isn't the reason for 3 servers, at least on this instance. I haven't seen the other two (`j51l`, `vqp1`), the CPU history, or when each was created. The autoscaler's `recommendedSize: 3` has to come from somewhere, and I won't guess which cause it is.
 
-    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
-      1 root      20   0   22680  14108   9792 S   0.0   0.4   0:04.49 systemd
-      2 root      20   0       0      0      0 S   0.0   0.0   0:00.01 kthreadd
-      3 root      20   0       0      0      0 S   0.0   0.0   0:00.00 pool_wo+
-      4 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker+
-      5 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker+
-      6 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker+
-      7 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker+
-      8 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker+
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ gcloud compute ssh cn-frontend-mig-regional-jvmm --zone=me-central2-a --project=pg-ae-n-app-125609 --internal-ip --command="sudo wc -l /var/log/apache2/careernavigator-frontend-staging-access.log; sudo tail -n 15 /var/log/apache2/careernavigator-frontend-staging-access.log"
-2210 /var/log/apache2/careernavigator-frontend-staging-access.log
-35.191.217.210 - - [04/Oct/2026:18:09:37 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
-35.191.217.211 - - [04/Oct/2026:18:09:38 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
-35.191.217.208 - - [04/Oct/2026:18:09:39 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
-35.191.217.210 - - [04/Oct/2026:18:09:42 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
-35.191.217.211 - - [04/Oct/2026:18:09:43 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
-35.191.217.208 - - [04/Oct/2026:18:09:44 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
-35.191.217.210 - - [04/Oct/2026:18:09:47 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
-35.191.217.211 - - [04/Oct/2026:18:09:48 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
-35.191.217.208 - - [04/Oct/2026:18:09:49 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
-35.191.217.210 - - [04/Oct/2026:18:09:52 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
-35.191.217.211 - - [04/Oct/2026:18:09:53 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
-35.191.217.208 - - [04/Oct/2026:18:09:54 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
-35.191.217.210 - - [04/Oct/2026:18:09:57 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
-35.191.217.211 - - [04/Oct/2026:18:09:58 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
-35.191.217.208 - - [04/Oct/2026:18:09:59 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$
+## Find the cause (read-only)
+
+**1. When each server was created.** If `j51l` and `vqp1` were created minutes after `jvmm`, a startup CPU spike is the likely trigger, because the autoscaler's cool-down is only 60s. If they appeared after the load balancer cutover, real traffic is more likely.
+```bash
+gcloud compute instances list --project=pg-ae-n-app-125609 --filter="name~cn-frontend-mig OR name~cn-backend-mig" --format="table(name,zone.basename(),creationTimestamp)"
+```
+
+**2. Real requests and load on each frontend server.** The key now exists, so the prompts won't repeat. `grep -vc` counts lines that aren't health checks:
+```bash
+for n in j51l jvmm vqp1; do gcloud compute ssh cn-frontend-mig-regional-$n --zone=me-central2-a --project=pg-ae-n-app-125609 --internal-ip --command="hostname; uptime; sudo grep -vc GoogleHC /var/log/apache2/careernavigator-frontend-staging-access.log"; done
+```
+
+**3. Monitoring graph.** Console → Compute Engine → Instance groups → `cn-frontend-mig-regional` → Monitoring. A screenshot of the CPU and group-size graphs for the last few hours is enough.
+
+**4. The approximate time you attached the frontend MIG to `frontend-service`.**
+
+## Don't change the autoscaler yet
+
+Cost: 3 frontend servers plus 1 backend is 4 recurring `e2-medium` instances, all in zone `a`. The max is capped at 3, so the exposure is limited. Once the cause is known, I'll give you the options with their costs. They'll probably be setting min and max to 1 for staging, or lengthening the cool-down so startup CPU doesn't trigger scale-out.
+
+## About the pending Packer push
+
+Wait until the frontend MIG is back at 1 instance before pushing the `me-central2` image change. A rolling update can add up to 3 extra servers at once, which at the current size means up to 6 frontend servers briefly. The backend push has no such issue, and it can go ahead.
+
+Paste the outputs and your cutover time.
