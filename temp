@@ -1,32 +1,21 @@
-## What this shows
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ gcloud compute instances list --project=pg-ae-n-app-125609 --filter="name~cn-frontend-mig OR name~cn-backend-mig" --format="table(name,zone.basename(),creationTimestamp)"
+NAME                           ZONE           CREATION_TIMESTAMP
+cn-backend-mig-regional-37kx   me-central2-a  2026-10-04T11:06:21.249-07:00
+cn-backend-mig-regional-rs57   me-central2-a  2026-10-04T05:14:59.864-07:00
+cn-frontend-mig-regional-j51l  me-central2-a  2026-10-04T10:56:25.561-07:00
+cn-frontend-mig-regional-jvmm  me-central2-a  2026-10-04T10:09:10.774-07:00
+cn-frontend-mig-regional-vqp1  me-central2-a  2026-10-04T10:55:49.675-07:00
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ for n in j51l jvmm vqp1; do gcloud compute ssh cn-frontend-mig-regional-$n --zone=me-central2-a --project=pg-ae-n-app-125609 --internal-ip --command="hostname; uptime; sudo grep -vc GoogleHC /var/log/apache2/careernavigator-frontend-staging-access.log"; done
+cn-frontend-mig-regional-j51l.c.pg-ae-n-app-125609.internal
+ 18:11:53 up 15 min,  1 user,  load average: 0.08, 0.06, 0.08
+0
+cn-frontend-mig-regional-jvmm.c.pg-ae-n-app-125609.internal
+ 18:11:58 up  1:02,  1 user,  load average: 0.28, 0.12, 0.09
+47
+cn-frontend-mig-regional-vqp1.c.pg-ae-n-app-125609.internal
+ 18:12:06 up 15 min,  1 user,  load average: 0.03, 0.08, 0.14
+2
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$
 
-- **`jvmm` is idle right now.** The load average is 0.08 and the CPU is 85.7% idle, so it isn't running above the autoscaler's 60% target.
-- **Almost no real traffic reached it.** The access log has 2,210 lines after 59 minutes of uptime. Every line in the tail is the load balancer's health checker (`GoogleHC/1.0`, three probers about every 5 seconds). That rate comes to roughly 2,100 health-check lines per hour, so by my estimate only a few dozen lines are real requests.
 
-So sustained user traffic isn't the reason for 3 servers, at least on this instance. I haven't seen the other two (`j51l`, `vqp1`), the CPU history, or when each was created. The autoscaler's `recommendedSize: 3` has to come from somewhere, and I won't guess which cause it is.
 
-## Find the cause (read-only)
-
-**1. When each server was created.** If `j51l` and `vqp1` were created minutes after `jvmm`, a startup CPU spike is the likely trigger, because the autoscaler's cool-down is only 60s. If they appeared after the load balancer cutover, real traffic is more likely.
-```bash
-gcloud compute instances list --project=pg-ae-n-app-125609 --filter="name~cn-frontend-mig OR name~cn-backend-mig" --format="table(name,zone.basename(),creationTimestamp)"
-```
-
-**2. Real requests and load on each frontend server.** The key now exists, so the prompts won't repeat. `grep -vc` counts lines that aren't health checks:
-```bash
-for n in j51l jvmm vqp1; do gcloud compute ssh cn-frontend-mig-regional-$n --zone=me-central2-a --project=pg-ae-n-app-125609 --internal-ip --command="hostname; uptime; sudo grep -vc GoogleHC /var/log/apache2/careernavigator-frontend-staging-access.log"; done
-```
-
-**3. Monitoring graph.** Console → Compute Engine → Instance groups → `cn-frontend-mig-regional` → Monitoring. A screenshot of the CPU and group-size graphs for the last few hours is enough.
-
-**4. The approximate time you attached the frontend MIG to `frontend-service`.**
-
-## Don't change the autoscaler yet
-
-Cost: 3 frontend servers plus 1 backend is 4 recurring `e2-medium` instances, all in zone `a`. The max is capped at 3, so the exposure is limited. Once the cause is known, I'll give you the options with their costs. They'll probably be setting min and max to 1 for staging, or lengthening the cool-down so startup CPU doesn't trigger scale-out.
-
-## About the pending Packer push
-
-Wait until the frontend MIG is back at 1 instance before pushing the `me-central2` image change. A rolling update can add up to 3 extra servers at once, which at the current size means up to 6 frontend servers briefly. The backend push has no such issue, and it can go ahead.
-
-Paste the outputs and your cutover time.
