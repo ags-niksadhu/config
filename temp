@@ -1,38 +1,43 @@
-I haven't seen 3 frontend servers in any output yet. The last time I saw the frontend MIG, in the pipeline log, its `targetSize` was 1 and it had one instance, `cn-frontend-mig-regional-jvmm`. So it has grown since then, and I need to see why before changing anything.
-
-## What I can say now
-
-The backend MIG's autoscaler was set by us with commands (min 1, max 5). The frontend MIG's autoscaler was created in the Console form with whatever settings the form proposed, and I never saw them. Autoscalers add servers up to the max, so a different minimum, or load after cutover, would explain the gap. That's a hypothesis, not a finding.
-
-## Run these and paste the output
-
-**1. All servers, including stopped ones:**
-```bash
-gcloud compute instances list --project=pg-ae-n-app-125609 --format="table(name,zone.basename(),status,machineType.basename())"
-```
-
-**2. Frontend MIG members and sizes:**
-```bash
-gcloud compute instance-groups managed list --project=pg-ae-n-app-125609
-gcloud compute instance-groups managed list-instances cn-frontend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609
-```
-
-**3. Frontend autoscaler settings.** There's no `autoscalers` command in your gcloud version, so this uses the API, as we did for the backend:
-```bash
-curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://compute.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-frontend-mig-regional"
-```
-
-## What each result will tell us
-
-| Result | Meaning |
-|---|---|
-| Autoscaler `minNumReplicas` is 3 | The Console form set it. This is a setting, not load. |
-| Min is 1 and `recommendedSize` or the current size is 3 | The autoscaler scaled out because CPU passed its target. Needs a look at load, and possibly a higher target or a larger machine type. |
-| Some instances show `CREATING` with an error | Failed creations are counted in the size. Same capacity problem as before. |
-| Stopped VMs counted in list 1 | The 2 old VMs are being counted as servers. They're not in the MIG. |
-
-## Cost
-
-Every extra `e2-medium` is recurring spend, so this is worth settling soon. I'm not suggesting any change yet. Once the output shows the cause, I'll give you the Console steps to set min and max, and what each choice costs.
-
-Also paste the same autoscaler output for the backend if you want me to compare. Its API path is `.../regions/me-central2/autoscalers/cn-backend-mig-regional-np3m`.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ gcloud compute images describe clean-ubuntu-26092026-img-v2 --format="value(storageLocations)"
+me-central2
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ gcloud compute instances list --project=pg-ae-n-app-125609 --format="table(name,zone.basename(),status,machineType.basename())"
+NAME                           ZONE           STATUS      MACHINE_TYPE
+cn-staging-backapp-vm-01       me-central2-c  TERMINATED  e2-medium
+cn-staging-frontapp-vm-01      me-central2-c  TERMINATED  e2-medium
+cn-backend-mig-regional-rs57   me-central2-a  RUNNING     e2-medium
+cn-frontend-mig-regional-j51l  me-central2-a  RUNNING     e2-medium
+cn-frontend-mig-regional-jvmm  me-central2-a  RUNNING     e2-medium
+cn-frontend-mig-regional-vqp1  me-central2-a  RUNNING     e2-medium
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ gcloud compute instance-groups managed list --project=pg-ae-n-app-125609
+NAME                      LOCATION     SCOPE   BASE_INSTANCE_NAME        SIZE  TARGET_SIZE  INSTANCE_TEMPLATE             AUTOSCALED
+cn-backend-mig-regional   me-central2  region  cn-backend-mig-regional   1     1            cn-backend-template-a249720   yes
+cn-frontend-mig-regional  me-central2  region  cn-frontend-mig-regional  3     3            cn-frontend-template-01d17a8  yes
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ gcloud compute instance-groups managed list-instances cn-frontend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609
+NAME                           ZONE           STATUS   HEALTH_STATE  ACTION  INSTANCE_TEMPLATE             VERSION_NAME  LAST_ERROR
+cn-frontend-mig-regional-j51l  me-central2-a  RUNNING  HEALTHY       NONE    cn-frontend-template-01d17a8
+cn-frontend-mig-regional-jvmm  me-central2-a  RUNNING  HEALTHY       NONE    cn-frontend-template-01d17a8
+cn-frontend-mig-regional-vqp1  me-central2-a  RUNNING  HEALTHY       NONE    cn-frontend-template-01d17a8
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://compute.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-frontend-mig-regional"
+{
+  "kind": "compute#autoscaler",
+  "id": "443506147147594686",
+  "creationTimestamp": "2026-10-04T09:56:49.522-07:00",
+  "name": "cn-frontend-mig-regional",
+  "target": "https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-frontend-mig-regional",
+  "autoscalingPolicy": {
+    "minNumReplicas": 1,
+    "maxNumReplicas": 3,
+    "coolDownPeriodSec": 60,
+    "stabilizationPeriodSec": 600,
+    "cpuUtilization": {
+      "utilizationTarget": 0.6,
+      "predictiveMethod": "NONE"
+    },
+    "mode": "ON"
+  },
+  "region": "https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2",
+  "selfLink": "https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-frontend-mig-regional",
+  "status": "ACTIVE",
+  "recommendedSize": 3
+}
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$
