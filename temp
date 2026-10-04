@@ -1,49 +1,11 @@
-**The frontend pipeline now runs end to end.** Build `01d17a8` finished with `Group is stable`, and the cleanup step ran last. The frontend MIG `cn-frontend-mig-regional` runs template `cn-frontend-template-01d17a8`.
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ gcloud compute instance-groups managed list-instances cn-frontend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609
+NAME                           ZONE           STATUS   HEALTH_STATE  ACTION  INSTANCE_TEMPLATE             VERSION_NAME  LAST_ERROR
+cn-frontend-mig-regional-jvmm  me-central2-a  RUNNING  HEALTHY       NONE    cn-frontend-template-01d17a8
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ gcloud compute instances list --project=pg-ae-n-app-125609 --filter="name~cn-frontend-mig" --format="table(name,zone.basename(),status,shieldedInstanceConfig.enableSecureBoot,shieldedInstanceConfig.enableVtpm,shieldedInstanceConfig.enableIntegrityMonitoring)"
+NAME                           ZONE           STATUS   ENABLE_SECURE_BOOT  ENABLE_VTPM  ENABLE_INTEGRITY_MONITORING
+cn-frontend-mig-regional-jvmm  me-central2-a  RUNNING  True                True         True
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ IP=$(gcloud compute instances list --project=pg-ae-n-app-125609 --filter="name~cn-frontend-mig" --format="value(networkInterfaces[0].networkIP)" --limit=1)
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ curl -s -o /dev/null -w "apache /login: %{http_code}\n" -A "GoogleHC/1.0" http://$IP/login
+apache /login: 200
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$
 
-## Confirmed in this log
-
-- `npm ci`, `next build` (48 pages), Packer (`APP IS UP` and `APACHE PATH OK`, PM2 `online` with 0 restarts as `sa_…`) and the template step all passed.
-- `Rolling Update MIG` and `Verify Rollout Health` passed, so the frontend MIG now takes pipeline deploys.
-- The Shielded VM flags were active during the Packer build. They were set on the template, but I haven't seen the live instance flags yet. Check them in the commands below.
-- **Cleanup behaved correctly.** It ran last and finished without errors. With fewer than 5 labeled frontend builds, nothing is deleted yet.
-
-## One difference from the backend MIG
-
-The frontend MIG you created in the Console reports `targetShape: BALANCED`, `instanceRedistributionType: NONE` and `forceUpdateOnRepair: YES`. Compared with the backend, that's a different zone-distribution mode, and it may reflect how the Console form defaulted. The "even" mode is the one that matters for resilience. Check whether `BALANCED` is what you want, and say so if not.
-
-## Check the live instance (read-only)
-
-```bash
-gcloud compute instance-groups managed list-instances cn-frontend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609
-gcloud compute instances list --project=pg-ae-n-app-125609 --filter="name~cn-frontend-mig" --format="table(name,zone.basename(),status,shieldedInstanceConfig.enableSecureBoot,shieldedInstanceConfig.enableVtpm,shieldedInstanceConfig.enableIntegrityMonitoring)"
-IP=$(gcloud compute instances list --project=pg-ae-n-app-125609 --filter="name~cn-frontend-mig" --format="value(networkInterfaces[0].networkIP)" --limit=1)
-curl -s -o /dev/null -w "apache /login: %{http_code}\n" -A "GoogleHC/1.0" http://$IP/login
-```
-Expect `HEALTHY`, all three Shielded flags `True`, and `200`.
-
-## Cutover to the load balancer (Console)
-
-Do this only after those checks pass.
-
-1. Network services → Backend services → `frontend-service` → Edit → Backends → Add a backend.
-   - Instance group: `cn-frontend-mig-regional`
-   - Port numbers: `80`
-   - Balancing: Utilization, max 80%, capacity 100%, same as `frontend-ig`
-2. Keep `frontend-ig` attached for now.
-3. Advanced configurations → Connection draining timeout → `30`. Update.
-4. Check backend health. Both groups should show healthy.
-5. Test the real URL `https://staging.careerdevelopmentnavigator.mer.pwc.com/login` several times. Traffic is now split between the old VM and the new instance.
-
-⚠️ **Rollback:** Edit `frontend-service`, remove `cn-frontend-mig-regional`, Update. `frontend-ig` is still attached, so traffic returns to the old VM immediately.
-
-## Cost and redundancy
-
-The MIG is at size 1 with an autoscaler present (`cn-frontend-mig-regional`). The frontend has the same single-instance limitation as the backend: if that instance dies, there are about 5 minutes of downtime. A min of 2 adds one `e2-medium` of recurring cost, so confirm with whoever owns billing.
-
-## Frontend items not yet confirmed
-
-- **`SECRET_KEY: "abc"`** is in `next.config.ts`'s `env` block and is inlined into the browser bundle. Confirm it's a placeholder.
-- **Snapshots and data location.** The schedule and `eu` storage issue from earlier covers `cn-staging-frontapp-vm-01` too. Do you want me to continue with that, or has it been handled?
-- **Frontend memory.** Do you want the frontend pipeline recorded in project memory alongside the backend one, once cutover is done?
-
-Paste the four command outputs. If the instance isn't `HEALTHY`, include `LAST_ERROR`.
