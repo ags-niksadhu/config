@@ -1,20 +1,43 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute backend-services describe app-backend-service --global --project=pg-ae-n-app-125609 --format="yaml(backends,portName,protocol,healthChecks,balancingMode)"
-backends:
-- balancingMode: UTILIZATION
-  capacityScaler: 1.0
-  group: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-c/instanceGroups/backend-ig
-  maxUtilization: 0.8
-healthChecks:
-- https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/healthChecks/app-health-check
-portName: http
-protocol: HTTP
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609 --format="yaml(namedPorts)"
+## How a code update goes live
 
-  null
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$ gcloud compute instance-groups managed list --project=pg-ae-n-app-125609 --format="table(name,location,size,instanceTemplate.basename())"
-NAME                     LOCATION  SIZE  INSTANCE_TEMPLATE
-cn-backend-mig-regional            1     cn-backend-template-7d991de
-nikul_sadhu_gcp_pwc_com@cn-staging-backapp-vm-01:~$
+With the current settings (`PROACTIVE`, `maxSurge=3`, `maxUnavailable=0`), the order is **new first, then delete old**:
 
+1. The pipeline builds a new image and template, then starts the rolling update.
+2. The MIG creates a new server from the new template. The old server keeps serving.
+3. The new server gets a 300-second grace period (`initialDelaySec`), then must pass the health check.
+4. Only after the new server is `HEALTHY` does the MIG delete the old one.
 
+So at size 1 you briefly have 2 servers, then 1 again, with no gap.
 
+**What protects you:** if the new server never becomes healthy, the old one is never deleted and the pipeline fails at `Verify Rollout Health`. Tonight showed this: `t5md` kept running while `-b` and `-c` failed on capacity.
+
+**Weak spots:**
+- A zone out of capacity can stall the rollout. The old server stays up, but the update doesn't finish.
+- In-flight requests on the old server get cut when it's deleted, unless connection draining is set on the backend service. That's worth setting after cutover.
+- With min=1, a crash outside a deploy still means downtime until the replacement boots, roughly 5 minutes.
+
+**Rollback:**
+```bash
+gcloud compute instance-groups managed rolling-action start-update cn-backend-mig-regional \
+  --project=pg-ae-n-app-125609 --region=me-central2 \
+  --version=template=cn-backend-template-7d991de --max-surge=3 --max-unavailable=0
+```
+`7d991de` is the current working template, so it's your known-good target today. Use the previous good template for later deploys.
+
+## What your outputs show
+
+1. **The load balancer isn't using `backend-health-3024`.** `app-backend-service` uses `app-health-check`, with `portName: http` and `UTILIZATION` balancing.
+2. **The regional MIG has no named ports (`null`).** Without an `http` named port, the load balancer can't send traffic to it. This must be added before cutover.
+3. **The zonal `cn-backend-mig` no longer appears in the MIG list.** I earlier guessed it was still running and billing. Please confirm it's really gone.
+
+**Check what `app-health-check` probes** (the path and port may differ from `/health` on 3024):
+```bash
+gcloud compute health-checks describe app-health-check --global --project=pg-ae-n-app-125609
+```
+
+**Confirm the zonal MIG is gone:**
+```bash
+gcloud compute instance-groups list --project=pg-ae-n-app-125609 --format="table(name,zone.basename(),region.basename(),isManaged,size)"
+```
+
+Paste both. After that I'll give you the named-port and backend-service steps for the Console. I'm holding the cutover until I've seen what `app-health-check` probes, since a mismatch would mark the new backend unhealthy.
