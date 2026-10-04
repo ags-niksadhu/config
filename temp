@@ -1,44 +1,11 @@
-Two things need confirming before I change anything.
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$ gcloud compute instances list --project=pg-ae-n-app-125609 --format="table(name,zone.basename(),shieldedInstanceConfig.enableSecureBoot,shieldedInstanceConfig.enableVtpm,shieldedInstanceConfig.enableIntegrityMonitoring)"
+NAME                          ZONE           ENABLE_SECURE_BOOT  ENABLE_VTPM  ENABLE_INTEGRITY_MONITORING
+cn-staging-backapp-vm-01      me-central2-c  True                True         True
+cn-staging-frontapp-vm-01     me-central2-c  True                True         True
+cn-backend-mig-regional-f9rw  me-central2-a  False               True         True
+cn-backend-mig-regional-mxrt  me-central2-a  False               True         True
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$ gcloud compute images describe clean-ubuntu-26092026-img --project=pg-ae-n-app-125609 --format="value(guestOsFeatures[].type)"
+VIRTIO_SCSI_MULTIQUEUE;SEV_CAPABLE;SEV_SNP_CAPABLE;SEV_LIVE_MIGRATABLE;SEV_LIVE_MIGRATABLE_V2;SNP_SVSM_CAPABLE;IDPF;TDX_CAPABLE;UEFI_COMPATIBLE;GVNIC
+nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:~$
 
-**1. Which "both instances"?**
-- **A.** The backend and frontend servers managed by pipelines. This is a code change and a zero-downtime rollout.
-- **B.** The standalone VMs `cn-staging-backapp-vm-01` and `cn-staging-frontapp-vm-01`. ⚠️ Shielded VM options can only be changed while the VM is stopped, so this means downtime.
 
-**2. The snapshot item.** GCP has no per-snapshot "encryption in transit" setting. Google encrypts data in transit by default, and snapshots are encrypted at rest by default. What you can configure is a customer-managed key (CMEK) on snapshots. Tell me the exact wording and the tool or policy that raised it, such as a Security Command Center finding or a PwC checklist line, so I meet the real requirement instead of guessing.
-
-**Current Shielded VM state, no changes made:**
-```bash
-gcloud compute instances list --project=pg-ae-n-app-125609 --format="table(name,zone.basename(),shieldedInstanceConfig.enableSecureBoot,shieldedInstanceConfig.enableVtpm,shieldedInstanceConfig.enableIntegrityMonitoring)"
-```
-```bash
-gcloud compute images describe clean-ubuntu-26092026-img --project=pg-ae-n-app-125609 --format="value(guestOsFeatures[].type)"
-```
-The image output must include `UEFI_COMPATIBLE`. The base image was created from a VM that already had Secure Boot on, so I expect it to.
-
-**Planned pipeline changes for option A, not pushed yet.** They would stop the running build and start a new one, so wait for the current build to finish.
-
-`packer/backend.pkr.hcl`, in the `source` block:
-```hcl
-  enable_secure_boot          = true
-  enable_vtpm                 = true
-  enable_integrity_monitoring = true
-```
-
-`cloudbuild.yaml`, in the template step:
-```yaml
-          --tags=cn-backend \
-          --shielded-secure-boot \
-          --shielded-vtpm \
-          --shielded-integrity-monitoring \
-          --labels=managed-by=cloudbuild-packer,app=cn-backend
-```
-
-**Trade-offs:**
-- **Benefit:** meets the control and blocks unsigned boot components.
-- **Risk:** Secure Boot rejects unsigned kernel modules. Your app runs in user space (Node, Apache, PM2), so that's unlikely to matter. The next build's boot and health check confirm it.
-- **Cost:** none.
-- **Rollout:** existing instances change only when the rolling update replaces them, which the pipeline already does with no downtime.
-
-For the frontend, I need to see its `cloudbuild.yaml` and Packer file, if it has them, before editing.
-
-Paste the two command outputs and answer A or B, plus the exact snapshot wording.
