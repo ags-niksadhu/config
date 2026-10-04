@@ -1,43 +1,39 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ gcloud compute images describe clean-ubuntu-26092026-img-v2 --format="value(storageLocations)"
-me-central2
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ gcloud compute instances list --project=pg-ae-n-app-125609 --format="table(name,zone.basename(),status,machineType.basename())"
-NAME                           ZONE           STATUS      MACHINE_TYPE
-cn-staging-backapp-vm-01       me-central2-c  TERMINATED  e2-medium
-cn-staging-frontapp-vm-01      me-central2-c  TERMINATED  e2-medium
-cn-backend-mig-regional-rs57   me-central2-a  RUNNING     e2-medium
-cn-frontend-mig-regional-j51l  me-central2-a  RUNNING     e2-medium
-cn-frontend-mig-regional-jvmm  me-central2-a  RUNNING     e2-medium
-cn-frontend-mig-regional-vqp1  me-central2-a  RUNNING     e2-medium
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ gcloud compute instance-groups managed list --project=pg-ae-n-app-125609
-NAME                      LOCATION     SCOPE   BASE_INSTANCE_NAME        SIZE  TARGET_SIZE  INSTANCE_TEMPLATE             AUTOSCALED
-cn-backend-mig-regional   me-central2  region  cn-backend-mig-regional   1     1            cn-backend-template-a249720   yes
-cn-frontend-mig-regional  me-central2  region  cn-frontend-mig-regional  3     3            cn-frontend-template-01d17a8  yes
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ gcloud compute instance-groups managed list-instances cn-frontend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609
-NAME                           ZONE           STATUS   HEALTH_STATE  ACTION  INSTANCE_TEMPLATE             VERSION_NAME  LAST_ERROR
-cn-frontend-mig-regional-j51l  me-central2-a  RUNNING  HEALTHY       NONE    cn-frontend-template-01d17a8
-cn-frontend-mig-regional-jvmm  me-central2-a  RUNNING  HEALTHY       NONE    cn-frontend-template-01d17a8
-cn-frontend-mig-regional-vqp1  me-central2-a  RUNNING  HEALTHY       NONE    cn-frontend-template-01d17a8
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$ curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://compute.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-frontend-mig-regional"
-{
-  "kind": "compute#autoscaler",
-  "id": "443506147147594686",
-  "creationTimestamp": "2026-10-04T09:56:49.522-07:00",
-  "name": "cn-frontend-mig-regional",
-  "target": "https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-frontend-mig-regional",
-  "autoscalingPolicy": {
-    "minNumReplicas": 1,
-    "maxNumReplicas": 3,
-    "coolDownPeriodSec": 60,
-    "stabilizationPeriodSec": 600,
-    "cpuUtilization": {
-      "utilizationTarget": 0.6,
-      "predictiveMethod": "NONE"
-    },
-    "mode": "ON"
-  },
-  "region": "https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2",
-  "selfLink": "https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-frontend-mig-regional",
-  "status": "ACTIVE",
-  "recommendedSize": 3
-}
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-rs57:~$
+`clean-ubuntu-26092026-img-v2` shows `me-central2`, so image step 1 is done.
+
+## Why the frontend has 3 servers
+
+**You set up 1 server, but the frontend autoscaler can add more.** Your output shows what happened:
+
+| | Backend MIG | Frontend MIG |
+|---|---|---|
+| Autoscaler range | min 1, max 5 (we set it) | min 1, max 3 (set by the Console form) |
+| Autoscaler wants | 1 | **3** (`recommendedSize: 3`) |
+| Running | 1 | 3 |
+| CPU target | 60% | 60% |
+
+The autoscaler wants 3 because CPU utilization is above its 60% target. It's working as configured, not a mistake. What I don't know is why CPU is high. It could be real traffic, scanner noise (your backend logs showed outside IPs probing `/.env` and similar paths), or the `e2-medium` shared-core machine type bursting past its baseline. I won't guess among those.
+
+**Two other things in the output:**
+- **All 3 frontend instances and the backend instance are in `me-central2-a`.** Zones `b` and `c` have had capacity failures before, so you currently have no zone-level resilience despite the regional MIGs.
+- **Cost:** 3 frontend servers plus 1 backend is 4 recurring `e2-medium` instances. The max is capped at 3 for the frontend, but nothing scales it back down until CPU drops, and scale-in has a 600s stabilization wait.
+
+## Find out why CPU is high (read-only)
+
+Run this from where you are, which is in the same VPC:
+```bash
+gcloud compute ssh cn-frontend-mig-regional-jvmm --zone=me-central2-a --project=pg-ae-n-app-125609 --internal-ip --command="uptime; top -bn1 | head -15"
+```
+and:
+```bash
+gcloud compute ssh cn-frontend-mig-regional-jvmm --zone=me-central2-a --project=pg-ae-n-app-125609 --internal-ip --command="sudo wc -l /var/log/apache2/careernavigator-frontend-staging-access.log; sudo tail -n 15 /var/log/apache2/careernavigator-frontend-staging-access.log"
+```
+
+For the history, open Console → Compute Engine → Instance groups → `cn-frontend-mig-regional` → Monitoring tab. The CPU and group-size graphs show whether the scale-out followed a traffic spike, the cutover time, or a steady load. A screenshot is enough.
+
+I'll give options with their costs once I see the output. Don't change autoscaler settings yet.
+
+## One flag on the pending Packer push
+
+You're about to push both repos for the `me-central2` image change. A rolling update uses `--max-surge=3`, and the frontend currently has 3 instances. It can briefly run up to 6 frontend servers, which means higher cost and more capacity pressure in zone `a`. It's temporary, but if you'd rather avoid it, wait until the frontend is back at 1 instance. The backend push has no such issue.
+
+Paste both command outputs, plus the Monitoring screenshot if you can.
