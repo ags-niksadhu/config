@@ -1,11 +1,68 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ gcloud compute instance-groups managed list-instances cn-frontend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609
-NAME                           ZONE           STATUS   HEALTH_STATE  ACTION  INSTANCE_TEMPLATE             VERSION_NAME  LAST_ERROR
-cn-frontend-mig-regional-jvmm  me-central2-a  RUNNING  HEALTHY       NONE    cn-frontend-template-01d17a8
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ gcloud compute instances list --project=pg-ae-n-app-125609 --filter="name~cn-frontend-mig" --format="table(name,zone.basename(),status,shieldedInstanceConfig.enableSecureBoot,shieldedInstanceConfig.enableVtpm,shieldedInstanceConfig.enableIntegrityMonitoring)"
-NAME                           ZONE           STATUS   ENABLE_SECURE_BOOT  ENABLE_VTPM  ENABLE_INTEGRITY_MONITORING
-cn-frontend-mig-regional-jvmm  me-central2-a  RUNNING  True                True         True
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ IP=$(gcloud compute instances list --project=pg-ae-n-app-125609 --filter="name~cn-frontend-mig" --format="value(networkInterfaces[0].networkIP)" --limit=1)
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$ curl -s -o /dev/null -w "apache /login: %{http_code}\n" -A "GoogleHC/1.0" http://$IP/login
-apache /login: 200
-nikul_sadhu_gcp_pwc_com@cn-staging-frontapp-vm-01:/var/www/careernavigator-frontend$
+Before I give commands, I'll check the exact `snapshot-settings` syntax in Google's docs, since it's a project-wide setting.Point 1 is the snapshot residency item. Your rule says snapshot data must live only in `me-central2`. Today all 8 snapshots are in `eu`, and `default-schedule-1` sets no location, so Google falls back to a multi-region default. Nothing here touches the running servers.
 
+## Step 0: current project setting (read-only)
+
+```bash
+gcloud compute snapshot-settings describe
+```
+Paste the output before changing anything.
+
+## Step 1: set the project default location to `me-central2`
+
+Google's docs list three policies: same region as the source disk (local-region), nearest multi-region, or a specific location, where only one location can be given.
+
+| Option | Behavior | Fit |
+|---|---|---|
+| `local-region` | Follows each disk's region, so `me-central2` for all your disks | Flexible, but a disk created elsewhere would put snapshots elsewhere |
+| `specific-locations` = `me-central2` | Always `me-central2` | Explicit, and easier to show an auditor |
+
+I recommend `specific-locations`:
+```bash
+gcloud compute snapshot-settings update --storage-location-policy=specific-locations --storage-location-names=me-central2
+```
+I found only this command in the docs, not a Console path, so I'm giving you the command. It's a one-line change that you can reverse by running it again with the old policy.
+
+## Step 2: delete the 8 `eu` snapshots (Console)
+
+They belong to the deleted `clean-ubuntu-26092026` disk. ⚠️ Deletion is irreversible.
+1. Compute Engine → Snapshots.
+2. Tick the 8 `clean-ubuntu-260920-me-central2-a-…` entries.
+3. Delete.
+
+## Step 3: schedules, only if you need them
+
+No live disk has a schedule today. I haven't verified that a schedule with no location of its own follows the project default. The check in step 4 will show it.
+
+If you do want backups on the standalone VMs, create a new schedule with Region `me-central2` and Snapshot location Regional → `me-central2`, as in my earlier steps, and attach it to each disk. If those VMs are being decommissioned and hold nothing that isn't in git, skip this step and save the recurring storage cost.
+
+## Step 4: verify
+
+After the next snapshot of any disk, this should show only `me-central2`:
+```bash
+gcloud compute snapshots list --project=pg-ae-n-app-125609 --format="table(name,sourceDisk.basename(),storageLocations.list())"
+```
+
+Images and Secret Manager replication also count as data stores. Paste these two outputs and I'll tell you if they need changes:
+```bash
+gcloud compute images list --project=pg-ae-n-app-125609 --filter="name~cn-backend-image OR name~cn-frontend-image OR name~clean-ubuntu" --format="table(name,storageLocations.list())"
+gcloud secrets describe CN_STAGING_DB_HOST --project=pg-ae-n-app-125609 --format="yaml(replication)"
+```
+
+## What each step affects
+
+| Step | Affects | Downtime | Cost | Reversible |
+|---|---|---|---|---|
+| 1. Project default | Only new snapshots, project-wide (anyone creating snapshots in this project) | none | none | yes, run the command with the old policy |
+| 2. Delete 8 snapshots | Only those backups. The running servers and `clean-ubuntu-26092026-img` are unaffected, because the image was made from the disk, not from these snapshots | none | saves storage | no |
+| 3. New schedule | The disks you attach it to | none | small recurring storage | yes, detach and delete |
+
+**Trade-off:** a single region means a regional outage can't be recovered from snapshots. Your rule requires it, so it's accepted, but tell whoever owns DR.
+
+**Encryption in transit:** nothing to configure. Google encrypts that traffic by default, so the fix is evidence, not a setting.
+
+## Two questions
+
+1. Are `cn-staging-backapp-vm-01` and `cn-staging-frontapp-vm-01` being decommissioned, or do they keep running and hold data that isn't in git? That decides step 3.
+2. Does anyone else create snapshots in this project and rely on the multi-region copy? If so, step 1 changes their default.
+
+Paste the step 0 output and your answers.
