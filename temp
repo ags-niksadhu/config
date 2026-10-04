@@ -1,75 +1,38 @@
-Snapshots are closed, but your output shows two more data stores outside `me-central2`: all images, and the secrets. I'll check two things in the docs before giving commands, because the fixes touch your build base image and runtime secrets.Snapshots are closed. The two remaining data stores are images and secrets, and neither meets the rule yet.
+I haven't seen 3 frontend servers in any output yet. The last time I saw the frontend MIG, in the pipeline log, its `targetSize` was 1 and it had one instance, `cn-frontend-mig-regional-jvmm`. So it has grown since then, and I need to see why before changing anything.
 
-| Data store | What your output shows | Status |
-|---|---|---|
-| Snapshots | The list is empty. The 8 `eu` snapshots are gone, and new ones default to `me-central2` | ✅ closed |
-| Images | All 16 are in `eu`, including the Packer base image | ❌ |
-| Secrets | `automatic` replication | ❌ |
+## What I can say now
 
-## Images
+The backend MIG's autoscaler was set by us with commands (min 1, max 5). The frontend MIG's autoscaler was created in the Console form with whatever settings the form proposed, and I never saw them. Autoscalers add servers up to the max, so a different minimum, or load after cutover, would explain the gap. That's a hypothesis, not a finding.
 
-Packer sets no location, so every pipeline image lands in `eu`. An existing image can't be moved, only recreated. Nothing here touches the running servers.
+## Run these and paste the output
 
-1. **Copy the base image into `me-central2` (Console).** Compute Engine → Images → Create image.
-   - Name: `clean-ubuntu-26092026-img-v2`
-   - Source: Image → `clean-ubuntu-26092026-img`
-   - Location: Regional → `me-central2`
-
-   Check it afterwards with `gcloud compute images describe clean-ubuntu-26092026-img-v2 --format="value(storageLocations)"`.
-
-2. **Change the `source` block in both `backend.pkr.hcl` and `frontend.pkr.hcl`.** Packer's `image_storage_locations` accepts only one value, and a regional location is allowed.
-```hcl
-  source_image            = "clean-ubuntu-26092026-img-v2"
-  image_storage_locations = ["me-central2"]
-```
-
-3. **Push both repos to `staging`.** Each pipeline builds a new image, template and rolling update.
-
-4. **Verify:**
+**1. All servers, including stopped ones:**
 ```bash
-gcloud compute images list --project=pg-ae-n-app-125609 --filter="name~cn-backend-image OR name~cn-frontend-image OR name~clean-ubuntu" --format="table(name,creationTimestamp.date(),storageLocations.list())"
+gcloud compute instances list --project=pg-ae-n-app-125609 --format="table(name,zone.basename(),status,machineType.basename())"
 ```
-The newest `cn-*` images and the v2 base should show `me-central2`.
 
-**Rollback:** revert the two lines. If the v2 copy is bad, builds fail at the Packer step and nothing live is affected.
-
-**Cost:** a small duplicate of image storage until the old base image is deleted.
-
-## Old `eu` images
-
-- **7 orphans** (SHAs `03f1b68`, `5a879da`, `551a568`, `0460def`, `fd726a3`, `64b2930`, `5262057`): their templates are already deleted, so deleting them is safe.
-- **Pipeline-labeled images:** the cleanup step removes them once you set `DRY_RUN=0`.
-- **Unlabeled ones you chose to keep** (`a4a4748`, `7d991de`, `17d6b89`, `manual`, and the old base image) stay in `eu` until you delete them. Your earlier choice conflicts with the residency rule here, so this is your call.
-
-## Secrets
-
-With automatic replication, Secret Manager replicates the secret across multiple regions globally, and the locations in a replication policy can't be updated after creation. So all 23 secrets must be recreated.
-
-| | A. Recreate under the same names with `me-central2` replication | B. Regional secrets in `me-central2`, created side by side | C. Ask compliance to accept the current setup |
-|---|---|---|---|
-| Downtime | ⚠️ short gap per secret between delete and create; an instance restart in that gap fails | none, if the app can read regional secrets | none |
-| Complexity | medium (23 secrets, values handled locally) | medium-high (possible app config change) | low |
-| Reversible | no, once deleted | yes | n/a |
-
-I recommend B if the app supports it, because it's the only option with no gap, but first ask compliance whether secret replication is in scope. The compiled code I saw earlier can use a regional endpoint, but I haven't seen how it picks the location, so I won't give you steps yet.
-
-Please paste:
-1. The contents of `src/common/config/secret-manager.ts` from the backend repo. Don't include any values.
-2. Output of:
+**2. Frontend MIG members and sizes:**
 ```bash
-gcloud secrets locations list --project=pg-ae-n-app-125609 | grep -i me-central2
+gcloud compute instance-groups managed list --project=pg-ae-n-app-125609
+gcloud compute instance-groups managed list-instances cn-frontend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609
 ```
-`me-central2` must be listed for either A or B to work.
 
-## Other data stores to check
-
+**3. Frontend autoscaler settings.** There's no `autoscalers` command in your gcloud version, so this uses the API, as we did for the backend:
 ```bash
-gcloud storage buckets list --project=pg-ae-n-app-125609 --format="table(name,location,locationType)"
-gcloud sql instances list --project=pg-ae-n-app-125609 --format="table(name,region,databaseVersion)"
+curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://compute.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-frontend-mig-regional"
 ```
 
-## Order
+## What each result will tell us
 
-Do images first, since it needs no extra information from you. Then secrets after I see the file, then the other stores.
+| Result | Meaning |
+|---|---|
+| Autoscaler `minNumReplicas` is 3 | The Console form set it. This is a setting, not load. |
+| Min is 1 and `recommendedSize` or the current size is 3 | The autoscaler scaled out because CPU passed its target. Needs a look at load, and possibly a higher target or a larger machine type. |
+| Some instances show `CREATING` with an error | Failed creations are counted in the size. Same capacity problem as before. |
+| Stopped VMs counted in list 1 | The 2 old VMs are being counted as servers. They're not in the MIG. |
 
-Two answers I need: what to do with the unlabeled `eu` images, and whether compliance counts secret replication.
+## Cost
+
+Every extra `e2-medium` is recurring spend, so this is worth settling soon. I'm not suggesting any change yet. Once the output shows the cause, I'll give you the Console steps to set min and max, and what each choice costs.
+
+Also paste the same autoscaler output for the backend if you want me to compare. Its API path is `.../regions/me-central2/autoscalers/cn-backend-mig-regional-np3m`.
