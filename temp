@@ -1,28 +1,50 @@
-The Console only enables a template when it's compatible with the location you've selected, so I need two facts first: whether the template exists, and what it's bound to.
+I can't see your project from here, so run these read-only checks and paste the output.
 
-**1. Does the frontend template exist, and where is it bound?**
+**1. MIG settings:**
 ```bash
-gcloud compute instance-templates list --project=pg-ae-n-app-125609 --filter="name~cn-frontend" --format="table(name,creationTimestamp.date(),properties.networkInterfaces[0].subnetwork.basename(),properties.machineType)"
+gcloud compute instance-groups managed describe cn-frontend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609 --format="yaml(name,targetSize,instanceTemplate.basename(),namedPorts,autoHealingPolicies,distributionPolicy.zones[].zone.basename(),status.isStable)"
 ```
 
-**2. Did the frontend build reach the template step?**
+**2. Instances and health:**
 ```bash
-gcloud builds list --region=me-central2 --project=pg-ae-n-app-125609 --limit=5 --format="table(id,status,createTime,substitutions.TRIGGER_NAME,substitutions.SHORT_SHA)"
+gcloud compute instance-groups managed list-instances cn-frontend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609
 ```
 
-## What each result means
+**3. Shielded VM flags (compliance):**
+```bash
+gcloud compute instances list --project=pg-ae-n-app-125609 --filter="name~cn-frontend-mig" --format="table(name,zone.basename(),shieldedInstanceConfig.enableSecureBoot,shieldedInstanceConfig.enableVtpm,shieldedInstanceConfig.enableIntegrityMonitoring)"
+```
 
-- **Command 1 returns nothing:** the template was never created. The build either hasn't run on the frontend repo or failed before the `Create Instance Template` step. Open the latest `careernavigator-frontend-staging` build in Console → Cloud Build → History (region `me-central2`) and paste the failing step's log tail.
-- **Command 1 lists a template:** it exists, so the grey-out is a compatibility filter in the form. The template's subnet is `default` in `me-central2`, so it's greyed out whenever the MIG's location is a different region.
+**4. Autoscaler:**
+```bash
+gcloud compute instance-groups managed describe cn-frontend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609 --format="value(status.autoscaler)"
+```
 
-## Quick try in the Console (only if the template exists)
+**5. Does the app answer on the new instance?** This runs from your current frontend VM, which is in the same VPC. It uses the same path and user agent as the load balancer.
+```bash
+IP=$(gcloud compute instances list --project=pg-ae-n-app-125609 --filter="name~cn-frontend-mig" --format="value(networkInterfaces[0].networkIP)" --limit=1)
+curl -s -o /dev/null -w "apache /login: %{http_code}\n" -A "GoogleHC/1.0" http://$IP/login
+curl -s -o /dev/null -w "node 3027 /login: %{http_code}\n" http://$IP:3027/login
+```
 
-The Console form can default to a different region.
+## What proper looks like
 
-1. In the create-MIG form, set **Location → Multiple zones**.
-2. Set **Region** to `me-central2` and select zones `a`, `b` and `c`.
-3. Reopen the **Instance template** dropdown. It should now be selectable.
+| Check | Expected |
+|---|---|
+| Template | `cn-frontend-template-<SHA>` |
+| Zones | a, b, c in `me-central2` |
+| Named port | `http: 80` (needed before the load balancer can use it) |
+| Autohealing | `frontend-health-check`, initial delay 300 |
+| Instances | `RUNNING` and `HEALTHY`, no `LAST_ERROR`. `ZONE_RESOURCE_POOL_EXHAUSTED` in zone b or c is the capacity problem we saw on the backend, not a config fault. |
+| Shielded flags | all three `True` |
+| Autoscaler | present, if you set one |
+| Apache `/login` | `200`. A `301` or `404` means the load balancer would mark it unhealthy. |
+| Node 3027 `/login` | `200` |
 
-If it's still greyed out after that, tell me the exact text shown next to the greyed-out entry (a tooltip or hint line). It usually names the reason.
+**If instances show `TIMEOUT`:** the app isn't responding on the health check path. Paste the PM2 and Apache error output from the instance, and I'll diagnose from that rather than guess.
 
-Paste both command outputs.
+## After it checks out
+
+Run the pipeline once more, by pushing a small commit or re-triggering `careernavigator-frontend-staging`. That proves the rolling update step works against the new MIG. Only then attach the MIG to `frontend-service`.
+
+Paste all five outputs.
