@@ -1,20 +1,19 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ # Process env of the running app (no pm2 needed)
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ PID=$(pgrep -f "node.*careernavigator-backend|PM2.*backend|dist/main" | head -1); echo "PID=$PID"
-PID=1199
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ sudo tr '\0' '\n' < /proc/$PID/environ | grep -i SECRET_
--bash: /proc/1199/environ: Permission denied
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ # Alternative via PM2 as the owner user
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ sudo -u sa_108691235514385689272 -H pm2 list
-grep -n "SECRET_LOCATION" /var/www/careernavigator-backend/ecosystem.config.js┌────┬────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
-│ id │ name                       │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
-├────┼────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
-│ 0  │ careernavigator-backend    │ default     │ 0.0.1   │ fork    │ 1199     │ 52m    │ 0    │ online    │ 0%       │ 192.7mb  │ sa_1086… │ disabled │
-└────┴────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
-host metrics | cpu: 1% | ram usage: 19.5% | lo: ⇓ 0.001mb/s ⇑ 0.001mb/s | ens4: ⇓ 0.001mb/s ⇑ 0.012mb/s | disk: ⇓ 0.002mb/s ⇑ 0.009mb/s
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ gcloud compute instance-groups managed list-instances cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609
-NAME                          ZONE           STATUS   HEALTH_STATE  ACTION  INSTANCE_TEMPLATE            VERSION_NAME  LAST_ERROR
-cn-backend-mig-regional-82gk  me-central2-a  RUNNING  HEALTHY       NONE    cn-backend-template-3aaffe9
-cn-backend-mig-regional-fh10  me-central2-a  RUNNING  HEALTHY       NONE    cn-backend-template-3aaffe9
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$
+Both instances are on the same template (`cn-backend-template-3aaffe9`) and healthy, so that check passes.
 
+The `/proc` read failed because `sudo` applied only to `tr`, while the `<` redirect ran as your user. Also, the `grep SECRET_LOCATION ecosystem.config.js` printed nothing, so the setting is not in that file. **Do not disable yet**; this needs confirming.
+
+```bash
+# Running process env, as the owner user
+sudo -u sa_108691235514385689272 -H pm2 env 0 | grep -i SECRET
+
+# Same via /proc, with sudo applied to the whole command
+sudo bash -c "tr '\0' '\n' < /proc/1199/environ | grep -i SECRET"
+
+# Where is it set, if anywhere
+sudo grep -rn "SECRET_LOCATION" /var/www/careernavigator-backend --include=*.js --include=*.ts --include=.env* --exclude-dir=node_modules 2>/dev/null | head
+```
+
+- If you see `SECRET_LOCATION=me-central2`, the app reads regional and you can run the disable loop.
+- If nothing appears, the app is still reading global (the loader falls back to the global endpoint when `SECRET_LOCATION` is empty). Disabling now would break the next restart or scale-out, so add `SECRET_LOCATION: 'me-central2'` to `env_staging` in `ecosystem.config.js` and rebuild first.
+
+Paste the output.
