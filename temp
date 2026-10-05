@@ -1,60 +1,576 @@
-## Cleanup filter: confirmed working
-
-Your list shows 7 pipeline templates matching `app=cn-frontend`, the same filter as the fixed step. The newest, `3255267`, is the one the MIG uses. With `KEEP=5`, the dry run should name two candidates, the oldest: `cn-frontend-template-7696009` and `cn-frontend-template-b0ad954`, with images `cn-frontend-image-7696009` and `cn-frontend-image-b0ad954`. The newest five (`3255267`, `13bcacb`, `70499c9`, `0ae7410`, `13633c6`) stay.
-
-I can't confirm the real step output yet. The build with your fix probably ran while `_Default` was disabled, so its log is in the regional bucket you can't read. The next frontend build will print the dry-run lines in a log you can read. After you've seen those two names, set `DRY_RUN=0`. I haven't verified that `delete` accepts `--region`, so after the first live run, check that both templates are really gone.
-
-## My user-agent query was wrong
-
-It printed nothing because I chose the wrong window. 07:55 to 08:12 UTC sits inside 07:13:49 to 08:14:36, when `_Default` was disabled, so those frontend logs went only to the regional bucket. That was my mistake, not a sign the traffic was empty.
-
-## Autoscaler
-
-It's `ACTIVE`, min 1, max 3, and `recommendedSize` is 1. The group had 3 servers at 08:38, so it should shrink on its own once the stabilization wait ends. Check whether it already has:
-
-```bash
-P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ P=pg-ae-n-app-125609
 gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize,instanceTemplate.basename())"
-```
+NAME: cn-backend-mig-regional
+SIZE: 3
+TARGET_SIZE: 1
+INSTANCE_TEMPLATE: cn-backend-template-bd3b2bb
 
-## What triggers the scale-outs
-
-I still don't know. This is a read-only way to find out that avoids the blind hour. Admin Activity audit logs live in `_Required`, which was never disabled, so they cover the whole day:
-
-```bash
-gcloud builds list --region=me-central2 --project=$P --filter="substitutions.TRIGGER_NAME=careernavigator-frontend-staging" --limit=8 --format="table(createTime,status,substitutions.SHORT_SHA)"
+NAME: cn-frontend-mig-regional
+SIZE: 1
+TARGET_SIZE: 1
+INSTANCE_TEMPLATE: cn-frontend-template-3255267
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud builds list --region=me-central2 --project=$P --filter="substitutions.TRIGGER_NAME=careernavigator-frontend-staging" --limit=8 --format="table(createTime,status,substitutions.SHORT_SHA)"
 gcloud logging read 'logName:"cloudaudit.googleapis.com%2Factivity" AND (protoPayload.methodName:"compute.instances.insert" OR protoPayload.methodName:"compute.instances.delete") AND protoPayload.resourceName:"cn-frontend-mig-regional"' --project=$P --freshness=24h --format="table(timestamp,protoPayload.methodName,protoPayload.resourceName.basename())"
-```
-The principal is the same for rollouts and autoscaling, so I'm leaving that column out. Timing separates them:
+CREATE_TIME: 2026-10-05T07:26:02+00:00
+STATUS: SUCCESS
+SHORT_SHA: 3255267
 
-| What you see | Meaning |
-|---|---|
-| server creations within a few minutes after a build's `createTime` | the extra servers come from rollouts, probably boot-time CPU on a new server pushing the group above 60% |
-| creations with no build nearby | the autoscaler reacting to real load, which I'd then investigate separately |
-| creations 30 seconds apart in pairs | one autoscaler step, as at 08:09 |
+CREATE_TIME: 2026-10-05T06:29:10+00:00
+STATUS: SUCCESS
+SHORT_SHA: 13bcacb
 
-I haven't established which one it is. If it's the rollout pattern, the options are:
+CREATE_TIME: 2026-10-05T05:43:46+00:00
+STATUS: SUCCESS
+SHORT_SHA: 70499c9
 
-| | What | Cost | Complexity |
-|---|---|---|---|
-| **A. Lengthen the autoscaler cool-down** | Console → Instance groups → `cn-frontend-mig-regional` → Edit autoscaling → cool-down 60s to 300s | none | low |
-| **B. Cap max at 2** | same screen | lower ceiling | low |
-| **C. Observe** | accept up to 3 servers briefly after each deploy | up to 2 extra `e2-medium` for ~10 to 30 minutes per deploy | none |
+CREATE_TIME: 2026-10-05T05:41:23+00:00
+STATUS: CANCELLED
+SHORT_SHA: 0020ae3
 
-I'd recommend A, then watch the next deploy. It stops boot-time CPU from being counted as load. Don't change anything until the timeline above is in.
+CREATE_TIME: 2026-10-04T20:32:23+00:00
+STATUS: SUCCESS
+SHORT_SHA: 13633c6
 
-## Before your next frontend push
+CREATE_TIME: 2026-10-04T20:32:10+00:00
+STATUS: FAILURE
+SHORT_SHA: 0ae7410
 
-Wait until the group is back at 1 server. A rollout with `--max-surge=3` on top of 3 servers briefly costs more.
+CREATE_TIME: 2026-10-04T19:06:06+00:00
+STATUS: SUCCESS
+SHORT_SHA: 7696009
 
-## Evidence and open items
+CREATE_TIME: 2026-10-04T18:51:26+00:00
+STATUS: FAILURE
+SHORT_SHA: b0ad954
+TIMESTAMP: 2026-10-05T08:42:27.176974Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-7svz
 
-| Item | State |
-|---|---|
-| Frontend logs received in `_Default` | ✅ confirmed earlier |
-| Cleanup filter | ✅ confirmed, waiting for a readable build log |
-| Frontend scale-outs | cause unknown, waiting for the timeline |
-| Compliance exceptions, Data Access audit, VPC flow logs, `_Default` retention | waiting on your side, as listed before |
-| Secrets (18 regional copies, `SECRET_LOCATION`, endpoint change, 5 unread secrets) | not started |
+TIMESTAMP: 2026-10-05T08:42:07.363313Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-258b
 
-Paste the three outputs and tell me the group size.
+TIMESTAMP: 2026-10-05T08:41:37.088195Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-7svz
+
+TIMESTAMP: 2026-10-05T08:41:15.824808Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-258b
+
+TIMESTAMP: 2026-10-05T08:09:50.547510Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-7svz
+
+TIMESTAMP: 2026-10-05T08:09:34.517672Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-7svz
+
+TIMESTAMP: 2026-10-05T08:09:18.643414Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-258b
+
+TIMESTAMP: 2026-10-05T08:09:03.813407Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-258b
+
+TIMESTAMP: 2026-10-05T07:58:37.099801Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-fx3z
+
+TIMESTAMP: 2026-10-05T07:57:47.131659Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-fx3z
+
+TIMESTAMP: 2026-10-05T07:57:46.149106Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-8vmg
+
+TIMESTAMP: 2026-10-05T07:56:55.920640Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-8vmg
+
+TIMESTAMP: 2026-10-05T07:44:16.218931Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-c6s2
+
+TIMESTAMP: 2026-10-05T07:44:02.610613Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-c6s2
+
+TIMESTAMP: 2026-10-05T07:43:46.224462Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-fx3z
+
+TIMESTAMP: 2026-10-05T07:43:32.598203Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-fx3z
+
+TIMESTAMP: 2026-10-05T07:38:33.894777Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-bqm2
+
+TIMESTAMP: 2026-10-05T07:37:43.069865Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-bqm2
+
+TIMESTAMP: 2026-10-05T07:35:12.543833Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-8vmg
+
+TIMESTAMP: 2026-10-05T07:34:38.182666Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-8vmg
+
+TIMESTAMP: 2026-10-05T07:00:02.557476Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-cj8r
+
+TIMESTAMP: 2026-10-05T06:59:10.926295Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-cj8r
+
+TIMESTAMP: 2026-10-05T06:53:50.910329Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-ktsh
+
+TIMESTAMP: 2026-10-05T06:53:00.773973Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-ktsh
+
+TIMESTAMP: 2026-10-05T06:49:40.990143Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-cnk0
+
+TIMESTAMP: 2026-10-05T06:48:50.857087Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-cnk0
+
+TIMESTAMP: 2026-10-05T06:46:09.966048Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-bqm2
+
+TIMESTAMP: 2026-10-05T06:45:55.885448Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-bqm2
+
+TIMESTAMP: 2026-10-05T06:45:47.995870Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-6gx6
+
+TIMESTAMP: 2026-10-05T06:44:56.065696Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-6gx6
+
+TIMESTAMP: 2026-10-05T06:42:20.094712Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-ktsh
+
+TIMESTAMP: 2026-10-05T06:41:57.945393Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-ktsh
+
+TIMESTAMP: 2026-10-05T06:41:50.957766Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-32tm
+
+TIMESTAMP: 2026-10-05T06:41:00.879270Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-32tm
+
+TIMESTAMP: 2026-10-05T06:38:29.187240Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-cj8r
+
+TIMESTAMP: 2026-10-05T06:38:15.861396Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-cj8r
+
+TIMESTAMP: 2026-10-05T06:36:00.432263Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-6gx6
+
+TIMESTAMP: 2026-10-05T06:35:48.692360Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-cnk0
+
+TIMESTAMP: 2026-10-05T06:35:47.236475Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-6gx6
+
+TIMESTAMP: 2026-10-05T06:35:27.339880Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-cnk0
+
+TIMESTAMP: 2026-10-05T05:56:15.274419Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-5hl9
+
+TIMESTAMP: 2026-10-05T05:55:25.166027Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-5hl9
+
+TIMESTAMP: 2026-10-05T05:52:54.650582Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-32tm
+
+TIMESTAMP: 2026-10-05T05:52:41.992218Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-32tm
+
+TIMESTAMP: 2026-10-05T05:45:36.950815Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-l4tn
+
+TIMESTAMP: 2026-10-05T05:44:56.515508Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-g9tt
+
+TIMESTAMP: 2026-10-05T05:44:41.852662Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-l4tn
+
+TIMESTAMP: 2026-10-05T05:44:06.656455Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-g9tt
+
+TIMESTAMP: 2026-10-05T05:24:56.794735Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-5hl9
+
+TIMESTAMP: 2026-10-05T05:24:43.968252Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-5hl9
+
+TIMESTAMP: 2026-10-05T05:24:36.904851Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-l4tn
+
+TIMESTAMP: 2026-10-05T05:24:24.725803Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-l4tn
+
+TIMESTAMP: 2026-10-05T04:37:26.471088Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-pw9c
+
+TIMESTAMP: 2026-10-05T04:37:07.484062Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-14bt
+
+TIMESTAMP: 2026-10-05T04:36:36.507256Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-pw9c
+
+TIMESTAMP: 2026-10-05T04:36:17.480054Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-14bt
+
+TIMESTAMP: 2026-10-05T04:23:52.499280Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-pw9c
+
+TIMESTAMP: 2026-10-05T04:23:40.364809Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-pw9c
+
+TIMESTAMP: 2026-10-05T04:23:02.477741Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-g9tt
+
+TIMESTAMP: 2026-10-05T04:22:48.980645Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-g9tt
+
+TIMESTAMP: 2026-10-05T03:36:41.713874Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-ws1w
+
+TIMESTAMP: 2026-10-05T03:36:15.473259Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-620x
+
+TIMESTAMP: 2026-10-05T03:35:51.594580Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-ws1w
+
+TIMESTAMP: 2026-10-05T03:35:25.324153Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-620x
+
+TIMESTAMP: 2026-10-05T03:22:53.163966Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-14bt
+
+TIMESTAMP: 2026-10-05T03:22:40.739591Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-14bt
+
+TIMESTAMP: 2026-10-05T03:22:39.987753Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-14bt
+
+TIMESTAMP: 2026-10-05T03:22:35.849485Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-ws1w
+
+TIMESTAMP: 2026-10-05T03:22:33.701020Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-14bt
+
+TIMESTAMP: 2026-10-05T03:22:22.397823Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-14bt
+
+TIMESTAMP: 2026-10-05T03:22:08.409146Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-ws1w
+
+TIMESTAMP: 2026-10-04T21:42:07.469914Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-cwcg
+
+TIMESTAMP: 2026-10-04T21:41:46.293474Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-1xv6
+
+TIMESTAMP: 2026-10-04T21:41:17.749204Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-cwcg
+
+TIMESTAMP: 2026-10-04T21:40:56.596224Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-1xv6
+
+TIMESTAMP: 2026-10-04T21:24:37.163469Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-1xv6
+
+TIMESTAMP: 2026-10-04T21:24:23.213848Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-1xv6
+
+TIMESTAMP: 2026-10-04T21:24:19.541778Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-cwcg
+
+TIMESTAMP: 2026-10-04T21:24:07.045487Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-cwcg
+
+TIMESTAMP: 2026-10-04T20:43:58.149850Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-71vb
+
+TIMESTAMP: 2026-10-04T20:43:06.045956Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-71vb
+
+TIMESTAMP: 2026-10-04T20:40:45.523806Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-620x
+
+TIMESTAMP: 2026-10-04T20:40:31.751725Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-620x
+
+TIMESTAMP: 2026-10-04T20:40:31.178125Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-620x
+
+TIMESTAMP: 2026-10-04T20:40:29.085560Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-620x
+
+TIMESTAMP: 2026-10-04T20:40:13.562839Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-620x
+
+TIMESTAMP: 2026-10-04T20:26:22.548427Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-n3lk
+
+TIMESTAMP: 2026-10-04T20:26:07.299242Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-lc5m
+
+TIMESTAMP: 2026-10-04T20:25:32.073861Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-n3lk
+
+TIMESTAMP: 2026-10-04T20:25:15.261028Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-lc5m
+
+TIMESTAMP: 2026-10-04T20:12:42.019184Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-71vb
+
+TIMESTAMP: 2026-10-04T20:12:27.732162Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-71vb
+
+TIMESTAMP: 2026-10-04T20:12:01.261492Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-n3lk
+
+TIMESTAMP: 2026-10-04T20:11:47.932073Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-n3lk
+
+TIMESTAMP: 2026-10-04T19:17:47.077759Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-9xf2
+
+TIMESTAMP: 2026-10-04T19:16:56.848940Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-9xf2
+
+TIMESTAMP: 2026-10-04T19:14:35.668197Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-lc5m
+
+TIMESTAMP: 2026-10-04T19:14:20.686813Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-lc5m
+
+TIMESTAMP: 2026-10-04T18:30:50.504720Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-vqp1
+
+TIMESTAMP: 2026-10-04T18:30:00.060218Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-vqp1
+
+TIMESTAMP: 2026-10-04T18:27:38.864353Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-9xf2
+
+TIMESTAMP: 2026-10-04T18:27:22.255313Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-9xf2
+
+TIMESTAMP: 2026-10-04T18:13:49.625175Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-jvmm
+
+TIMESTAMP: 2026-10-04T18:13:28.981561Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-j51l
+
+TIMESTAMP: 2026-10-04T18:12:59.657842Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-jvmm
+
+TIMESTAMP: 2026-10-04T18:12:38.989789Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-j51l
+
+TIMESTAMP: 2026-10-04T17:56:36.303480Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-j51l
+
+TIMESTAMP: 2026-10-04T17:56:23.465536Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-j51l
+
+TIMESTAMP: 2026-10-04T17:56:00.435111Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-vqp1
+
+TIMESTAMP: 2026-10-04T17:55:47.484530Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-vqp1
+
+TIMESTAMP: 2026-10-04T17:11:17.718469Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-jfkd
+
+TIMESTAMP: 2026-10-04T17:10:27.686452Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-jfkd
+
+TIMESTAMP: 2026-10-04T17:09:26.375951Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-jvmm
+
+TIMESTAMP: 2026-10-04T17:09:08.667752Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-jvmm
+
+TIMESTAMP: 2026-10-04T16:56:30.458007Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-jfkd
+
+TIMESTAMP: 2026-10-04T16:56:14.691337Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-jfkd
+
+TIMESTAMP: 2026-10-04T16:35:55.431917Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T16:35:54.794508Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T16:18:48.162445Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T16:18:47.454234Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T16:07:22.854716Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T16:07:22.167480Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:59:45.474955Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:59:44.774219Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:54:40.007615Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:54:39.311311Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:51:15.655736Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:51:15.011228Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:48:58.378488Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:48:57.722738Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:47:26.077453Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:47:25.341695Z
+METHOD_NAME: v1.compute.instances.delete
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:47:18.839394Z
+METHOD_NAME: v1.compute.instances.insert
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
