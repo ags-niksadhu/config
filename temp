@@ -1,5 +1,56 @@
-No logs were found for this build or step. This could be for the following reasons:
-The log content has expired. By default, Cloud Logging stores logs for 30 days. You can adjust the retention period if this is too short. Learn more 
-You don't have permission to view the logs. Make sure you are granted the logging.logEntries.list permission (included in roles 'Project Viewer' and 'Logs Viewer'). Additionally, if logs have been routed to a different logging bucket, you might also need the logging.views.access permission (included in the role 'Logs View Accessor'). Learn more 
-The service account 765297732608-compute@developer.gserviceaccount.com does not have permission to write the logs. Make sure the service account used for the build is granted the logging.logEntries.create permission (included in the role 'Logs Writer').
+Confirming every log arrives first is the right order. The `_Default` sink is back, and I'm assuming `cn-staging-logs-me2` was deleted. Run one block, paste all of it, and I'll mark each log as received or not.
 
+## Run this block (read-only)
+
+```bash
+P=pg-ae-n-app-125609
+date -u
+gcloud logging sinks list --project=$P --format="table(name,destination,disabled)"
+gcloud logging sinks describe _Default --project=$P --format="value(updateTime,disabled)"
+echo "== NEWEST ENTRY PER LOG (last 7 days) =="
+for L in \
+ backend_apache_access backend_apache_error backend_apache_server_error backend_auth_log backend_pm2_out backend_pm2_error \
+ frontend_apache_access frontend_apache_error frontend_apache_server_error frontend_auth_log frontend_pm2_out frontend_pm2_error \
+ syslog requests cloudbuild \
+ cloudaudit.googleapis.com/activity cloudaudit.googleapis.com/system_event cloudaudit.googleapis.com/data_access cloudaudit.googleapis.com/policy \
+ cloudsql.googleapis.com/postgres.log \
+ compute.googleapis.com/firewall compute.googleapis.com/healthchecks compute.googleapis.com/nat_flows compute.googleapis.com/instance_group_manager_events compute.googleapis.com/shielded_vm_integrity compute.googleapis.com/vpc_flows; do
+  T=$(gcloud logging read "LOG_ID(\"$L\")" --project=$P --freshness=7d --limit=1 --format="value(timestamp)" 2>&1 | head -1)
+  printf "%-58s %s\n" "$L" "${T:-NONE}"
+done
+gcloud logging buckets list --project=$P --format="table(name,location,retentionDays)"
+```
+Each line shows the newest entry's timestamp for that log. An error message appears if your account can't read a log, instead of a false "NONE".
+
+## How to read it
+
+| Log group | Healthy result |
+|---|---|
+| Busy: `backend_apache_access`, `backend_pm2_out`, `frontend_apache_access`, `syslog`, `requests`, `compute.googleapis.com/healthchecks` | timestamp within the last few minutes |
+| Quiet: the `*_error` and `*_server_error` logs, `*_auth_log`, `frontend_pm2_*`, `cloudbuild`, audit `activity`/`system_event`/`policy`, `postgres.log`, firewall, NAT, `instance_group_manager_events`, `shielded_vm_integrity` | any timestamp is fine. They only write when something happens |
+| `data_access` | a timestamp if Data Access logging is on and you can read it. A permission error means you can't see it |
+| `vpc_flows` | `NONE`, because flow logs are off |
+
+A busy log with `NONE` or an old timestamp means it isn't arriving.
+
+## Frontend PM2 logs may legitimately be empty
+
+Next.js prints very little. The files on the server had 385 and 238 bytes, written when the server started. `frontend_pm2_out` and `frontend_pm2_error` may show `NONE` because nothing new was written, not because shipping is broken. If one does show `NONE`, the next check is whether the file is still growing, which I can give you.
+
+## One gap to know about
+
+Logs written between the moment you disabled `_Default` at 07:13:49Z and the moment you re-enabled it were stored only in the regional bucket, which your account can't read. That window will look empty in `_Default`. Note the times, and the second `describe` line in the block prints when `_Default` last changed.
+
+## What changed for compliance
+
+With `_Default` back on, logs are stored globally, which is outside `me-central2`. I assume you've accepted that for now. Keep a note of it with the other exceptions, along with `_Required`.
+
+## What to decide after the check
+
+| Item | Detail |
+|---|---|
+| `_Default` retention | still 90 days, but your policy says 6 months. Raising it to 180 days is Logging → Logs Storage → `_Default` → Edit → Retention. Retention beyond the default period is billed, so confirm with the budget owner |
+| The old bucket `cn-staging-logs-me2` | if it still exists, the 1.5 hours of logs inside it remain for 180 days, and your account can't read them. Leave it, or tell me to plan its removal |
+| The key line | the dev team's decision is still pending |
+
+Paste the full output of the block, and tell me when you re-enabled `_Default`.
