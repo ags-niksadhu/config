@@ -1,54 +1,99 @@
-Run this whole block once in a single shell and paste everything it prints. It's read-only, so nothing changes. The first line matters on every new server, because variables don't carry over.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ P=pg-ae-n-app-125609
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "== 1. SINKS =="
+== 1. SINKS ==
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging sinks list --project=$P --format="table(name,disabled)"
+NAME                 DISABLED
+_Default             True
+cn-staging-logs-me2
+_Required
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "== 2. LOG VIEWS ON NEW BUCKET =="
+== 2. LOG VIEWS ON NEW BUCKET ==
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging views list --bucket=cn-staging-logs-me2 --location=me-central2 --project=$P
+VIEW_ID   FILTER  CREATE_TIME  UPDATE_TIME
+_AllLogs
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "== 3. ENTRIES AFTER DISABLE (project scope, last 15 min) =="
+== 3. ENTRIES AFTER DISABLE (project scope, last 15 min) ==
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging read 'logName:"logs/backend_" OR logName:"logs/frontend_"' --project=$P --freshness=15m --limit=500 --format="value(logName.basename())" | sort | uniq -c
+    115 backend_apache_access
+      2 backend_auth_log
+    202 backend_pm2_out
+    179 frontend_apache_access
+      2 frontend_auth_log
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "== 4. KEY LINE, LAST 24H =="
+== 4. KEY LINE, LAST 24H ==
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND jsonPayload.message:\"DDDDDD\"" --project=$P --freshness=24h --limit=1 --format="value(timestamp)"
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "== 5. DATA ACCESS AUDIT: WHICH SERVICES =="
+== 5. DATA ACCESS AUDIT: WHICH SERVICES ==
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging read 'logName:"cloudaudit.googleapis.com%2Fdata_access"' --project=$P --freshness=7d --limit=300 --format="value(protoPayload.serviceName)" | sort | uniq -c
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "== 6. MIG SIZES =="
+== 6. MIG SIZES ==
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize,instanceTemplate.basename())"
+NAME                      SIZE  TARGET_SIZE  INSTANCE_TEMPLATE
+cn-backend-mig-regional   1     1            cn-backend-template-bd3b2bb
+cn-frontend-mig-regional  1     1            cn-frontend-template-13bcacb
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "== 7. LAST BUILDS =="
+== 7. LAST BUILDS ==
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud builds list --region=me-central2 --project=$P --limit=4 --format="table(id,status,createTime,substitutions.TRIGGER_NAME,substitutions.SHORT_SHA)"
+ID                                    STATUS   CREATE_TIME                TRIGGER_NAME                      SHORT_SHA
+2e1de670-34b8-4594-8ef2-f97be3167cd5  SUCCESS  2026-10-05T06:29:38+00:00  careernavigator-backend-staging   bd3b2bb
+5a279870-ee4a-4067-a013-fbc599a9f52e  SUCCESS  2026-10-05T06:29:10+00:00  careernavigator-frontend-staging  13bcacb
+a88dbfe2-68d8-49a4-8e59-ba1a4b54259a  SUCCESS  2026-10-05T05:43:46+00:00  careernavigator-frontend-staging  70499c9
+2ad1a406-c92b-41f9-9503-35193725fd74  SUCCESS  2026-10-05T05:43:19+00:00  careernavigator-backend-staging   ffc8a89
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "== 8. FRONTEND LOG FILES =="
+== 8. FRONTEND LOG FILES ==
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ Z=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(zone.basename())" --limit=1)
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ N=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(name)" --limit=1)
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="sudo ls -la --time-style=full-iso /home/sa_108691235514385689272/.pm2/logs/ /var/log/apache2/; date -u"
+WARNING: The private SSH key file for gcloud does not exist.
+WARNING: The public SSH key file for gcloud does not exist.
+WARNING: You do not have an SSH key for gcloud.
+WARNING: SSH keygen will be executed to generate a key.
+This tool needs to create the directory [/home/nikul_sadhu_gcp_pwc_com/.ssh] before being able to generate SSH keys.
 
-```bash
-P=pg-ae-n-app-125609
+Do you want to continue (Y/n)?  y
 
-echo "== 1. SINKS =="
-gcloud logging sinks list --project=$P --format="table(name,disabled)"
+Generating public/private rsa key pair.
+Enter passphrase (empty for no passphrase):
+Enter same passphrase again:
+Your identification has been saved in /home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_engine
+Your public key has been saved in /home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_engine.pub
+The key fingerprint is:
+SHA256:EDPd1fVJvtRyB9PxpKWzhQnvUzDL3PLqKYz8KLed2aw nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9.c.pg-ae-n-app-125609.internal
+The key's randomart image is:
++---[RSA 3072]----+
+|      +. . .o.===|
+|       +. .  =+#*|
+|      .       &+X|
+|       .     ..Xo|
+|        S     +..|
+|               o |
+|         . o  .  |
+|        . +oo* . |
+|         oooEo=  |
++----[SHA256]-----+
+/home/sa_108691235514385689272/.pm2/logs/:
+total 16
+drwxrwxr-x 2 sa_108691235514385689272 sa_108691235514385689272 4096 2026-10-05 06:35:11.201949887 +0000 .
+drwxrwxr-x 5 sa_108691235514385689272 sa_108691235514385689272 4096 2026-10-05 06:46:54.484812893 +0000 ..
+-rw-rw-r-- 1 sa_108691235514385689272 sa_108691235514385689272  238 2026-10-05 06:47:05.191177049 +0000 careernavigator-frontend-error.log
+-rw-rw-r-- 1 sa_108691235514385689272 sa_108691235514385689272  385 2026-10-05 06:47:05.113177120 +0000 careernavigator-frontend-out.log
 
-echo "== 2. LOG VIEWS ON NEW BUCKET =="
-gcloud logging views list --bucket=cn-staging-logs-me2 --location=me-central2 --project=$P
-
-echo "== 3. ENTRIES AFTER DISABLE (project scope, last 15 min) =="
-gcloud logging read 'logName:"logs/backend_" OR logName:"logs/frontend_"' --project=$P --freshness=15m --limit=500 --format="value(logName.basename())" | sort | uniq -c
-
-echo "== 4. KEY LINE, LAST 24H =="
-gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND jsonPayload.message:\"DDDDDD\"" --project=$P --freshness=24h --limit=1 --format="value(timestamp)"
-
-echo "== 5. DATA ACCESS AUDIT: WHICH SERVICES =="
-gcloud logging read 'logName:"cloudaudit.googleapis.com%2Fdata_access"' --project=$P --freshness=7d --limit=300 --format="value(protoPayload.serviceName)" | sort | uniq -c
-
-echo "== 6. MIG SIZES =="
-gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize,instanceTemplate.basename())"
-
-echo "== 7. LAST BUILDS =="
-gcloud builds list --region=me-central2 --project=$P --limit=4 --format="table(id,status,createTime,substitutions.TRIGGER_NAME,substitutions.SHORT_SHA)"
-
-echo "== 8. FRONTEND LOG FILES =="
-Z=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(zone.basename())" --limit=1)
-N=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(name)" --limit=1)
-gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="sudo ls -la --time-style=full-iso /home/sa_108691235514385689272/.pm2/logs/ /var/log/apache2/; date -u"
-```
-
-## What each part tells me
-
-| # | I'm checking | Good result | If it fails |
-|---|---|---|---|
-| 1 | sinks | `_Default` shows `True`; `cn-staging-logs-me2` is enabled | tell me what shows |
-| 2 | views on the new bucket | a list including `_AllLogs` | `PERMISSION_DENIED` means your account has no access, and I'll give you the exact request for the admin |
-| 3 | arrival after the disable | counts of `backend_*` and `frontend_*` | an empty result is not proof of loss, since this scope may hide the new bucket from your account. Use the Console check from my last message |
-| 4 | key line | nothing printed | a timestamp means the line is being stored, so tell the dev team |
-| 5 | Data Access logs | service names such as `secretmanager.googleapis.com` or `cloudsql.googleapis.com` with counts | permission denied means you need someone with IAM access, or the Console at IAM & Admin → Audit Logs |
-| 6 | cost | backend 1, frontend 1 | a higher number means an autoscale event, and I'll ask about the timing |
-| 7 | builds | recent `SUCCESS` builds | any `FAILURE`, send me the step name |
-| 8 | frontend log files | files with recent timestamps | if ssh fails again, paste the last 5 lines |
-
-## Things I can't check by command, so I need answers
-
-1. Did you apply the corrected cleanup step to both `cloudbuild.yaml` files, or is that still pending?
-2. The Console check: does `cn-staging-logs-me2` show growing storage under Logging → Logs Storage?
-3. Compliance's answers: the `_Required` exception, and VPC flow log sampling.
-4. The budget owner's yes for VPC flow logs.
-5. The dev team's decision on the key line and request-body logging.
-
-Paste the full output of the block.
+/var/log/apache2/:
+total 196
+drwxr-x---  2 root adm      4096 2026-10-05 06:35:22.416940091 +0000 .
+drwxrwxr-x 12 root syslog   4096 2026-10-05 06:46:45.486144220 +0000 ..
+-rw-r-----  1 root adm         0 2026-10-05 06:33:55.085016553 +0000 access.log
+-rw-r--r--  1 root root   177293 2026-10-05 07:16:42.882287746 +0000 careernavigator-frontend-staging-access.log
+-rw-r--r--  1 root root     3381 2026-10-05 07:07:19.412078848 +0000 careernavigator-frontend-staging-error.log
+-rw-r-----  1 root adm      1135 2026-10-05 06:46:49.217396577 +0000 error.log
+-rw-r-----  1 root adm         0 2026-10-05 06:33:55.089016540 +0000 other_vhosts_access.log
+Mon Oct  5 07:16:45 AM UTC 2026
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
