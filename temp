@@ -1,52 +1,49 @@
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ P=pg-ae-n-app-125609
-date -u
-echo "== FRONTEND SERVERS =="
-gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="table(name,id,status,creationTimestamp)"
-echo "== FRONTEND LOG COUNTS SINCE 08:20 UTC =="
-gcloud logging read 'logName:"logs/frontend_" AND timestamp>="2026-10-05T08:20:00Z"' --project=$P --limit=5000 --format="value(logName.basename())" | sort | uniq -c
-echo "== NEWEST ENTRY PER FRONTEND LOG (timestamp, instance id) =="
-for L in frontend_apache_access frontend_apache_error frontend_apache_server_error frontend_auth_log frontend_pm2_out frontend_pm2_error; do
-  T=$(gcloud logging read "LOG_ID(\"$L\")" --project=$P --freshness=7d --limit=1 --format="value(timestamp,resource.labels.instance_id)" 2>&1 | head -1)
-  printf "%-32s %s\n" "$L" "${T:-NONE}"
-done
-echo "== WHICH SERVERS SENT FRONTEND ACCESS LOGS (7d) =="
-gcloud logging read 'logName:"logs/frontend_apache_access"' --project=$P --freshness=7d --limit=3000 --format="value(resource.labels.instance_id)" | sort | uniq -c
-echo "== FRONTEND CLEANUP RESULT =="
-gcloud logging read "logName=\"projects/$P/logs/cloudbuild\" AND (textPayload:\"matched pipeline templates\" OR textPayload:\"DRY RUN would delete\" OR textPayload:\"SKIP in use\")" --project=$P --freshness=3h --limit=10 --format="value(timestamp,resource.labels.build_id,textPayload)"
-Mon Oct  5 08:38:33 AM UTC 2026
-== FRONTEND SERVERS ==
-NAME: cn-frontend-mig-regional-258b
-ID: 8174552820178937295
-STATUS: RUNNING
-CREATION_TIMESTAMP: 2026-10-05T01:09:07.172-07:00
+## Frontend logs are being received
 
-NAME: cn-frontend-mig-regional-7svz
-ID: 8576944475030349265
-STATUS: RUNNING
-CREATION_TIMESTAMP: 2026-10-05T01:09:37.924-07:00
+| Log | Result | Verdict |
+|---|---|---|
+| `frontend_apache_access` | 1,423 entries since 08:20, newest 08:38 from the running server `c6s2` | ✅ live |
+| `frontend_apache_server_error` | 6 entries, newest 08:28 from running server `258b` | ✅ |
+| `frontend_auth_log` | 26 entries, newest 08:35 from `c6s2` | ✅ |
+| `frontend_apache_error` | newest 07:07:19, from a server that no longer exists | ✅ quiet, no errors since |
+| `frontend_pm2_out`, `frontend_pm2_error` | newest 06:47:05, from the same deleted server | ✅ shipped, but nothing newer. See below |
 
-NAME: cn-frontend-mig-regional-c6s2
-ID: 2513631094774885292
-STATUS: RUNNING
-CREATION_TIMESTAMP: 2026-10-05T00:44:04.767-07:00
-== FRONTEND LOG COUNTS SINCE 08:20 UTC ==
-   1423 frontend_apache_access
-      6 frontend_apache_server_error
-     26 frontend_auth_log
-== NEWEST ENTRY PER FRONTEND LOG (timestamp, instance id) ==
-frontend_apache_access           2026-10-05T08:38:38.682115273Z 2513631094774885292
-frontend_apache_error            2026-10-05T07:07:19.413418073Z 4717526556932503883
-frontend_apache_server_error     2026-10-05T08:28:42.057497050Z 8174552820178937295
-frontend_auth_log                2026-10-05T08:35:01.694075627Z 2513631094774885292
-frontend_pm2_out                 2026-10-05T06:47:05.114203518Z 4717526556932503883
-frontend_pm2_error               2026-10-05T06:47:05.195308560Z 4717526556932503883
-== WHICH SERVERS SENT FRONTEND ACCESS LOGS (7d) ==
-    494 2513631094774885292
-    170 3749319642832632631
-   1369 4717526556932503883
-    486 8174552820178937295
-    481 8576944475030349265
-== FRONTEND CLEANUP RESULT ==
-2026-10-05T06:50:38.811395027Z  2e1de670-34b8-4594-8ef2-f97be3167cd5    Step #7 - "Cleanup Old Packer Artifacts": matched pipeline templates: 4
-2026-10-05T06:49:54.493785313Z  5a279870-ee4a-4067-a013-fbc599a9f52e    Step #7 - "Cleanup Old Packer Artifacts": matched pipeline templates: 0
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
+**Logs survive server deletion.** The access-log counts include server ids `4717…` and `3749…`, which aren't in the current server list. Their entries are still there, which was your original goal. The 3,000 total shows the 7-day query hit its limit, so that list covers only the newest 3,000 entries and isn't complete.
+
+**The two PM2 logs.** The file times on the server matched the last entries exactly (06:47:05), and both logs shipped from the deleted server, so the paths and receivers work. The three servers running now haven't sent PM2 entries. The probable reason is that Next.js writes almost nothing after startup, but I haven't proven it. A boot-time line written before the agent started tailing would also be missed. Proving it would mean restarting the app on a server, which I wouldn't do unless the dev team needs that proof.
+
+## Cleanup result: can't be read yet
+
+The newest cleanup line is 06:50, so the build with your fix isn't visible. It probably ran during the stretch when `_Default` was disabled (07:13 to 08:14). The server created at 07:44 fits a build in that stretch, and its logs sit in the regional bucket you can't read. That's a guess from timing.
+
+You don't need a new build to test the fix. This reproduces the dry run from Cloud Shell and changes nothing:
+```bash
+P=pg-ae-n-app-125609
+gcloud compute instance-groups managed describe cn-frontend-mig-regional --region=me-central2 --project=$P --format="value(versions[].instanceTemplate.basename())"
+gcloud compute instance-templates list --project=$P --filter="properties.labels.managed-by=cloudbuild-packer AND properties.labels.app=cn-frontend AND name~^cn-frontend-template-[0-9a-f]{7}$" --sort-by=~creationTimestamp --format="value(name)"
+```
+Expect about 7 names, newest first. The oldest ones beyond the first 5 are the dry-run candidates, and the in-use template is skipped. If the list is empty, the corrected filter isn't right. This confirms the filter, not that the pushed file has it, so also check the file on GitHub.
+
+## New: the frontend is back to 3 servers
+
+This is the third time:
+
+| Server | Created (UTC) |
+|---|---|
+| `c6s2` | 07:44, probably from your rollout |
+| `258b` and `7svz` | 08:09:07 and 08:09:37, 30 seconds apart |
+
+Two servers appearing 30 seconds apart is an autoscaler step, as before. Each extra `e2-medium` is recurring cost, capped at 3. I still don't know why it scales out, so run this and paste it:
+```bash
+curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://compute.googleapis.com/compute/v1/projects/$P/regions/me-central2/autoscalers/cn-frontend-mig-regional" | grep -E "minNumReplicas|maxNumReplicas|recommendedSize|status"
+gcloud logging read 'logName:"logs/frontend_apache_access" AND NOT jsonPayload.message:"GoogleHC" AND timestamp>="2026-10-05T07:55:00Z" AND timestamp<="2026-10-05T08:12:00Z"' --project=$P --limit=2000 --format="value(jsonPayload.message)" | awk -F'"' '{print $6}' | sort | uniq -c | sort -rn | head -8
+```
+The second command shows which clients (by user agent) sent non-health-check requests in the 17 minutes around the scale-out. It prints no paths, so nothing sensitive. Also send a screenshot of Console → Instance groups → `cn-frontend-mig-regional` → Monitoring, covering the last 6 hours (CPU and group size).
+
+If the user agents show a scanner or test tool, that tells us the cause. If they show only normal browsers or nothing, the cause is boot-time CPU, and I'd then suggest a longer cool-down.
+
+## Before the next frontend push
+
+A rollout with `--max-surge=3` can add up to 3 servers. At 3 servers, that's a brief 6. Wait for the group to return to 1, or accept the temporary cost.
+
+Paste the cleanup lists and the autoscaler outputs.
