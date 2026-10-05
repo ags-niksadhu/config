@@ -1,38 +1,61 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ P=pg-ae-n-app-125609
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ Z=$(gcloud compute instances list --project=$P --filter="name=cn-frontend-mig-regional-32tm" --format="value(zone.basename())")
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ gcloud compute ssh cn-frontend-mig-regional-32tm --zone=$Z --project=$P --internal-ip --command="sudo ls -la --time-style=full-iso /home/sa_108691235514385689272/.pm2/logs/ /var/log/apache2/; date -u"
-WARNING: The private SSH key file for gcloud does not exist.
-WARNING: The public SSH key file for gcloud does not exist.
-WARNING: You do not have an SSH key for gcloud.
-WARNING: SSH keygen will be executed to generate a key.
-This tool needs to create the directory [/home/nikul_sadhu_gcp_pwc_com/.ssh] before being able to generate SSH keys.
+## Key line check
 
-Do you want to continue (Y/n)?  Y
+`jsonPayload.message` is the right field, because the first command returned a timestamp. The `DDDDDD` search found nothing in the last 30 minutes, so the key line isn't printing at the moment. That doesn't prove it never prints, because it may only run on certain code paths such as login or encryption, and logs only exist since about 05:50 UTC today. Check the longer window:
+```bash
+gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND jsonPayload.message:\"DDDDDD\"" --project=$P --freshness=12h --limit=1 --format="value(timestamp)"
+```
+It prints a timestamp only if the line exists in that window. Either way, the dev team should still decide on removing it.
 
-Generating public/private rsa key pair.
-Enter passphrase (empty for no passphrase):
-Enter same passphrase again:
-Your identification has been saved in /home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_engine
-Your public key has been saved in /home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_engine.pub
-The key fingerprint is:
-SHA256:kb5buMCIGEiM/zdIsRVbk4XkIJy+BkjatOI2tWrJDJc nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg.c.pg-ae-n-app-125609.internal
-The key's randomart image is:
-+---[RSA 3072]----+
-|   ...o.++.      |
-|o.. o. *oo       |
-|+* o. o +        |
-|*.+..+ . .       |
-|+.oo+.  S        |
-|.*E=o+   o       |
-|*.=.+ = o .      |
-| *   . o +       |
-|.       o        |
-+----[SHA256]-----+
-ERROR: (gcloud.compute.ssh) [/usr/bin/ssh] exited with return code [255].
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND jsonPayload.message:*" --project=$P --freshness=30m --limit=1 --format="value(timestamp)"
-2026-10-05T06:37:12.833561568Z
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND jsonPayload.message:\"DDDDDD\"" --project=$P --freshness=30m --limit=1 --format="value(timestamp)"
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$
+The exclusion filter I gave you earlier used `textPayload`, which doesn't match your entries. Use this one in any exclusion you create:
+```
+logName="projects/pg-ae-n-app-125609/logs/backend_pm2_out" AND jsonPayload.message:"DDDDDD"
+```
+This was a safety control only, and it doesn't replace removing the line.
 
+## Frontend logs: retry the SSH
 
+The ssh exited with code 255 right after the key was created on this new server. I think the key just hadn't propagated yet, but I haven't confirmed it. Run the same command again:
+```bash
+gcloud compute ssh cn-frontend-mig-regional-32tm --zone=$Z --project=$P --internal-ip --command="sudo ls -la --time-style=full-iso /home/sa_108691235514385689272/.pm2/logs/ /var/log/apache2/; date -u"
+```
+If it still fails, paste the last 5 lines of output. The goal is to see whether the frontend PM2 and error log files exist and are growing, which separates quiet from broken.
 
+## Routing logs to the new bucket
+
+This is where new recurring cost starts, so confirm with the budget owner first. Billing is for storage retained beyond the free period, and I haven't verified rates. Nothing is lost while you wait, because `_Default` still keeps logs 90 days. The steps are in this order so there's no gap:
+
+**1. Create the sink (Console).** Logging → Log Router → Create sink.
+- Name: `route-to-me2`
+- Destination: Cloud Logging bucket → `cn-staging-logs-me2`
+- Inclusion filter: open the `_Default` sink in another tab and copy its inclusion filter exactly. This gives the same logs, and `_Required` content isn't duplicated.
+- Exclusion filter: name `exclude-key-debug`, with the filter above.
+- Create.
+
+**2. Verify logs arrive:**
+```bash
+gcloud logging read 'logName:"logs/backend_"' --bucket=cn-staging-logs-me2 --location=me-central2 --view=_AllLogs --project=$P --freshness=15m --limit=3 --format="table(timestamp,logName.basename())"
+```
+If gcloud rejects those flags, use Logs Explorer → Refine scope → Log views and pick the new bucket. I haven't checked that syntax against current docs.
+
+**3. Only after step 2 shows entries, stop the global copy.** Logging → Log Router → the `_Default` sink → ⋮ → Disable sink.
+
+**4. Optional, after a day of checking.** Lower `_Default` retention so the entries already written there age out. The minimum I believe is 1 day. ⚠️ Those entries are then gone for good, so only do it once the new bucket is confirmed complete.
+
+## Effects and rollback
+
+| | |
+|---|---|
+| Downtime | none |
+| Cost | storage in the new bucket beyond the free period. The global copy stops once `_Default` is disabled |
+| `_Required` | unchanged. It stays global and still needs the compliance exception |
+| Rollback | re-enable the `_Default` sink and delete the new sink. The bucket keeps what it stored until its retention expires |
+
+If you add the new sink and keep `_Default` enabled, each log is stored twice. That's fine briefly for the verification, but not as the final state.
+
+## Still waiting on
+
+1. The budget owner's yes for steps 1 to 3.
+2. Compliance's answers on VPC flow logs, sampling and the `_Required` exception.
+3. The dev team's decision on the key line and on logging request bodies.
+
+Paste the 12-hour key check, the frontend `ls` output, and the result of step 2 once the sink exists.
