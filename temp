@@ -1,62 +1,118 @@
-## What this shows
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-khkg:~$ top -b -n2 -d5 | awk '/^top/{c++} c==2' | head -12
+top - 10:03:53 up 22 min,  1 user,  load average: 0.01, 0.06, 0.10
+Tasks: 127 total,   1 running, 126 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  0.4 us,  0.3 sy,  0.0 ni, 99.1 id,  0.0 wa,  0.0 hi,  0.1 si,  0.1 st
+MiB Mem :   3908.3 total,   2375.8 free,    743.0 used,   1019.8 buff/cache
+MiB Swap:      0.0 total,      0.0 free,      0.0 used.   3165.3 avail Mem
 
-| Item | Finding |
-|---|---|
-| Backend servers | `khkg` created 09:40:51 UTC (the rollout) and `p9rn` created 09:48:10 UTC. Console times are PDT, and I converted them. `p9rn` appeared 7 minutes after `khkg`, before the rollout finished at 09:52:19 |
-| Backend autoscaler | `recommendedSize: 2` and `targetSize: 2`. The second server is the autoscaler's decision, not a leftover. I don't know what CPU load it measured |
-| Upgrade log | doesn't exist yet on either server. Uptimes are 17 and 20 minutes, so the timer hasn't fired. This is not a pass or a fail yet |
-| `ps` CPU figures | **don't use them.** `ps` shows each process's average since it started. A 27% reading for `python3` is not current CPU, and I can't tell from this what that process is |
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+   1153 root      20   0 2098004 164748 119260 S   0.8   4.1   0:15.71 otelops+
+   1177 sa_1086+  20   0   11.4g 196496  60348 S   0.4   4.9   0:13.87 node /v+
+   1225 root      20   0 1186780  24116  14048 S   0.4   0.6   0:05.22 fluent-+
+     46 root      20   0       0      0      0 I   0.2   0.0   0:00.07 kworker+
+      1 root      20   0   22504  13996   9756 S   0.0   0.3   0:02.66 systemd
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-khkg:~$ P=pg-ae-n-app-125609
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-khkg:~$ for S in backend frontend; do
+>   N=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(name)" --limit=1)
+>   Z=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(zone.basename())" --limit=1)
+>   echo "== $N"
+>   gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="uptime; sudo tail -n 4 /var/log/unattended-upgrades/unattended-upgrades.log | cut -c1-170; systemctl list-timers --all --no-pager | grep apt"
+> done
+== cn-backend-mig-regional-khkg
+ 10:04:36 up 22 min,  2 users,  load average: 0.07, 0.07, 0.10
+tail: cannot open '/var/log/unattended-upgrades/unattended-upgrades.log' for reading: No such file or directory
+Mon 2026-10-05 10:14:21 UTC     9min Sat 2026-09-26 20:02:08 UTC            - apt-daily-upgrade.timer         apt-daily-upgrade.service
+Mon 2026-10-05 19:03:06 UTC       8h Sat 2026-09-26 20:02:07 UTC            - apt-daily.timer                 apt-daily.service
+== cn-frontend-mig-regional-1dv8
+ 10:04:51 up 25 min,  1 user,  load average: 0.00, 0.05, 0.07
+tail: cannot open '/var/log/unattended-upgrades/unattended-upgrades.log' for reading: No such file or directory
+Mon 2026-10-05 15:33:31 UTC 5h 28min Sat 2026-09-26 20:02:07 UTC            - apt-daily.timer                 apt-daily.service
+Tue 2026-10-06 06:11:38 UTC      20h Mon 2026-10-05 09:34:39 UTC            - apt-daily-upgrade.timer         apt-daily-upgrade.service
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-khkg:~$
 
-For comparison, the upgrade fired about 24 minutes after boot on the frontend (07:44 boot, 08:08:18) and about 49 minutes after on the backend. Timers on this image show a last-run stamp of Sep 26 20:02, which is the image's creation time. My hypothesis is that each new server runs one catch-up after boot, at a random time within about an hour. I haven't confirmed the timer settings. Now that the image is patched, that run should have almost nothing to install.
 
-## What to run now
-
-**1. In Cloud Shell: per-minute CPU of the backend servers.** It shows whether CPU crossed 60% before `p9rn` appeared, and whether it's still high:
-```bash
-P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ P=pg-ae-n-app-125609
+date -u
+gcloud builds list --region=me-central2 --project=$P --limit=4 --format="table(createTime,status,substitutions.TRIGGER_NAME,substitutions.SHORT_SHA)"
+echo "== KEY LINES FROM BUILD LOGS =="
+gcloud logging read "logName=\"projects/$P/logs/cloudbuild\" AND (textPayload:\"upgraded,\" OR textPayload:\"APP IS UP\" OR textPayload:\"APACHE PATH OK\" OR textPayload:\"FATAL\" OR textPayload:\"matched pipeline templates\" OR textPayload:\"DRY RUN would delete\" OR textPayload:\"SKIP in use\" OR textPayload:\"Group is stable\")" --project=$P --freshness=2h --limit=40 --format="value(timestamp,resource.labels.build_id,textPayload)" | cut -c1-200 | sort
+echo "== GROUPS =="
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ P=pg-ae-n-app-125609
+curl -s -G -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://monitoring.googleapis.com/v3/projects/$P/timeSeries" \
+ --data-urlencode 'filter=metric.type="compute.googleapis.com/instance/cpu/utilization" AND metric.labels.instance_name=starts_with("cn-frontend-mig-regional")' \
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ P=pg-ae-n-app-125609
 curl -s -G -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://monitoring.googleapis.com/v3/projects/$P/timeSeries" \
  --data-urlencode 'filter=metric.type="compute.googleapis.com/instance/cpu/utilization" AND metric.labels.instance_name=starts_with("cn-backend-mig-regional")' \
  --data-urlencode "interval.startTime=2026-10-05T09:38:00Z" --data-urlencode "interval.endTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
  --data-urlencode "aggregation.alignmentPeriod=60s" --data-urlencode "aggregation.perSeriesAligner=ALIGN_MEAN" \
  | jq -r '.timeSeries[]? | .metric.labels.instance_name as $n | .points[] | "\($n) \(.interval.endTime) \(.value.doubleValue)"' | sort -k2 | awk '{printf "%s %s %.0f%%\n",$1,substr($2,12,5),$3*100}'
-```
-**2. On the backend server: current CPU rather than a lifetime average.** This takes two samples 5 seconds apart and keeps the second:
-```bash
-top -b -n2 -d5 | awk '/^top/{c++} c==2' | head -12
-```
-
-## Reading the CPU output
-
-| What you see | Meaning | Likely fix |
-|---|---|---|
-| a CPU spike in the first minutes after each server's creation, then idle | boot-time CPU | raise the autoscaler cool-down so it ignores a new server's first 5 minutes. Console: Instance groups → `cn-backend-mig-regional` → Edit → Autoscaling → Cool-down `300`. No cost. Rollback: set it back to 60 |
-| a spike 25 to 60 minutes after boot | the upgrade timer again | check whether the upgrade log shows packages. If it does, the image patching didn't fully work |
-| steady CPU above 60% | real load, or something running continuously | I'd look at what's running before changing anything |
-| CPU low everywhere but the target is 2 | the recommendation comes from somewhere I haven't seen | I'd ask for the autoscaler's full configuration |
-
-I withdrew the cool-down idea earlier because those spikes arrived 25 to 62 minutes after boot, and it fits only if this data shows a boot-time spike.
-
-## Recheck the upgrade timing around 10:45 UTC
-
-That's 60 minutes after `khkg` booted. From the backend server:
-```bash
-P=pg-ae-n-app-125609
-for S in backend frontend; do
-  N=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(name)" --limit=1)
-  Z=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(zone.basename())" --limit=1)
-  echo "== $N"
-  gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="uptime; sudo tail -n 4 /var/log/unattended-upgrades/unattended-upgrades.log | cut -c1-170; systemctl list-timers --all --no-pager | grep apt"
-done
-gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize)"
-```
-Success: the log shows no packages or only a few, and the frontend stays at 1. The backend extra server may remain until the autoscaler's 600-second scale-in wait ends.
-
-## Cost
-
-The backend is at 2 `e2-medium` servers now, up to 3, which is recurring spend. Don't change anything until the CPU data is in, because a premature change could hide the cause.
-
-## Still open
-
-The Data Access audit request, VPC flow logs and the budget owner's yes, `_Default` retention, the `_Required` exception, the key-line decision, the secrets work, the `US` bucket and the backend cleanup dry run (it needs a 6th backend template).
-
-Paste the CPU output and the top output.
+cn-backend-mig-regional-fbfj 09:38 5%
+cn-backend-mig-regional-n91h 09:38 6%
+cn-backend-mig-regional-lc9c 09:38 6%
+cn-backend-mig-regional-fbfj 09:39 5%
+cn-backend-mig-regional-n91h 09:39 6%
+cn-backend-mig-regional-lc9c 09:39 8%
+cn-backend-mig-regional-fbfj 09:40 5%
+cn-backend-mig-regional-lc9c 09:40 5%
+cn-backend-mig-regional-n91h 09:40 6%
+cn-backend-mig-regional-khkg 09:41 0%
+cn-backend-mig-regional-fbfj 09:41 5%
+cn-backend-mig-regional-lc9c 09:41 5%
+cn-backend-mig-regional-n91h 09:41 6%
+cn-backend-mig-regional-fbfj 09:42 5%
+cn-backend-mig-regional-lc9c 09:42 5%
+cn-backend-mig-regional-n91h 09:42 6%
+cn-backend-mig-regional-khkg 09:42 46%
+cn-backend-mig-regional-fbfj 09:43 5%
+cn-backend-mig-regional-n91h 09:43 6%
+cn-backend-mig-regional-lc9c 09:43 6%
+cn-backend-mig-regional-khkg 09:43 29%
+cn-backend-mig-regional-n91h 09:44 6%
+cn-backend-mig-regional-khkg 09:44 7%
+cn-backend-mig-regional-lc9c 09:44 11%
+cn-backend-mig-regional-fbfj 09:44 12%
+cn-backend-mig-regional-khkg 09:45 4%
+cn-backend-mig-regional-fbfj 09:45 10%
+cn-backend-mig-regional-lc9c 09:45 13%
+cn-backend-mig-regional-n91h 09:45 21%
+cn-backend-mig-regional-n91h 09:46 6%
+cn-backend-mig-regional-lc9c 09:46 6%
+cn-backend-mig-regional-khkg 09:46 10%
+cn-backend-mig-regional-lc9c 09:47 5%
+cn-backend-mig-regional-n91h 09:47 6%
+cn-backend-mig-regional-khkg 09:47 7%
+cn-backend-mig-regional-fjsc 09:47 39%
+cn-backend-mig-regional-n91h 09:48 0%
+cn-backend-mig-regional-khkg 09:48 4%
+cn-backend-mig-regional-lc9c 09:48 5%
+cn-backend-mig-regional-fjsc 09:48 6%
+cn-backend-mig-regional-khkg 09:49 4%
+cn-backend-mig-regional-lc9c 09:49 5%
+cn-backend-mig-regional-khkg 09:50 4%
+cn-backend-mig-regional-lc9c 09:50 6%
+cn-backend-mig-regional-p9rn 09:50 28%
+cn-backend-mig-regional-khkg 09:51 4%
+cn-backend-mig-regional-p9rn 09:51 5%
+cn-backend-mig-regional-lc9c 09:51 7%
+cn-backend-mig-regional-p9rn 09:52 5%
+cn-backend-mig-regional-lc9c 09:52 10%
+cn-backend-mig-regional-khkg 09:52 10%
+cn-backend-mig-regional-khkg 09:53 7%
+cn-backend-mig-regional-p9rn 09:53 10%
+cn-backend-mig-regional-khkg 09:54 6%
+cn-backend-mig-regional-p9rn 09:54 9%
+cn-backend-mig-regional-p9rn 09:55 6%
+cn-backend-mig-regional-khkg 09:55 23%
+cn-backend-mig-regional-p9rn 09:56 5%
+cn-backend-mig-regional-khkg 09:56 12%
+cn-backend-mig-regional-khkg 09:57 4%
+cn-backend-mig-regional-p9rn 09:57 5%
+cn-backend-mig-regional-khkg 09:58 4%
+cn-backend-mig-regional-p9rn 09:58 5%
+cn-backend-mig-regional-khkg 09:59 7%
+cn-backend-mig-regional-p9rn 09:59 10%
+cn-backend-mig-regional-p9rn 10:00 9%
+cn-backend-mig-regional-khkg 10:00 21%
+cn-backend-mig-regional-p9rn 10:01 6%
+cn-backend-mig-regional-khkg 10:01 11%
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
