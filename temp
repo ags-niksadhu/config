@@ -1,23 +1,20 @@
-Hashes match for all 18, and the loader code already uses the `rep.googleapis.com` endpoint. What remains is confirming the running process has `SECRET_LOCATION` set. `pm2 env 0` failed because your user has no PM2 daemon; the app runs under `sa_108691235514385689272` (per the PM2 log path).
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ # Process env of the running app (no pm2 needed)
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ PID=$(pgrep -f "node.*careernavigator-backend|PM2.*backend|dist/main" | head -1); echo "PID=$PID"
+PID=1199
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ sudo tr '\0' '\n' < /proc/$PID/environ | grep -i SECRET_
+-bash: /proc/1199/environ: Permission denied
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ # Alternative via PM2 as the owner user
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ sudo -u sa_108691235514385689272 -H pm2 list
+grep -n "SECRET_LOCATION" /var/www/careernavigator-backend/ecosystem.config.js┌────┬────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                       │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ careernavigator-backend    │ default     │ 0.0.1   │ fork    │ 1199     │ 52m    │ 0    │ online    │ 0%       │ 192.7mb  │ sa_1086… │ disabled │
+└────┴────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 1% | ram usage: 19.5% | lo: ⇓ 0.001mb/s ⇑ 0.001mb/s | ens4: ⇓ 0.001mb/s ⇑ 0.012mb/s | disk: ⇓ 0.002mb/s ⇑ 0.009mb/s
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ gcloud compute instance-groups managed list-instances cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609
+NAME                          ZONE           STATUS   HEALTH_STATE  ACTION  INSTANCE_TEMPLATE            VERSION_NAME  LAST_ERROR
+cn-backend-mig-regional-82gk  me-central2-a  RUNNING  HEALTHY       NONE    cn-backend-template-3aaffe9
+cn-backend-mig-regional-fh10  me-central2-a  RUNNING  HEALTHY       NONE    cn-backend-template-3aaffe9
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$
 
-```bash
-# Process env of the running app (no pm2 needed)
-PID=$(pgrep -f "node.*careernavigator-backend|PM2.*backend|dist/main" | head -1); echo "PID=$PID"
-sudo tr '\0' '\n' < /proc/$PID/environ | grep -i SECRET_
-
-# Alternative via PM2 as the owner user
-sudo -u sa_108691235514385689272 -H pm2 list
-grep -n "SECRET_LOCATION" /var/www/careernavigator-backend/ecosystem.config.js
-```
-
-Expected: `SECRET_LOCATION=me-central2`. Paste the output.
-
-If `PID` is empty or `SECRET_LOCATION` is missing, **do not disable yet**; the app is still reading global.
-
-Also confirm the other instances behave the same, since the MIG may contain servers on older templates:
-
-```bash
-gcloud compute instance-groups managed list-instances cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609
-```
-
-All instances should show the latest template, because an old-template instance restarting after the disable would fail.
