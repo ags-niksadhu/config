@@ -1,48 +1,12 @@
-## What these results show
-
-| Check | Result | Meaning |
-|---|---|---|
-| Key line in the last 12h | nothing | `DDDDDD` isn't in `backend_pm2_out` in that window, which covers everything since the agent started. It may still print on rare code paths, so the dev team's decision stands |
-| Reading the new bucket | `PERMISSION_DENIED` for all log views | Your account can't read that bucket's views. It says nothing about whether logs arrived |
-| Sink `route-to-me2` | `NOT_FOUND` | The sink doesn't exist under that name, so no logs are being routed |
-| `_Default` sink | standard filter, no exclusions, enabled | Nothing is excluded on `_Default` yet |
-
-The sink is the real problem. You said the setup was done, so it was either created under another name, in a different place, or the creation didn't complete.
-
-## Find out what exists (read-only)
-
-```bash
-P=pg-ae-n-app-125609
-gcloud logging sinks list --project=$P --format="table(name,destination,disabled)"
-gcloud logging buckets list --project=$P --format="table(name,location,retentionDays)"
-```
-Paste both. The first shows every sink and its destination. The second confirms `cn-staging-logs-me2` exists in `me-central2` with 180 days. If you see a sink that already points at `cn-staging-logs-me2`, you may not need a new one, and I'll tell you what to check on it.
-
-## If no sink points at the bucket (Console)
-
-1. Logging → Log Router → Create sink.
-2. Name: `route-to-me2`. Next.
-3. Sink destination: Cloud Logging bucket → `cn-staging-logs-me2`.
-4. Inclusion filter: paste this, which is your `_Default` filter exactly:
-```
-NOT LOG_ID("cloudaudit.googleapis.com/activity") AND NOT LOG_ID("externalaudit.googleapis.com/activity") AND NOT LOG_ID("cloudaudit.googleapis.com/system_event") AND NOT LOG_ID("externalaudit.googleapis.com/system_event") AND NOT LOG_ID("cloudaudit.googleapis.com/access_transparency") AND NOT LOG_ID("externalaudit.googleapis.com/access_transparency")
-```
-5. Exclusion filter: name `exclude-key-debug`, with:
-```
-logName="projects/pg-ae-n-app-125609/logs/backend_pm2_out" AND jsonPayload.message:"DDDDDD"
-```
-6. Create sink.
-
-Add the same exclusion to the `_Default` sink so the key line isn't stored globally either: Log Router → `_Default` → Edit → add exclusion → Update.
-
-The filter above leaves out Admin Activity audit logs, because `_Required` keeps those globally. A sink can also copy them into the new bucket as a regional copy, but that doesn't remove the global one and it adds ingestion cost. I'd leave them out unless compliance asks for it.
-
-## Verifying without view access
-
-Since your account can't read the bucket, use the Console: Logging → Logs Storage. Find `cn-staging-logs-me2` and watch its storage size grow over a few minutes. For reading entries, ask a project admin to grant your account access to that bucket's views. I think the role is Logs View Accessor, but I haven't verified it. Send them the error text and the bucket name.
-
-## Don't disable `_Default` yet
-
-Wait until the new bucket shows growing storage, ideally with entries you can read. Rollback is deleting `route-to-me2`.
-
-Paste the two lists, and tell me whether the sink exists after step 6.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ P=pg-ae-n-app-125609
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging sinks list --project=$P --format="table(name,destination,disabled)"
+NAME                 DESTINATION                                                                                           DISABLED
+cn-staging-logs-me2  logging.googleapis.com/projects/pg-ae-n-app-125609/locations/me-central2/buckets/cn-staging-logs-me2
+_Required            logging.googleapis.com/projects/pg-ae-n-app-125609/locations/global/buckets/_Required
+_Default             logging.googleapis.com/projects/pg-ae-n-app-125609/locations/global/buckets/_Default
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging buckets list --project=$P --format="table(name,location,retentionDays)"
+LOCATION     LOCATION  RETENTION_DAYS
+global                 90
+global                 400
+me-central2            180
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
