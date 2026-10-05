@@ -1,32 +1,23 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ P=pg-ae-n-app-125609
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ rg() { CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER=https://secretmanager.me-central2.rep.googleapis.com/ gcloud "$@"; }
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ for s in DB_HOST DB_USERNAME DB_PASSWORD DB_DATABASE DB_PORT GCP_BUCKET GCP_FILE_PATH MAIL_DRIVER MAIL_HOST MAIL_PORT MAIL_USERNAME MAIL_PASSWORD MAIL_FROM_NAME MAIL_FROM_ADDRESS REDIS_HOST REDIS_PORT REDIS_PASSWORD EMAIL_SENDING_ENABLED; do
->   g=$(gcloud secrets versions access latest --secret=CN_STAGING_$s --project=$P | sha256sum | cut -c1-12)
->   r=$(rg secrets versions access latest --secret=CN_STAGING_$s --location=me-central2 --project=$P | sha256sum | cut -c1-12)
->   [ "$g" = "$r" ] && echo "OK   $s" || echo "DIFF $s"
-> done
-OK   DB_HOST
-OK   DB_USERNAME
-OK   DB_PASSWORD
-OK   DB_DATABASE
-OK   DB_PORT
-OK   GCP_BUCKET
-OK   GCP_FILE_PATH
-OK   MAIL_DRIVER
-OK   MAIL_HOST
-OK   MAIL_PORT
-OK   MAIL_USERNAME
-OK   MAIL_PASSWORD
-OK   MAIL_FROM_NAME
-OK   MAIL_FROM_ADDRESS
-OK   REDIS_HOST
-OK   REDIS_PORT
-OK   REDIS_PASSWORD
-OK   EMAIL_SENDING_ENABLED
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ pm2 env 0 | grep -i SECRET_LOCATION
-[PM2][ERROR] Modules with id 0 not found
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ grep -n "SECRET_LOCATION\|secretmanager" /var/www/careernavigator-backend/dist/common/config/secret-manager.js | head
-7:const location = process.env.SECRET_LOCATION || "";
-9:    ? new secret_manager_1.SecretManagerServiceClient({ apiEndpoint: `secretmanager.${location}.rep.googleapis.com` })
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$
+Hashes match for all 18, and the loader code already uses the `rep.googleapis.com` endpoint. What remains is confirming the running process has `SECRET_LOCATION` set. `pm2 env 0` failed because your user has no PM2 daemon; the app runs under `sa_108691235514385689272` (per the PM2 log path).
 
+```bash
+# Process env of the running app (no pm2 needed)
+PID=$(pgrep -f "node.*careernavigator-backend|PM2.*backend|dist/main" | head -1); echo "PID=$PID"
+sudo tr '\0' '\n' < /proc/$PID/environ | grep -i SECRET_
+
+# Alternative via PM2 as the owner user
+sudo -u sa_108691235514385689272 -H pm2 list
+grep -n "SECRET_LOCATION" /var/www/careernavigator-backend/ecosystem.config.js
+```
+
+Expected: `SECRET_LOCATION=me-central2`. Paste the output.
+
+If `PID` is empty or `SECRET_LOCATION` is missing, **do not disable yet**; the app is still reading global.
+
+Also confirm the other instances behave the same, since the MIG may contain servers on older templates:
+
+```bash
+gcloud compute instance-groups managed list-instances cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609
+```
+
+All instances should show the latest template, because an old-template instance restarting after the disable would fail.
