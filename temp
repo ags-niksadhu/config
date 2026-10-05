@@ -1,36 +1,4 @@
-Nothing was learned from that run, because every command failed with `Reauthentication required`. The `gcloud` session on this server expired (08:23 UTC). It isn't a log problem and nothing in the project changed. The script printed the error instead of `NONE`, so none of those lines mean "no logs".
-
-Your organization probably forces periodic re-login, so expect this again. I can't see your session policy, so that's a guess.
-
-## Option A: Cloud Shell (simplest, no login steps)
-
-1. Open the Cloud Console and click the **Cloud Shell** icon at the top right. It's already signed in as you.
-2. Run:
-```bash
-gcloud config set project pg-ae-n-app-125609
-P=pg-ae-n-app-125609
-gcloud logging sinks list --project=$P --format="table(name,destination,disabled)"
-```
-If the sink list prints, the session works.
-
-## Option B: re-login on this server
-
-```bash
-gcloud auth login --no-launch-browser
-```
-Open the URL it prints in a browser on your own computer, sign in, and paste the verification code back. Newer gcloud versions sometimes change this flow. If the prompt looks different, paste what it shows. Then check with `gcloud auth list`.
-
-## Then run this block (read-only)
-
-```bash
-P=pg-ae-n-app-125609
-date -u
-gcloud logging sinks list --project=$P --format="table(name,destination,disabled)"
-gcloud logging sinks describe _Default --project=$P --format="value(updateTime,disabled)"
-echo "== NEWEST ENTRY PER LOG (last 7 days) =="
-for L in \
- backend_apache_access backend_apache_error backend_apache_server_error backend_auth_log backend_pm2_out backend_pm2_error \
- frontend_apache_access frontend_apache_error frontend_apache_server_error fnikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud config set project pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud config set project pg-ae-n-app-125609
 P=pg-ae-n-app-125609
 gcloud logging sinks list --project=$P --format="table(name,destination,disabled)"
 [environment: untagged] Read more to tag: g.co/cloud/project-env-tag.
@@ -106,23 +74,4 @@ RETENTION_DAYS: 400
 LOCATION: me-central2
 LOCATION: 
 RETENTION_DAYS: 180
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ rontend_auth_log frontend_pm2_out frontend_pm2_error \
- syslog requests cloudbuild \
- cloudaudit.googleapis.com/activity cloudaudit.googleapis.com/system_event cloudaudit.googleapis.com/data_access cloudaudit.googleapis.com/policy \
- cloudsql.googleapis.com/postgres.log redis.googleapis.com/redis \
- compute.googleapis.com/firewall compute.googleapis.com/healthchecks compute.googleapis.com/nat_flows compute.googleapis.com/instance_group_manager_events compute.googleapis.com/shielded_vm_integrity compute.googleapis.com/vpc_flows; do
-  T=$(gcloud logging read "LOG_ID(\"$L\")" --project=$P --freshness=7d --limit=1 --format="value(timestamp)" 2>&1 | head -1)
-  printf "%-58s %s\n" "$L" "${T:-NONE}"
-done
-gcloud logging buckets list --project=$P --format="table(name,location,retentionDays)"
-```
-I added the Redis log, since it appeared in your log list earlier.
-
-## What I'll check from the output
-
-- Busy logs (Apache access, PM2 out, syslog, requests, health checks) should show a timestamp within minutes. Anything older means that log stopped arriving.
-- Quiet logs (errors, auth, audit, Cloud SQL, firewall, NAT) can legitimately show an old timestamp.
-- `vpc_flows` should show `NONE`, because flow logs are off.
-- Your sink list should show `_Default` enabled. I'm assuming `cn-staging-logs-me2` is gone, which the sink list will confirm.
-
-Paste the full output.
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
