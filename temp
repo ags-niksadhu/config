@@ -1,19 +1,21 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:~$ cd /var/www/careernavigator-backend
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ F=$(grep -rlE "@google-cloud/storage" dist --include=*.js)
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ echo "$F"
-dist/modules/common/common.services.js
-dist/modules/career-path/career-path-ppt.service.js
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ grep -hoE "\.(upload|download|delete|getFiles|getSignedUrl|createWriteStream|createReadStream|save|exists|makePublic|setMetadata|copy|move)\(" $F | sort | uniq -c | sort -rn
-      6 .save(
-      4 .upload(
-      1 .getSignedUrl(
-      1 .download(
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ grep -E "@google-cloud/|googleapis" package.json
-    "@google-cloud/secret-manager": "^6.1.2",
-    "@google-cloud/storage": "^7.19.0",
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ gcloud storage buckets describe gs://cn-staging-pg-ae-n-app-125609 | grep -E "uniform|public_access|location"
-location: ME-CENTRAL2
-location_type: region
-public_access_prevention: enforced
-uniform_bucket_level_access: true
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$
+Subject: Create dedicated least-privilege service accounts for CareerNavigator staging servers (project pg-ae-n-app-125609)
+
+Reason: compliance requires replacing the default Compute Engine service account (full API access scope) on the backend and frontend servers with dedicated service accounts that have only the permissions each application needs.
+
+1. Create two service accounts:
+   - sa-cn-backend   (CareerNavigator backend servers)
+   - sa-cn-frontend  (CareerNavigator frontend servers)
+
+2. Both accounts: Logs Writer and Monitoring Metric Writer (project level).
+
+3. sa-cn-backend only, in addition:
+   - Secret Manager Secret Accessor on the CN_STAGING_* secrets only (not project-wide)
+   - Storage Object User on bucket gs://cn-staging-pg-ae-n-app-125609 only
+   - Service Account Token Creator on sa-cn-backend itself (granted to itself only)
+
+4. Grant Service Account User on both new accounts to the Cloud Build service account
+   765297732608-compute@developer.gserviceaccount.com
+
+5. Do NOT grant Editor, Owner, Storage Admin, project-wide Secret Accessor, or any Compute or IAM admin role to either account.
+
+Please reply with the final role list and the exact email address of each account.
