@@ -1,21 +1,22 @@
-Subject: Create dedicated least-privilege service accounts for CareerNavigator staging servers (project pg-ae-n-app-125609)
+No. Regional and global secrets are separate resources behind different endpoints, even when they share the same ID.
 
-Reason: compliance requires replacing the default Compute Engine service account (full API access scope) on the backend and frontend servers with dedicated service accounts that have only the permissions each application needs.
+- `gcloud secrets list` without the endpoint override queries `secretmanager.googleapis.com`, which returns only global secrets.
+- Regional secrets exist only on `secretmanager.me-central2.rep.googleapis.com` (your `rg` function), so the loop never touches them.
 
-1. Create two service accounts:
-   - sa-cn-backend   (CareerNavigator backend servers)
-   - sa-cn-frontend  (CareerNavigator frontend servers)
+**Safe check before running (info only; both lists are separate):**
 
-2. Both accounts: Logs Writer and Monitoring Metric Writer (project level).
+```bash
+P=pg-ae-n-app-125609
+echo "GLOBAL:";   gcloud secrets list --project=$P --filter="name~CN_STAGING_" --format="value(name)" | head -3
+echo "REGIONAL:"; CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER=https://secretmanager.me-central2.rep.googleapis.com/ gcloud secrets list --location=me-central2 --project=$P --format="value(name)" | head -3
+```
 
-3. sa-cn-backend only, in addition:
-   - Secret Manager Secret Accessor on the CN_STAGING_* secrets only (not project-wide)
-   - Storage Object User on bucket gs://cn-staging-pg-ae-n-app-125609 only
-   - Service Account Token Creator on sa-cn-backend itself (granted to itself only)
+Global names look like `projects/<num>/secrets/...`; regional ones look like `projects/<num>/locations/me-central2/secrets/...`.
 
-4. Grant Service Account User on both new accounts to the Cloud Build service account
-   765297732608-compute@developer.gserviceaccount.com
+**Caveat:** make sure your shell does not have `CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER` exported permanently (`echo $CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER` should print nothing). If it is exported, the loop would hit the regional endpoint instead. Since you use `rg` as a function, it should be empty.
 
-5. Do NOT grant Editor, Owner, Storage Admin, project-wide Secret Accessor, or any Compute or IAM admin role to either account.
+**After running, confirm regional is intact:**
 
-Please reply with the final role list and the exact email address of each account.
+```bash
+CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER=https://secretmanager.me-central2.rep.googleapis.com/ gcloud secrets versions access latest --secret=CN_STAGING_DB_HOST --location=me-central2 --project=$P >/dev/null && echo "regional OK"
+```
