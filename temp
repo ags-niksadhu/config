@@ -1,21 +1,63 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ date -u; ls /var/log/unattended-upgrades/ 2>/dev/null
-Mon Oct  5 09:22:13 AM UTC 2026
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ top -b -n1 | head -12
-top - 09:22:19 up 48 min,  1 user,  load average: 0.08, 0.04, 0.03
-Tasks: 125 total,   2 running, 123 sleeping,   0 stopped,   0 zombie
-%Cpu(s):  0.0 us,  4.7 sy, 48.8 ni, 23.3 id, 23.3 wa,  0.0 hi,  0.0 si,  0.0 st
-MiB Mem :   3908.3 total,   2225.1 free,    785.1 used,   1130.0 buff/cache
-MiB Swap:      0.0 total,      0.0 free,      0.0 used.   3123.2 avail Mem
+## Direct proof
 
-    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
-   4093 root      39  19  354808 118436  77280 R  91.7   3.0   0:02.07 unatten+
-   4146 nikul_s+  20   0   33340  13856  10428 R   8.3   0.3   0:00.02 top
-      1 root      20   0   22752  14144   9688 S   0.0   0.4   0:03.16 systemd
-      2 root      20   0       0      0      0 S   0.0   0.0   0:00.00 kthreadd
-      3 root      20   0       0      0      0 S   0.0   0.0   0:00.00 pool_wo+
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ gcloud compute instance-groups managed list --project=pg-ae-n-app-125609 --format="table(name,size,targetSize)"
-NAME                      SIZE  TARGET_SIZE
-cn-backend-mig-regional   1     1
-cn-frontend-mig-regional  1     1
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$
+On the backend server at 09:22:19, five seconds after the timer was due at 09:22:05, `top` shows:
 
+- `unatten+` (unattended-upgrade), PID 4093, running as root at **91.7% CPU**
+- the CPU line is 48.8% "ni", meaning low-priority work, and `ls /var/log/unattended-upgrades/` is empty because it's the first run on this server
+
+So an automatic OS upgrade is eating the CPU on a server that serves almost no one. It's the same pattern as the frontend at 08:08, and I predicted this one from the timer. As far as I know, the autoscaler uses the VM's total CPU metric, so low scheduling priority doesn't hide it.
+
+## Watch whether the autoscaler reacts (read-only)
+
+Both groups were at 1 server right after the upgrade started. This samples every 30 seconds for 8 minutes:
+```bash
+P=pg-ae-n-app-125609
+T=$(gcloud auth print-access-token)
+for i in $(seq 1 16); do
+  echo "$(date -u +%H:%M:%S) $(gcloud compute instance-groups managed list --project=$P --format='value(name,size)' | tr '\n' ' ') rec=$(curl -s -H "Authorization: Bearer $T" "https://compute.googleapis.com/compute/v1/projects/$P/regions/me-central2/autoscalers/cn-backend-mig-regional-np3m" | grep recommendedSize | tr -d ' ,')"
+  sleep 30
+done
+```
+If the backend size goes to 2 or 3 within a few minutes, the theory is confirmed on the backend as well. The token lasts an hour, so it's fine for this. If it stays at 1, the autoscaler's CPU sample was lower than the spike on this server, and I'll say so.
+
+## Better fix than disabling patching
+
+My earlier recommendation was to disable the timers, but that has a compliance cost. A better approach keeps automatic patching:
+
+**Patch the image during the build, and leave the timers on.** The base image is old, and the Packer log showed 26 upgradable packages at build time. A new server then boots with those packages already installed, so the first scheduled upgrade has almost nothing to do. Newly released patches still install automatically afterward, in small amounts.
+
+| | Disable timers (earlier idea) | Patch at build, keep timers (new) |
+|---|---|---|
+| Automatic patching stays | no | yes |
+| Boot-time CPU spike | gone | probably much smaller |
+| Compliance question | needed | not needed |
+| Cost | none | a few minutes longer builds |
+
+I haven't tested this on your image. The first build after the change will show the result in the CPU graph.
+
+**Add these two lines to the main shell provisioner,** in both `backend.pkr.hcl` and `frontend.pkr.hcl`, as the first lines of the `inline` list, before the Node.js line:
+```
+      "sudo apt-get update",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get -y upgrade",
+```
+Risk: if an upgrade restarts the SSH service during the build, Packer can lose its connection and fail the build. The earlier logs show restarts being deferred, so I expect it to work. A failed build changes nothing live, and I'd need the log tail.
+
+**Effects:** no downtime, a normal rolling update, and no new cost. The image becomes patched as of its build date, which is also what your audit would see.
+
+**Rollback:** revert the commit and push.
+
+**Verify after the next deploy.** The new server boots from the new image, and about 45 minutes later its upgrade timer fires. Check:
+```bash
+sudo tail -n 5 /var/log/unattended-upgrades/unattended-upgrades.log | cut -c1-170
+```
+It should say there's nothing to upgrade or only a few packages, and the group should stay at 1 server. Wait until both groups are at 1 before pushing.
+
+## Do you want the full files?
+
+Say yes, and I'll give you both full `.pkr.hcl` files with those lines. I'd push the frontend first, then the backend once the frontend run proves it.
+
+## Still open
+
+The Data Access audit request, VPC flow logs and the budget owner's yes, `_Default` retention, the `_Required` exception, the key-line decision, the secrets work, the `US` bucket, and the frontend cleanup dry run (it will show in the next frontend build).
+
+Paste the 8-minute sampling output.
