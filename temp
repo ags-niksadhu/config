@@ -1,61 +1,48 @@
-Both builds and rollouts succeeded, and the frontend cleanup finally works. The backend group is at 2 servers instead of 1, so I still need to see why.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-khkg:~$ P=pg-ae-n-app-125609
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-khkg:~$ for S in backend frontend; do
+>   N=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(name)" --limit=1)
+>   Z=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(zone.basename())" --limit=1)
+>   echo "== $N"
+>   gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="uptime; sudo tail -n 4 /var/log/unattended-upgrades/unattended-upgrades.log | cut -c1-170; ps -eo pcpu,comm --sort=-pcpu | head -4"
+> done
+== cn-backend-mig-regional-khkg
+ 09:59:24 up 17 min,  2 users,  load average: 0.04, 0.12, 0.15
+tail: cannot open '/var/log/unattended-upgrades/unattended-upgrades.log' for reading: No such file or directory
+%CPU COMMAND
+27.4 python3
+18.0 systemd
+ 9.1 ssh
+== cn-frontend-mig-regional-1dv8
+ 09:59:40 up 20 min,  1 user,  load average: 0.22, 0.10, 0.09
+tail: cannot open '/var/log/unattended-upgrades/unattended-upgrades.log' for reading: No such file or directory
+%CPU COMMAND
+16.6 systemd
+ 2.4 sshd
+ 1.1 otelopscol
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-khkg:~$
 
-## What this shows
 
-| Item | Result |
-|---|---|
-| Builds `809b228` (frontend) and `6a5ff7e` (backend) | both `SUCCESS` |
-| Image patched at build | `26 upgraded` in both Packer logs, and `0 upgraded … 0 not upgraded` at the end. The images carry the patches |
-| Apps | frontend `APP IS UP` and `APACHE PATH OK`. Backend `APP IS UP` |
-| Rollouts | `Group is stable` for both |
-| Frontend cleanup | `matched pipeline templates: 8`. Dry-run lines name `13633c6`, `7696009` and `b0ad954`, the three oldest, with their images. This is the first readable proof the fix works |
-| Backend cleanup | `matched pipeline templates: 5`, no deletion lines, as expected |
-| Groups | frontend 1/1. Backend 2/2 |
 
-The dry-run image names were cut at 200 characters in my `cut`, so each shows only part of the name. The template names are complete.
 
-## The backend is at 2 servers, with target 2
 
-A target of 2 means the autoscaler asked for it, since the group is stable and the target isn't 1. The scale-out happened after the rollout. I don't know why. Run this, from Cloud Shell:
-```bash
-P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ P=pg-ae-n-app-125609
 gcloud compute instances list --project=$P --filter="name~cn-backend-mig" --format="table(name,id,creationTimestamp)"
 curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://compute.googleapis.com/compute/v1/projects/$P/regions/me-central2/autoscalers/cn-backend-mig-regional-np3m" | grep -E "recommendedSize|status"
-```
-Possible causes:
-- **A rollout side effect:** the rollout ran up to 09:52, and a second server can appear when boot CPU spikes. Plausible, but unproven.
-- **Still the upgrade:** this build was patched, so it should have little left to do. If the new server's CPU still spikes after about 25 minutes of uptime, the patching didn't solve it.
+NAME: cn-backend-mig-regional-khkg
+ID: 7997117104022015566
+CREATION_TIMESTAMP: 2026-10-05T02:40:51.280-07:00
 
-If `recommendedSize` is 1 now, it should shrink within about 10 minutes, since the stabilization period is 600 seconds. Recheck in 15 minutes:
-```bash
-gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize)"
-```
+NAME: cn-backend-mig-regional-p9rn
+ID: 7965500256323292344
+CREATION_TIMESTAMP: 2026-10-05T02:48:10.284-07:00
+  "status": "ACTIVE",
+  "recommendedSize": 2
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize)"
+NAME: cn-backend-mig-regional
+SIZE: 2
+TARGET_SIZE: 2
 
-## The upgrade-log check isn't conclusive yet
-
-Both servers are 13 to 15 minutes old, so their upgrade timers haven't fired. The "file doesn't exist" result just means that. The real test is at 25 to 60 minutes of uptime, so run it from the backend server then:
-```bash
-P=pg-ae-n-app-125609
-for S in backend frontend; do
-  N=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(name)" --limit=1)
-  Z=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(zone.basename())" --limit=1)
-  echo "== $N"
-  gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="uptime; sudo tail -n 4 /var/log/unattended-upgrades/unattended-upgrades.log | cut -c1-170; ps -eo pcpu,comm --sort=-pcpu | head -4"
-done
-gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize)"
-```
-Success is a log that reports no packages or only a few, no CPU spike, and both groups at 1. I'll compare it with the backend's 91% unattended-upgrade reading from 09:22.
-
-## Cleanup: ready to go live?
-
-I'd keep `DRY_RUN=1` for now. The three frontend candidates are correct, but I haven't verified that `delete` accepts `--region` for regional templates, and a failed live run is harmless but unproven. I'd wait for a backend build with 6 templates so both services can be tested together, and I'd go live on the frontend first. Setting `DRY_RUN=0` can't be undone for the templates and images that get deleted, but with `KEEP=5` you always keep five rollback targets.
-
-## What the dry run gets right
-
-The oldest three frontend templates, `13633c6`, `7696009` and `b0ad954`, include two that came from failed or early builds. Deleting them loses nothing you'd roll back to.
-
-## Still open
-
-The Data Access audit request, VPC flow logs and the budget owner's yes, `_Default` retention, the `_Required` exception, the key-line decision, the secrets work and the `US` bucket.
-
-Paste the autoscaler output and the instance list now, and the upgrade-log check at 25 to 60 minutes of uptime.
+NAME: cn-frontend-mig-regional
+SIZE: 1
+TARGET_SIZE: 1
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
