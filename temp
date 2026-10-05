@@ -1,8 +1,11 @@
-# Running process env, as the owner user
-sudo -u sa_108691235514385689272 -H pm2 env 0 | grep -i SECRET
-
-# Same via /proc, with sudo applied to the whole command
-sudo bash -c "tr '\0' '\n' < /proc/1199/environ | grep -i SECRET"
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ # Running process env, as the owner user
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ sudo -u sa_108691235514385689272 -H pm2 env 0 | grep -i SECRET
+SECRET_LOCATION: me-central2
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ # Same via /proc, with sudo applied to the whole command
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ sudo bash -c "tr '\0' '\n' < /proc/1199/environ | grep -i SECRET"
 
 # Where is it set, if anywhere
-sudo grep -rn "SECRET_LOCATION" /var/www/careernavigator-backend --include=*.js --include=*.ts --include=.env* --exclude-dir=node_modules 2>/dev/null | head
+sudo grep -rn "SECRET_LOCATION" /var/www/careernavigator-backend --include=*.js --include=*.ts --include=.env* --exclude-dir=node_modules 2>/dev/null | headSECRET_LOCATION=me-central2
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$
+
