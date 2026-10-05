@@ -1,3 +1,6 @@
-Remove full API access scope from the default Compute Engine service account on both instances — create dedicated service accounts with least-privilege IAM roles
-
-as per compliance team also email me above
+cd /var/www/careernavigator-backend
+F=$(grep -rlE "@google-cloud/storage" dist --include=*.js)
+echo "$F"
+grep -hoE "\.(upload|download|delete|getFiles|getSignedUrl|createWriteStream|createReadStream|save|exists|makePublic|setMetadata|copy|move)\(" $F | sort | uniq -c | sort -rn
+grep -E "@google-cloud/|googleapis" package.json
+gcloud storage buckets describe gs://cn-staging-pg-ae-n-app-125609 | grep -E "uniform|public_access|location"
