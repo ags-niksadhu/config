@@ -1,22 +1,15 @@
-No. Regional and global secrets are separate resources behind different endpoints, even when they share the same ID.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ P=pg-ae-n-app-125609
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ echo "GLOBAL:";   gcloud secrets list --project=$P --filter="name~CN_STAGING_" --format="value(name)" | head -3
+GLOBAL:
+CN_STAGING_BASE_URL
+CN_STAGING_DB_DATABASE
+CN_STAGING_DB_HOST
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ echo "REGIONAL:"; CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER=https://secretmanager.me-central2.rep.googleapis.com/ gcloud secrets list --location=me-central2 --project=$P --format="value(name)" | head -3
+REGIONAL:
+CN_STAGING_BASE_URL
+CN_STAGING_DB_DATABASE
+CN_STAGING_DB_HOST
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER=https://secretmanager.me-central2.rep.googleapis.com/ gcloud secrets versions access latest --secret=CN_STAGING_DB_HOST --location=me-central2 --project=$P >/dev/null && echo "regional OK"
+regional OK
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$
 
-- `gcloud secrets list` without the endpoint override queries `secretmanager.googleapis.com`, which returns only global secrets.
-- Regional secrets exist only on `secretmanager.me-central2.rep.googleapis.com` (your `rg` function), so the loop never touches them.
-
-**Safe check before running (info only; both lists are separate):**
-
-```bash
-P=pg-ae-n-app-125609
-echo "GLOBAL:";   gcloud secrets list --project=$P --filter="name~CN_STAGING_" --format="value(name)" | head -3
-echo "REGIONAL:"; CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER=https://secretmanager.me-central2.rep.googleapis.com/ gcloud secrets list --location=me-central2 --project=$P --format="value(name)" | head -3
-```
-
-Global names look like `projects/<num>/secrets/...`; regional ones look like `projects/<num>/locations/me-central2/secrets/...`.
-
-**Caveat:** make sure your shell does not have `CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER` exported permanently (`echo $CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER` should print nothing). If it is exported, the loop would hit the regional endpoint instead. Since you use `rg` as a function, it should be empty.
-
-**After running, confirm regional is intact:**
-
-```bash
-CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER=https://secretmanager.me-central2.rep.googleapis.com/ gcloud secrets versions access latest --secret=CN_STAGING_DB_HOST --location=me-central2 --project=$P >/dev/null && echo "regional OK"
-```
