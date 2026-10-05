@@ -1,167 +1,64 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ P=pg-ae-n-app-125609
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ N=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(name)" --limit=1)
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ Z=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(zone.basename())" --limit=1)
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="sudo journalctl --since \"2026-10-05 08:05:00\" --until \"2026-10-05 08:11:00\" --no-pager | grep -v GoogleHC | cut -c1-170 | tail -40"
-WARNING: The private SSH key file for gcloud does not exist.
-WARNING: The public SSH key file for gcloud does not exist.
-WARNING: You do not have an SSH key for gcloud.
-WARNING: SSH keygen will be executed to generate a key.
-This tool needs to create the directory [/home/nikul_sadhu_gcp_pwc_com/.ssh] before being able to generate SSH keys.
+## What these outputs show
 
-Do you want to continue (Y/n)?  y
-Please enter 'y' or 'n':  Y
+**1. The scanner is ruled out, with one gap.** The Web Security Scanner log has no activity in 24 hours. The 08:09 scale-out falls in the hour `_Default` was disabled, so that one isn't covered, but the six earlier scale-outs are.
 
-Generating public/private rsa key pair.
-Enter passphrase (empty for no passphrase):
-Enter same passphrase again:
-Your identification has been saved in /home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_engine
-Your public key has been saved in /home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_engine.pub
-The key fingerprint is:
-SHA256:u5zawlhZUcaHPZEAMZf1uFlTgkSGnUsRYYL3bsaJGGM nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj.c.pg-ae-n-app-125609.internal
-The key's randomart image is:
-+---[RSA 3072]----+
-|        +**@@O. .|
-|        o+*+Xo o |
-|         o +.o+  |
-|        E   o+ . |
-|       +S+ +o.   |
-|      o ... *    |
-|     +  .  o     |
-|    . oo o       |
-|      .o=        |
-+----[SHA256]-----+
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' resumed (module 'builtin:omfile') [v8.2312.0
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' suspended (module 'builtin:omfile'), retry 0.
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' resumed (module 'builtin:omfile') [v8.2312.0
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' suspended (module 'builtin:omfile'), retry 0.
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' resumed (module 'builtin:omfile') [v8.2312.0
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' suspended (module 'builtin:omfile'), retry 0.
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' resumed (module 'builtin:omfile') [v8.2312.0
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' suspended (module 'builtin:omfile'), retry 0.
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' resumed (module 'builtin:omfile') [v8.2312.0
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' suspended (module 'builtin:omfile'), retry 0.
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' resumed (module 'builtin:omfile') [v8.2312.0
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' suspended (module 'builtin:omfile'), retry 0.
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' resumed (module 'builtin:omfile') [v8.2312.0
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' suspended (module 'builtin:omfile'), retry 0.
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' resumed (module 'builtin:omfile') [v8.2312.0
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' suspended (module 'builtin:omfile'), retry 0.
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' resumed (module 'builtin:omfile') [v8.2312.0
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' suspended (module 'builtin:omfile'), retry 0.
-Oct 05 08:10:36 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal rsyslogd[9176]: action 'action-8-builtin:omfile' suspended (module 'builtin:omfile'), next ret
-Oct 05 08:10:42 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal apt.systemd.daily[2776]: /usr/bin/unattended-upgrade:567: DeprecationWarning: This process (pi
-Oct 05 08:10:42 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal apt.systemd.daily[2776]:   pid = os.fork()
-Oct 05 08:10:44 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal systemd[1]: Stopping apache2.service - The Apache HTTP Server...
-Oct 05 08:10:44 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal systemd[1]: Stopping polkit.service - Authorization Manager...
-Oct 05 08:10:44 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal systemd[1]: polkit.service: Deactivated successfully.
-Oct 05 08:10:44 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal systemd[1]: Stopped polkit.service - Authorization Manager.
-Oct 05 08:10:44 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal systemd[1]: Starting polkit.service - Authorization Manager...
-Oct 05 08:10:44 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal systemd[1]: apache2.service: Deactivated successfully.
-Oct 05 08:10:44 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal systemd[1]: Stopped apache2.service - The Apache HTTP Server.
-Oct 05 08:10:44 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal polkitd[9893]: Started polkitd version 124
-Oct 05 08:10:44 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal systemd[1]: Starting apache2.service - The Apache HTTP Server...
-Oct 05 08:10:44 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal polkitd[9893]: Loading rules from directory /etc/polkit-1/rules.d
-Oct 05 08:10:44 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal polkitd[9893]: Loading rules from directory /usr/share/polkit-1/rules.d
-Oct 05 08:10:44 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal systemd[1]: Started apache2.service - The Apache HTTP Server.
-Oct 05 08:10:44 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal polkitd[9893]: Finished loading, compiling and executing 4 rules
-Oct 05 08:10:44 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal polkitd[9893]: Acquired the name org.freedesktop.PolicyKit1 on the system bus
-Oct 05 08:10:44 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal systemd[1]: Started polkit.service - Authorization Manager.
-Oct 05 08:10:47 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal apt.systemd.daily[2776]: /usr/bin/unattended-upgrade:567: DeprecationWarning: This process (pi
-Oct 05 08:10:47 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal apt.systemd.daily[2776]:   pid = os.fork()
-Oct 05 08:10:53 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal apt.systemd.daily[2776]: /usr/bin/unattended-upgrade:567: DeprecationWarning: This process (pi
-Oct 05 08:10:53 cn-frontend-mig-regional-c6s2.c.pg-ae-n-app-125609.internal apt.systemd.daily[2776]:   pid = os.fork()
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://compute.googleapis.com/compute/v1/projects/$P/regions/me-central2/autoscalers/cn-backend-mig-regional-np3m" | grep -E "minNumReplicas|maxNumReplicas|coolDownPeriodSec|stabilizationPeriodSec|recommendedSize|status"
-    "minNumReplicas": 1,
-    "maxNumReplicas": 3,
-    "coolDownPeriodSec": 60,
-    "stabilizationPeriodSec": 600,
-  "status": "ACTIVE",
-  "recommendedSize": 1
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ gcloud logging read 'logName:"cloudaudit.googleapis.com%2Factivity" AND protoPayload.methodName="v1.compute.instances.insert" AND protoPayload.resourceName:"cn-backend-mig-regional"' --project=$P --freshness=24h --format="value(timestamp,protoPayload.resourceName.basename())" | sort -r | head -30
-2026-10-05T08:33:25.500794Z     cn-backend-mig-regional-fbfj
-2026-10-05T08:33:13.133857Z     cn-backend-mig-regional-fbfj
-2026-10-05T08:24:58.900351Z     cn-backend-mig-regional-d7q5
-2026-10-05T08:24:42.443589Z     cn-backend-mig-regional-d7q5
-2026-10-05T07:34:58.203543Z     cn-backend-mig-regional-fgzk
-2026-10-05T07:34:44.043967Z     cn-backend-mig-regional-fgzk
-2026-10-05T07:34:30.050059Z     cn-backend-mig-regional-0tjw
-2026-10-05T07:34:14.002339Z     cn-backend-mig-regional-0tjw
-2026-10-05T06:46:40.573893Z     cn-backend-mig-regional-lpw9
-2026-10-05T06:46:25.339075Z     cn-backend-mig-regional-lpw9
-2026-10-05T06:40:24.074688Z     cn-backend-mig-regional-gzvt
-2026-10-05T06:39:51.551070Z     cn-backend-mig-regional-gzvt
-2026-10-05T06:35:04.640646Z     cn-backend-mig-regional-p18q
-2026-10-05T06:34:52.662689Z     cn-backend-mig-regional-p18q
-2026-10-05T06:34:50.037151Z     cn-backend-mig-regional-mbbf
-2026-10-05T06:34:41.011527Z     cn-backend-mig-regional-mbbf
-2026-10-05T06:33:07.597094Z     cn-backend-mig-regional-mbbf
-2026-10-05T06:32:58.937043Z     cn-backend-mig-regional-mbbf
-2026-10-05T06:32:52.073346Z     cn-backend-mig-regional-mbbf
-2026-10-05T06:32:43.051520Z     cn-backend-mig-regional-mbbf
-2026-10-05T06:32:16.160742Z     cn-backend-mig-regional-z3h8
-2026-10-05T06:32:02.871244Z     cn-backend-mig-regional-z3h8
-2026-10-05T05:53:28.699930Z     cn-backend-mig-regional-wtpg
-2026-10-05T05:53:15.761599Z     cn-backend-mig-regional-wtpg
-2026-10-04T20:32:07.011014Z     cn-backend-mig-regional-f3vv
-2026-10-04T20:31:55.423210Z     cn-backend-mig-regional-f3vv
-2026-10-04T19:30:31.089745Z     cn-backend-mig-regional-pwk9
-2026-10-04T19:30:01.975725Z     cn-backend-mig-regional-pwk9
-2026-10-04T18:29:04.672420Z     cn-backend-mig-regional-rkfp
-2026-10-04T18:28:53.282370Z     cn-backend-mig-regional-rkfp
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$
+**2. My journal command was cut off.** I used `tail -40`, so the output starts at 08:10:36, after the 08:09:03 scale-out. It can't explain that spike. It does show two things on `c6s2` worth a closer look:
+- `rsyslogd` repeatedly suspends and resumes its file-output action within the same second. That usually means writes are failing and retrying. I don't know whether it burns CPU.
+- A daily apt upgrade was still running at 08:10. Its PID (2776) is low, so it started soon after the 07:44 boot. It restarted Apache and polkit at 08:10:44.
 
+Neither is proven as the cause.
 
+**3. Backend autoscaler:** min 1, max 3, cool-down 60s, stabilization 600s, `recommendedSize` 1. Those settings match the frontend's. Its server creations mostly follow builds: the 06:29 build produced five creations in 14 minutes, and one name (`mbbf`) was created several times in 2 minutes, which looks like retries. The pair at 07:34 (`0tjw` and `fgzk`, 16 seconds apart) is the only one I can't classify.
 
+**4. A correction on my earlier recommendation.** I recommended lengthening the cool-down as option A. The timing doesn't support it well. Scale-outs came about 25, 44, 46, 57, 60 and 62 minutes after a server's creation, so a cool-down of a few minutes wouldn't have covered most of them. Don't change the autoscaler yet.
 
+## Two checks that should identify the cause
 
+**Check 1, in Cloud Shell: per-minute CPU of the frontend servers.** It shows whether and when CPU crossed 60% before 08:09:
+```bash
+P=pg-ae-n-app-125609
+curl -s -G -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://monitoring.googleapis.com/v3/projects/$P/timeSeries" \
+ --data-urlencode 'filter=metric.type="compute.googleapis.com/instance/cpu/utilization" AND metric.labels.instance_name=starts_with("cn-frontend-mig-regional")' \
+ --data-urlencode "interval.startTime=2026-10-05T07:50:00Z" --data-urlencode "interval.endTime=2026-10-05T08:15:00Z" \
+ --data-urlencode "aggregation.alignmentPeriod=60s" --data-urlencode "aggregation.perSeriesAligner=ALIGN_MEAN" \
+ | jq -r '.timeSeries[]? | .metric.labels.instance_name as $n | .points[] | "\($n) \(.interval.endTime) \(.value.doubleValue)"' | sort -k2 | awk '{printf "%s %s %.0f%%\n",$1,substr($2,12,5),$3*100}'
+```
+I haven't verified this filter. If it prints nothing, rerun without the last two `|` lines and paste the error.
 
+**Check 2, from the backend server: the frontend server's timers, agents and the missing minutes.** It's read-only:
+```bash
+P=pg-ae-n-app-125609
+N=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(name)" --limit=1)
+Z=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(zone.basename())" --limit=1)
+gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command='
+uptime; df -h /var/log | tail -1
+echo "--- timers"; systemctl list-timers --all --no-pager | head -15
+echo "--- agents"; systemctl list-units --type=service --no-pager | grep -i -E "nessus|tenable|falcon|crowdstrike|defender|osconfig|unattended"
+echo "--- rsyslog suspend count"; sudo journalctl -u rsyslog --since "2026-10-05 07:44" --no-pager | grep -c suspended
+echo "--- top cpu now"; ps -eo pcpu,etime,comm --sort=-pcpu | head -8
+echo "--- 08:03 to 08:09:30"; sudo journalctl --since "2026-10-05 08:03:00" --until "2026-10-05 08:09:30" --no-pager | grep -v GoogleHC | cut -c1-150 | head -40
+'
+```
+The old VM had a security agent (`nessus-agent-monitor`) in its process list, and the corporate base image may include scanning agents. That's an inference. The `agents` line will show whether one is on the new servers.
 
+## Read the results like this
 
+| Check 1 shows | Likely meaning |
+|---|---|
+| CPU above 60% on `c6s2` for a few minutes before 08:09 | CPU load triggered it. Check 2 shows what ran then |
+| CPU stays below 60% | something else made the autoscaler grow the group, and I'd look at its recommendation history |
 
+## Backend: confirm it settled
 
+It was at 3 servers, target 1. Check its size and what the 08:24 and 08:33 creations were:
+```bash
+gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize,instanceTemplate.basename())"
+gcloud builds list --region=me-central2 --project=$P --filter="substitutions.TRIGGER_NAME=careernavigator-backend-staging" --limit=6 --format="table(createTime,status,substitutions.SHORT_SHA)"
+```
+If a backend build was triggered near 08:24 and 08:33, those were rollouts. Otherwise they were scale-outs.
 
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ P=pg-ae-n-app-125609
-gcloud logging read 'LOG_ID("websecurityscanner.googleapis.com/scan_activity")' --project=$P --freshness=24h --limit=40 --format="value(timestamp)"
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://compute.googleapis.com/compute/v1/projects/$P/regions/me-central2/autoscalers/cn-backend-mig-regional-np3m" | grep -E "minNumReplicas|maxNumReplicas|coolDownPeriodSec|stabilizationPeriodSec|recommendedSize|status"
-gcloud logging read 'logName:"cloudaudit.googleapis.com%2Factivity" AND protoPayload.methodName="v1.compute.instances.insert" AND protoPayload.resourceName:"cn-backend-mig-regional"' --project=$P --freshness=24h --format="value(timestamp,protoPayload.resourceName.basename())" | sort -r | head -30
-    "minNumReplicas": 1,
-    "maxNumReplicas": 3,
-    "coolDownPeriodSec": 60,
-    "stabilizationPeriodSec": 600,
-  "status": "ACTIVE",
-  "recommendedSize": 1
-2026-10-05T08:33:25.500794Z     cn-backend-mig-regional-fbfj
-2026-10-05T08:33:13.133857Z     cn-backend-mig-regional-fbfj
-2026-10-05T08:24:58.900351Z     cn-backend-mig-regional-d7q5
-2026-10-05T08:24:42.443589Z     cn-backend-mig-regional-d7q5
-2026-10-05T07:34:58.203543Z     cn-backend-mig-regional-fgzk
-2026-10-05T07:34:44.043967Z     cn-backend-mig-regional-fgzk
-2026-10-05T07:34:30.050059Z     cn-backend-mig-regional-0tjw
-2026-10-05T07:34:14.002339Z     cn-backend-mig-regional-0tjw
-2026-10-05T06:46:40.573893Z     cn-backend-mig-regional-lpw9
-2026-10-05T06:46:25.339075Z     cn-backend-mig-regional-lpw9
-2026-10-05T06:40:24.074688Z     cn-backend-mig-regional-gzvt
-2026-10-05T06:39:51.551070Z     cn-backend-mig-regional-gzvt
-2026-10-05T06:35:04.640646Z     cn-backend-mig-regional-p18q
-2026-10-05T06:34:52.662689Z     cn-backend-mig-regional-p18q
-2026-10-05T06:34:50.037151Z     cn-backend-mig-regional-mbbf
-2026-10-05T06:34:41.011527Z     cn-backend-mig-regional-mbbf
-2026-10-05T06:33:07.597094Z     cn-backend-mig-regional-mbbf
-2026-10-05T06:32:58.937043Z     cn-backend-mig-regional-mbbf
-2026-10-05T06:32:52.073346Z     cn-backend-mig-regional-mbbf
-2026-10-05T06:32:43.051520Z     cn-backend-mig-regional-mbbf
-2026-10-05T06:32:16.160742Z     cn-backend-mig-regional-z3h8
-2026-10-05T06:32:02.871244Z     cn-backend-mig-regional-z3h8
-2026-10-05T05:53:28.699930Z     cn-backend-mig-regional-wtpg
-2026-10-05T05:53:15.761599Z     cn-backend-mig-regional-wtpg
-2026-10-04T20:32:07.011014Z     cn-backend-mig-regional-f3vv
-2026-10-04T20:31:55.423210Z     cn-backend-mig-regional-f3vv
-2026-10-04T19:30:31.089745Z     cn-backend-mig-regional-pwk9
-2026-10-04T19:30:01.975725Z     cn-backend-mig-regional-pwk9
-2026-10-04T18:29:04.672420Z     cn-backend-mig-regional-rkfp
-2026-10-04T18:28:53.282370Z     cn-backend-mig-regional-rkfp
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
+## Still waiting on
 
+Compliance exceptions (`_Required`, global logs), the Data Access audit request, flow logs and the budget owner's yes, the `_Default` retention decision, the dev team on the key line, and the secrets work.
 
-
-
+Paste the CPU output and the server output.
