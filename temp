@@ -1,12 +1,58 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ P=pg-ae-n-app-125609
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging sinks list --project=$P --format="table(name,destination,disabled)"
-NAME                 DESTINATION                                                                                           DISABLED
-cn-staging-logs-me2  logging.googleapis.com/projects/pg-ae-n-app-125609/locations/me-central2/buckets/cn-staging-logs-me2
-_Required            logging.googleapis.com/projects/pg-ae-n-app-125609/locations/global/buckets/_Required
-_Default             logging.googleapis.com/projects/pg-ae-n-app-125609/locations/global/buckets/_Default
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging buckets list --project=$P --format="table(name,location,retentionDays)"
-LOCATION     LOCATION  RETENTION_DAYS
-global                 90
-global                 400
-me-central2            180
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
+## What the lists show
+
+| Item | State |
+|---|---|
+| Bucket `cn-staging-logs-me2` | exists in `me-central2` with 180-day retention ✅ |
+| A sink pointing at it | exists, named `cn-staging-logs-me2` rather than `route-to-me2`, enabled ✅ |
+| `_Default` and `_Required` sinks | still enabled, as expected |
+
+That explains the earlier `NOT_FOUND`: I looked for the wrong name. The sink exists, but I haven't seen its filter or exclusions, and that decides whether the right logs arrive.
+
+## Check the sink's filter (read-only)
+
+```bash
+P=pg-ae-n-app-125609
+gcloud logging sinks describe cn-staging-logs-me2 --project=$P --format="yaml(filter,exclusions,writerIdentity,disabled)"
+```
+
+| If `filter` is | Meaning |
+|---|---|
+| the same `NOT LOG_ID("cloudaudit…")` text as `_Default` | correct, so nothing is missed |
+| empty | it sends everything, including Admin Activity audit logs, a regional copy of what `_Required` also keeps. That's harmless for compliance but adds ingestion cost, so ask the budget owner if it's acceptable |
+| something narrower | some log types will be missing, so paste it and I'll tell you which |
+
+## The key-line exclusion goes on both sinks
+
+Neither sink has one yet. In the Console:
+1. Logging → Log Router → ⋮ next to `cn-staging-logs-me2` → Edit sink.
+2. Add an exclusion named `exclude-key-debug` with:
+```
+logName="projects/pg-ae-n-app-125609/logs/backend_pm2_out" AND jsonPayload.message:"DDDDDD"
+```
+3. Update sink.
+4. Repeat for the `_Default` sink.
+
+The 12-hour check found nothing, so this is a safety net, not a fix for a live leak.
+
+## Confirm logs actually arrive
+
+Your account can't read the bucket's log views with gcloud, so use the Console:
+- Logging → Logs Storage → `cn-staging-logs-me2`: the storage size should grow over the next few minutes.
+- To read entries: Logs Explorer → Refine scope → Scope by storage → pick the new bucket. If it's greyed out or empty, tell me the exact message.
+
+If the size stays at zero after 10 minutes, the cause could be the sink's writer identity lacking permission on the bucket. I'd check the `writerIdentity` value from the command above first. I haven't verified how permissions work for a same-project bucket.
+
+## Do not disable `_Default` yet
+
+Wait until the new bucket shows growing storage and you've seen entries in it. After that, Log Router → `_Default` → ⋮ → Disable sink. Until then, every log is stored twice, which costs money but loses nothing.
+
+⚠️ `_Required` stays global, and entries already in `_Default` stay until their retention expires.
+
+**Rollback:** re-enable `_Default` and delete the new sink. The bucket keeps whatever it already stored for its retention period.
+
+## Still waiting on
+
+1. The budget owner's yes, and compliance's answers on VPC flow logs and the `_Required` exception.
+2. The dev team's decision on the key line and request-body logging.
+
+Paste the `describe` output, and tell me what the Console shows for the bucket's size.
