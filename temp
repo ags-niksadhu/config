@@ -1,87 +1,66 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ P=pg-ae-n-app-125609
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ N=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(name)" --limit=1)
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ Z=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(zone.basename())" --limit=1)
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command='
-> uptime; df -h /var/log | tail -1
-> echo "--- timers"; systemctl list-timers --all --no-pager | head -15
-> echo "--- agents"; systemctl list-units --type=service --no-pager | grep -i -E "nessus|tenable|falcon|crowdstrike|defender|osconfig|unattended"
-> echo "--- rsyslog suspend count"; sudo journalctl -u rsyslog --since "2026-10-05 07:44" --no-pager | grep -c suspended
-> echo "--- top cpu now"; ps -eo pcpu,etime,comm --sort=-pcpu | head -8
-> echo "--- 08:03 to 08:09:30"; sudo journalctl --since "2026-10-05 08:03:00" --until "2026-10-05 08:09:30" --no-pager | grep -v GoogleHC | cut -c1-150 | head -40
->
-> ^C
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize,instanceTemplate.basename())"
-NAME                      SIZE  TARGET_SIZE  INSTANCE_TEMPLATE
-cn-backend-mig-regional   1     1            cn-backend-template-bd3b2bb
-cn-frontend-mig-regional  1     1            cn-frontend-template-3255267
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ gcloud builds list --region=me-central2 --project=$P --filter="substitutions.TRIGGER_NAME=careernavigator-backend-staging" --limit=6 --format="table(createTime,status,substitutions.SHORT_SHA)"
-CREATE_TIME                STATUS     SHORT_SHA
-2026-10-05T06:29:38+00:00  SUCCESS    bd3b2bb
-2026-10-05T05:43:19+00:00  SUCCESS    ffc8a89
-2026-10-05T05:42:31+00:00  CANCELLED  e5b63ce
-2026-10-04T20:22:33+00:00  SUCCESS    53262df
-2026-10-04T19:20:17+00:00  SUCCESS    054eefc
-2026-10-04T18:20:04+00:00  SUCCESS    41f3935
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$
+## What the CPU data shows
 
+The spike was real, and it happened on a server serving almost no users.
 
+| Time (UTC) | `c6s2`, the only server for 25 minutes | Group |
+|---|---|---|
+| 07:51 to 08:04 | 5 to 8% | 1 server |
+| 08:05 to 08:08 | 14%, 19%, 6%, 13% | 1 server |
+| 08:09 | 49% | **scale-out at 08:09:03** |
+| 08:10 / 08:11 | **93% / 75%** | 3 servers |
+| 08:13 | 6% | 3 servers |
 
+- The group grew while CPU was climbing, so the autoscaler did what it's set to do. The question is what made an idle server hit 93% for a few minutes.
+- The two new servers used 41% and 49% in their first minute or two, then 5 to 13%. Boot cost is real but short, and it doesn't explain the first spike.
+- The earlier journal output, which I cut off by mistake, showed `unattended-upgrade` running at 08:10:42 to 08:10:53. Apache and polkit restarted at 08:10:44, which is what OS package upgrades usually trigger.
+- The six earlier scale-outs came about 25 to 62 minutes after a server's creation. The 08:09 one came 25 minutes after `c6s2` booted at 07:44.
 
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ P=pg-ae-n-app-125609
-curl -s -G -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://monitoring.googleapis.com/v3/projects/$P/timeSeries" \
- --data-urlencode 'filter=metric.type="compute.googleapis.com/instance/cpu/utilization" AND metric.labels.instance_name=starts_with("cn-frontend-mig-regional")' \
- --data-urlencode "interval.startTime=2026-10-05T07:50:00Z" --data-urlencode "interval.endTime=2026-10-05T08:15:00Z" \
- --data-urlencode "aggregation.alignmentPeriod=60s" --data-urlencode "aggregation.perSeriesAligner=ALIGN_MEAN" \
- | jq -r '.timeSeries[]? | .metric.labels.instance_name as $n | .points[] | "\($n) \(.interval.endTime) \(.value.doubleValue)"' | sort -k2 | awk '{printf "%s %s %.0f%%\n",$1,substr($2,12,5),$3*100}'
-cn-frontend-mig-regional-c6s2 07:51 5%
-cn-frontend-mig-regional-fx3z 07:51 6%
-cn-frontend-mig-regional-8vmg 07:51 6%
-cn-frontend-mig-regional-fx3z 07:52 5%
-cn-frontend-mig-regional-c6s2 07:52 5%
-cn-frontend-mig-regional-8vmg 07:52 5%
-cn-frontend-mig-regional-fx3z 07:53 5%
-cn-frontend-mig-regional-8vmg 07:53 5%
-cn-frontend-mig-regional-c6s2 07:53 5%
-cn-frontend-mig-regional-8vmg 07:54 5%
-cn-frontend-mig-regional-fx3z 07:54 5%
-cn-frontend-mig-regional-c6s2 07:54 7%
-cn-frontend-mig-regional-8vmg 07:55 7%
-cn-frontend-mig-regional-c6s2 07:55 13%
-cn-frontend-mig-regional-fx3z 07:55 14%
-cn-frontend-mig-regional-fx3z 07:56 5%
-cn-frontend-mig-regional-8vmg 07:56 13%
-cn-frontend-mig-regional-c6s2 07:56 16%
-cn-frontend-mig-regional-fx3z 07:57 5%
-cn-frontend-mig-regional-c6s2 07:57 6%
-cn-frontend-mig-regional-8vmg 07:57 11%
-cn-frontend-mig-regional-fx3z 07:58 5%
-cn-frontend-mig-regional-c6s2 07:58 6%
-cn-frontend-mig-regional-c6s2 07:59 6%
-cn-frontend-mig-regional-c6s2 08:00 6%
-cn-frontend-mig-regional-c6s2 08:01 7%
-cn-frontend-mig-regional-c6s2 08:02 6%
-cn-frontend-mig-regional-c6s2 08:03 6%
-cn-frontend-mig-regional-c6s2 08:04 8%
-cn-frontend-mig-regional-c6s2 08:05 14%
-cn-frontend-mig-regional-c6s2 08:06 19%
-cn-frontend-mig-regional-c6s2 08:07 6%
-cn-frontend-mig-regional-c6s2 08:08 13%
-cn-frontend-mig-regional-c6s2 08:09 49%
-cn-frontend-mig-regional-7svz 08:10 13%
-cn-frontend-mig-regional-258b 08:10 41%
-cn-frontend-mig-regional-c6s2 08:10 93%
-cn-frontend-mig-regional-258b 08:11 10%
-cn-frontend-mig-regional-7svz 08:11 49%
-cn-frontend-mig-regional-c6s2 08:11 75%
-cn-frontend-mig-regional-258b 08:12 5%
-cn-frontend-mig-regional-7svz 08:12 11%
-cn-frontend-mig-regional-c6s2 08:12 22%
-cn-frontend-mig-regional-258b 08:13 5%
-cn-frontend-mig-regional-7svz 08:13 5%
-cn-frontend-mig-regional-c6s2 08:13 6%
-cn-frontend-mig-regional-258b 08:14 5%
-cn-frontend-mig-regional-c6s2 08:14 6%
-cn-frontend-mig-regional-7svz 08:14 8%
-cn-frontend-mig-regional-c6s2 08:15 11%
-cn-frontend-mig-regional-7svz 08:15 13%
-cn-frontend-mig-regional-258b 08:15 13%
+**My hypothesis:** each new server runs an automatic OS upgrade some time after boot. It burns the CPU of a shared-core e2-medium, and the autoscaler adds two servers. This is circumstantial: one journal snippet plus timing. I haven't proven it.
+
+## Prove or reject it
+
+The command I sent last time didn't run. It was waiting for a closing quote and you pressed Ctrl+C. These are one-liners. Run them on the backend server you're logged into:
+
+```bash
+P=pg-ae-n-app-125609
+N=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(name)" --limit=1)
+Z=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(zone.basename())" --limit=1)
+echo $N
+gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="sudo grep -E 'Start-Date|End-Date' /var/log/apt/history.log | tail -10; echo ---; sudo tail -n 20 /var/log/unattended-upgrades/unattended-upgrades.log | cut -c1-170; echo ---; systemctl list-timers --all --no-pager | grep -E 'NEXT|apt'"
+gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="sudo grep -E '05/Oct/2026:08:(0[5-9]|1[0-2])' /var/log/apache2/careernavigator-frontend-staging-access.log | grep -v GoogleHC | awk '{print substr(\$4,2,17)}' | sort | uniq -c"
+```
+- The first command shows whether an upgrade ran around 08:08 to 08:11 on this server, and which timers fire it.
+- The second counts real requests per minute from 08:05 to 08:12, with no content printed. It tells us whether user traffic could have caused the spike.
+
+If `$N` isn't `c6s2`, the server was replaced and the times won't match. In that case tell me, and I'll adjust.
+
+For the backend, which you're on right now:
+```bash
+sudo grep -E 'Start-Date|End-Date' /var/log/apt/history.log | tail -8; sudo tail -n 8 /var/log/unattended-upgrades/unattended-upgrades.log | cut -c1-170; systemctl list-timers --all --no-pager | grep -E 'NEXT|apt'
+```
+The backend showed the same pattern: two servers 16 seconds apart at 07:34, with no build near it.
+
+## What each result would mean
+
+| Result | Meaning |
+|---|---|
+| upgrade ran at about 08:08 to 08:11, and few real requests | hypothesis confirmed |
+| no upgrade around 08:09 | wrong guess, and I'll look at the rsyslog retry loop and Apache next |
+| many real requests in those minutes | real user or scanner traffic, so the fix is different |
+
+## Options, not applied yet
+
+| | What | Cost | Trade-off |
+|---|---|---|---|
+| **A. Switch off the automatic apt timers in the image** | one line in each Packer file | none | servers stop patching themselves. Patches then arrive only when you rebuild the image, so a regular rebuild and compliance's agreement on patching are needed |
+| **B. A bigger machine type** | non-shared-core server | higher per server | not needed unless A isn't acceptable |
+| **C. Raise the CPU target** | 60% to 80% | none | the spike hit 93%, so it can still trigger |
+| **D. Accept it** | leave as is | about 4 extra server-hours in 15 hours observed, roughly +28% frontend instance-hours (my estimate from the audit-log times) | none |
+
+A longer cool-down won't help, so I'm withdrawing that suggestion. Don't change anything until the commands confirm the cause.
+
+## Group sizes now
+
+Both groups are at 1 server, so you can push a frontend or backend change without stacking on extra servers. The next frontend build will also give a readable cleanup dry-run log.
+
+Paste the three outputs from the frontend server and the backend one.
