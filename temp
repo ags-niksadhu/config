@@ -1,57 +1,119 @@
-Pushing the Packer files started a build in each repo. Nothing is live-changed until a build's rolling update finishes. Run this in Cloud Shell about 10 minutes from now. It's read-only:
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-khkg:~$ P=pg-ae-n-app-125609
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-khkg:~$ for S in backend frontend; do
+>   N=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(name)" --limit=1)
+>   Z=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(zone.basename())" --limit=1)
+>   echo "== $N"
+>   gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="uptime; sudo tail -n 4 /var/log/unattended-upgrades/unattended-upgrades.log | cut -c1-170"
+> done
+== cn-backend-mig-regional-khkg
+WARNING: The private SSH key file for gcloud does not exist.
+WARNING: The public SSH key file for gcloud does not exist.
+WARNING: You do not have an SSH key for gcloud.
+WARNING: SSH keygen will be executed to generate a key.
+This tool needs to create the directory [/home/nikul_sadhu_gcp_pwc_com/.ssh] before being able to generate SSH keys.
 
-```bash
-P=pg-ae-n-app-125609
+Do you want to continue (Y/n)?  Y
+Please enter 'y' or 'n':  y
+
+Generating public/private rsa key pair.
+Enter passphrase (empty for no passphrase):
+Enter same passphrase again:
+Your identification has been saved in /home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_engine
+Your public key has been saved in /home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_engine.pub
+The key fingerprint is:
+SHA256:HcFWUTisDwwhztum8KHZNIEneOZV26xGBdNOqWS/54w nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-khkg.c.pg-ae-n-app-125609.internal
+The key's randomart image is:
++---[RSA 3072]----+
+|      . ==o+o+.  |
+|   . + o+**.+    |
+|  . = *ooO+. .   |
+|   + + =.o*.     |
+|    o = S .+     |
+|     B *  . o    |
+|    o +    =     |
+|          E o    |
+|                 |
++----[SHA256]-----+
+ 09:54:51 up 13 min,  2 users,  load average: 0.19, 0.18, 0.16
+tail: cannot open '/var/log/unattended-upgrades/unattended-upgrades.log' for reading: No such file or directory
+== cn-frontend-mig-regional-1dv8
+ 09:55:09 up 15 min,  1 user,  load average: 0.09, 0.09, 0.09
+tail: cannot open '/var/log/unattended-upgrades/unattended-upgrades.log' for reading: No such file or directory
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-khkg:~$
+
+
+
+
+
+
+
+
+
+
+
+
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ P=pg-ae-n-app-125609
+curl -s -G -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://monitoring.googleapis.com/v3/projects/$P/timeSeries" \
+ --data-urlencode 'filter=metric.type="compute.googleapis.com/instance/cpu/utilization" AND metric.labels.instance_name=starts_with("cn-frontend-mig-regional")' \
+ --data-urlencode "interval.startTime=2026-10-05T07:50:00Z" --data-urlencode "interval.endTime=2026-10-05T08:15:00Z" \
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ P=pg-ae-n-app-125609
 date -u
 gcloud builds list --region=me-central2 --project=$P --limit=4 --format="table(createTime,status,substitutions.TRIGGER_NAME,substitutions.SHORT_SHA)"
 echo "== KEY LINES FROM BUILD LOGS =="
 gcloud logging read "logName=\"projects/$P/logs/cloudbuild\" AND (textPayload:\"upgraded,\" OR textPayload:\"APP IS UP\" OR textPayload:\"APACHE PATH OK\" OR textPayload:\"FATAL\" OR textPayload:\"matched pipeline templates\" OR textPayload:\"DRY RUN would delete\" OR textPayload:\"SKIP in use\" OR textPayload:\"Group is stable\")" --project=$P --freshness=2h --limit=40 --format="value(timestamp,resource.labels.build_id,textPayload)" | cut -c1-200 | sort
 echo "== GROUPS =="
 gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize,instanceTemplate.basename())"
-```
-Both builds ran after `_Default` was re-enabled, so their logs are readable now.
+Mon Oct  5 09:53:26 AM UTC 2026
+CREATE_TIME: 2026-10-05T09:30:48+00:00
+STATUS: SUCCESS
+TRIGGER_NAME: careernavigator-backend-staging
+SHORT_SHA: 6a5ff7e
 
-## What success looks like
+CREATE_TIME: 2026-10-05T09:30:17+00:00
+STATUS: SUCCESS
+TRIGGER_NAME: careernavigator-frontend-staging
+SHORT_SHA: 809b228
 
-| Check | Expected |
-|---|---|
-| Builds | both `SUCCESS` for the new commits. A rollout can take 15 to 20 minutes, so `WORKING` means wait |
-| `upgraded,` line | an apt summary such as `26 upgraded, …`, showing the build patched the image |
-| `APP IS UP` and, for the frontend, `APACHE PATH OK` | as in earlier builds |
-| `Group is stable` | the rolling update finished |
-| Frontend cleanup | `matched pipeline templates: 8`, and three dry-run lines: `13633c6`, `7696009` and `b0ad954`, each with its image. They're the three oldest beyond `KEEP=5`. This is the first readable proof that the filter fix works |
-| Backend cleanup | `matched pipeline templates: 5`, and no deletion lines, because 5 equals the keep count |
-| Groups | both at size 1, with the new template names |
+CREATE_TIME: 2026-10-05T07:26:02+00:00
+STATUS: SUCCESS
+TRIGGER_NAME: careernavigator-frontend-staging
+SHORT_SHA: 3255267
 
-Before you ever set `DRY_RUN=0`, check the names in those lines.
+CREATE_TIME: 2026-10-05T06:29:38+00:00
+STATUS: SUCCESS
+TRIGGER_NAME: careernavigator-backend-staging
+SHORT_SHA: bd3b2bb
+== KEY LINES FROM BUILD LOGS ==
+2026-10-05T09:34:28.822488350Z  5ba9b161-512c-409b-a00d-ec2cbf3db425    Step #3 - "Build Packer Image": ==> googlecompute.frontend: 26 upgraded, 0 newly installed, 0 to remove and 3 not upgraded.
+09:34:55.223525282Z     5ba9b161-512c-409b-a00d-ec2cbf3db425    Step #3 - "Build Packer Image": ==> googlecompute.frontend: 0 upgraded, 1 newly installed, 0 to remove and 3 not upgraded.
+09:35:01.516052420Z     5ba9b161-512c-409b-a00d-ec2cbf3db425    Step #3 - "Build Packer Image": ==> googlecompute.frontend: 0 upgraded, 11 newly installed, 0 to remove and 3 not upgraded.
+09:35:52.309028579Z     5ba9b161-512c-409b-a00d-ec2cbf3db425    Step #3 - "Build Packer Image": ==> googlecompute.frontend: 0 upgraded, 0 newly installed, 0 to remove and 3 not upgraded.
+09:35:53.506531207Z     5ba9b161-512c-409b-a00d-ec2cbf3db425    Step #3 - "Build Packer Image": ==> googlecompute.frontend: 0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
+09:36:07.372445623Z     5ba9b161-512c-409b-a00d-ec2cbf3db425    Step #3 - "Build Packer Image": ==> googlecompute.frontend: 0 upgraded, 1 newly installed, 0 to remove and 3 not upgraded.
+09:36:24.272297935Z     7fcacd13-3731-478e-a287-d4e3fea01f1e    Step #3 - "Build Packer Image": ==> googlecompute.backend: 26 upgraded, 0 newly installed, 0 to remove and 3 not upgraded.
+09:36:35.715069637Z     5ba9b161-512c-409b-a00d-ec2cbf3db425    Step #3 - "Build Packer Image": ==> googlecompute.frontend: APP IS UP
+2026-10-05T09:36:35.750289214Z  5ba9b161-512c-409b-a00d-ec2cbf3db425    Step #3 - "Build Packer Image": ==> googlecompute.frontend: APACHE PATH OK
+2026-10-05T09:36:54.273083241Z  7fcacd13-3731-478e-a287-d4e3fea01f1e    Step #3 - "Build Packer Image": ==> googlecompute.backend: 0 upgraded, 1 newly installed, 0 to remove and 3 not upgraded.
+2026-10-05T09:37:01.332224598Z  7fcacd13-3731-478e-a287-d4e3fea01f1e    Step #3 - "Build Packer Image": ==> googlecompute.backend: 0 upgraded, 11 newly installed, 0 to remove and 3 not upgraded.
+09:37:34.521079825Z     7fcacd13-3731-478e-a287-d4e3fea01f1e    Step #3 - "Build Packer Image": ==> googlecompute.backend: 0 upgraded, 0 newly installed, 0 to remove and 3 not upgraded.
+2026-10-05T09:37:35.846658169Z  7fcacd13-3731-478e-a287-d4e3fea01f1e    Step #3 - "Build Packer Image": ==> googlecompute.backend: 0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
+2026-10-05T09:37:50.191110790Z  7fcacd13-3731-478e-a287-d4e3fea01f1e    Step #3 - "Build Packer Image": ==> googlecompute.backend: 0 upgraded, 1 newly installed, 0 to remove and 3 not upgraded.
+2026-10-05T09:38:19.567722324Z  7fcacd13-3731-478e-a287-d4e3fea01f1e    Step #3 - "Build Packer Image": ==> googlecompute.backend: APP IS UP
+2026-10-05T09:43:05.841008720Z  5ba9b161-512c-409b-a00d-ec2cbf3db425    Step #6 - "Verify Rollout Health": Group is stable
+2026-10-05T09:43:11.083814593Z  5ba9b161-512c-409b-a00d-ec2cbf3db425    Step #7 - "Cleanup Old Packer Artifacts": matched pipeline templates: 8
+2026-10-05T09:43:13.311005884Z  5ba9b161-512c-409b-a00d-ec2cbf3db425    Step #7 - "Cleanup Old Packer Artifacts": DRY RUN would delete template cn-frontend-template-13633c6 and image cn-frontend-image-136
+2026-10-05T09:43:15.440731047Z  5ba9b161-512c-409b-a00d-ec2cbf3db425    Step #7 - "Cleanup Old Packer Artifacts": DRY RUN would delete template cn-frontend-template-7696009 and image cn-frontend-image-769
+2026-10-05T09:43:17.676395314Z  5ba9b161-512c-409b-a00d-ec2cbf3db425    Step #7 - "Cleanup Old Packer Artifacts": DRY RUN would delete template cn-frontend-template-b0ad954 and image cn-frontend-image-b0a
+2026-10-05T09:52:19.691793203Z  7fcacd13-3731-478e-a287-d4e3fea01f1e    Step #6 - "Verify Rollout Health": Group is stable
+2026-10-05T09:52:25.345844262Z  7fcacd13-3731-478e-a287-d4e3fea01f1e    Step #7 - "Cleanup Old Packer Artifacts": matched pipeline templates: 5
+== GROUPS ==
+NAME: cn-backend-mig-regional
+SIZE: 2
+TARGET_SIZE: 2
+INSTANCE_TEMPLATE: cn-backend-template-6a5ff7e
 
-## If a build fails
-
-Rolling updates replace servers only after a successful build, so a failure changes nothing live. Send me the build id and:
-```bash
-gcloud builds describe BUILD_ID --region=me-central2 --project=$P --format="yaml(status,failureInfo,steps[].id,steps[].status)"
-```
-The likeliest cause is the new `apt-get upgrade` restarting SSH and dropping Packer's connection. I expect a restart to be deferred, but I haven't proven it. Revert that commit to restore the old behavior.
-
-## The real test comes about an hour after the new servers boot
-
-Both servers' upgrade timers fire 25 to 60 minutes after boot. Check them then, from the backend server (it's inside the VPC, and Cloud Shell isn't):
-```bash
-P=pg-ae-n-app-125609
-for S in backend frontend; do
-  N=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(name)" --limit=1)
-  Z=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(zone.basename())" --limit=1)
-  echo "== $N"
-  gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="uptime; sudo tail -n 4 /var/log/unattended-upgrades/unattended-upgrades.log | cut -c1-170"
-done
-gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize)"
-```
-If gcloud says reauthentication is needed, run `gcloud auth login --no-launch-browser` first. Success means the log shows no packages, or only a few, and both groups stay at size 1. A server that scales out at that time would show the fix didn't work, and I'd look at CPU again before changing anything else. A server whose uptime is under about 25 minutes may not have hit its timer yet, so wait.
-
-Don't push anything else until both groups are back at 1 after the rollout.
-
-## Still open
-
-The Data Access audit request, VPC flow logs and the budget owner's yes, `_Default` retention, the `_Required` exception, the key-line decision, the secrets work and the `US` bucket.
-
-Paste the first block's output.
+NAME: cn-frontend-mig-regional
+SIZE: 1
+TARGET_SIZE: 1
+INSTANCE_TEMPLATE: cn-frontend-template-809b228
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
