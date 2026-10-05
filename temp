@@ -1,49 +1,55 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ P=pg-ae-n-app-125609
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ gcloud compute instances list --project=$P --filter="status=RUNNING" --format="table(name,id)"
-NAME                                         ID
-cn-backend-mig-regional-wtpg                 2364474070360032675
-cn-frontend-mig-regional-32tm                9034653728106251717
-packer-6ac33927-a392-3e36-2dc0-df95caeb7441  3655176064238258116
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ gcloud logging read "logName:\"projects/$P/logs/backend_\" OR logName:\"projects/$P/logs/frontend_\"" --project=$P --freshness=30m --limit=30 --format="table(timestamp,logName.basename(),resource.labels.instance_id)"
-TIMESTAMP                       LOG_NAME                INSTANCE_ID
-2026-10-05T06:26:22.863576399Z  backend_pm2_out         2364474070360032675
-2026-10-05T06:26:22.862184109Z  backend_pm2_out         2364474070360032675
-2026-10-05T06:26:22.742031453Z  backend_pm2_out         2364474070360032675
-2026-10-05T06:26:22.742027003Z  backend_pm2_out         2364474070360032675
-2026-10-05T06:26:22.415271841Z  backend_pm2_out         2364474070360032675
-2026-10-05T06:26:22.415266431Z  backend_pm2_out         2364474070360032675
-2026-10-05T06:26:21.866749969Z  frontend_apache_access  9034653728106251717
-2026-10-05T06:26:21.682188107Z  frontend_apache_access  9034653728106251717
-2026-10-05T06:26:21.537209781Z  frontend_apache_access  9034653728106251717
-2026-10-05T06:26:21.466198050Z  backend_apache_access   2364474070360032675
-2026-10-05T06:26:21.250855955Z  backend_apache_access   2364474070360032675
-2026-10-05T06:26:20.927695832Z  backend_apache_access   2364474070360032675
-2026-10-05T06:26:16.866966404Z  frontend_apache_access  9034653728106251717
-2026-10-05T06:26:16.682652153Z  frontend_apache_access  9034653728106251717
-2026-10-05T06:26:16.537609748Z  frontend_apache_access  9034653728106251717
-2026-10-05T06:26:12.863462091Z  backend_pm2_out         2364474070360032675
-2026-10-05T06:26:12.862004941Z  backend_pm2_out         2364474070360032675
-2026-10-05T06:26:12.741041695Z  backend_pm2_out         2364474070360032675
-2026-10-05T06:26:12.740629885Z  backend_pm2_out         2364474070360032675
-2026-10-05T06:26:12.415139842Z  backend_pm2_out         2364474070360032675
-2026-10-05T06:26:12.414470742Z  backend_pm2_out         2364474070360032675
-2026-10-05T06:26:11.867576222Z  frontend_apache_access  9034653728106251717
-2026-10-05T06:26:11.683727307Z  frontend_apache_access  9034653728106251717
-2026-10-05T06:26:11.538176313Z  frontend_apache_access  9034653728106251717
-2026-10-05T06:26:11.464950772Z  backend_apache_access   2364474070360032675
-2026-10-05T06:26:11.250261567Z  backend_apache_access   2364474070360032675
-2026-10-05T06:26:10.927490695Z  backend_apache_access   2364474070360032675
-2026-10-05T06:26:06.870403076Z  frontend_apache_access  9034653728106251717
-2026-10-05T06:26:06.685575872Z  frontend_apache_access  9034653728106251717
-2026-10-05T06:26:06.539266570Z  frontend_apache_access  9034653728106251717
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ gcloud compute instance-templates list --project=pg-ae-n-app-125609 --filter="properties.labels.managed-by=cloudbuild-packer" --format="table(name,selfLink.scope(projects))"
-NAME                          SELF_LINK
-cn-backend-template-054eefc   pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-backend-template-054eefc
-cn-backend-template-53262df   pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-backend-template-53262df
-cn-backend-template-ffc8a89   pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-backend-template-ffc8a89
-cn-frontend-template-0ae7410  pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-0ae7410
-cn-frontend-template-13633c6  pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-13633c6
-cn-frontend-template-70499c9  pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-70499c9
-cn-frontend-template-7696009  pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-7696009
-cn-frontend-template-b0ad954  pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-b0ad954
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$
+## What this shows
+
+- **The new servers ship logs.** The entries come from instance `2364474070360032675` (`cn-backend-mig-regional-wtpg`) and `9034653728106251717` (`cn-frontend-mig-regional-32tm`), both running MIG servers. This confirms `backend_apache_access`, `backend_pm2_out` and `frontend_apache_access`. In this 30-line window I did not see `frontend_pm2_out`, the `*_auth_log` logs or any error logs. They're less frequent, so one 30-line sample can't show them.
+- **The cleanup diagnosis was right.** `properties.labels.managed-by` matches 8 pipeline templates: 3 backend and 5 frontend. The old filter matched none. Apply the corrected cleanup step from my last message. With `KEEP=5`, the frontend has exactly 5, so nothing would be deleted until the next build.
+- **A Packer VM is running right now,** so a build is in progress. That's normal.
+
+## Check every log name (read-only)
+
+```bash
+P=pg-ae-n-app-125609
+gcloud logging read "logName:\"projects/$P/logs/backend_\" OR logName:\"projects/$P/logs/frontend_\"" --project=$P --freshness=2h --limit=2000 --format="value(logName.basename())" | sort | uniq -c
+```
+It shows how many entries each log name received in the last 2 hours. A name missing from the list means that path or receiver isn't working. `*_error` logs may legitimately be empty.
+
+## The key exposure is now live
+
+PM2 logs started shipping, and `backend_pm2_out` is writing a burst of entries every 10 seconds. That log goes to `_Default`, which keeps entries 90 days, and entries can't be edited once stored. If the `DDDDDD` key line prints on those requests, the key is being stored every few seconds. I can't tell from these outputs whether it does. This check prints only a timestamp, never the value:
+```bash
+gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND textPayload:\"DDDDDD\"" --project=$P --freshness=30m --limit=1 --format="value(timestamp)"
+```
+If it prints a timestamp, the line is being logged.
+
+**Interim control while the dev team decides (Console):**
+1. Logging → Log Router → the `_Default` sink → Edit sink.
+2. Under exclusion filters, add one named `exclude-key-debug` with this filter:
+```
+logName="projects/pg-ae-n-app-125609/logs/backend_pm2_out" AND textPayload:"DDDDDD"
+```
+3. Save.
+
+**Effects:** it drops only entries containing that marker before storage, and it reduces ingestion. It's reversible. It doesn't touch what's already stored, and it doesn't fix the source. The dev team still needs to remove the line. If that key is real, treat it as exposed and rotate it.
+
+I haven't confirmed how Ops Agent shapes these entries. The filter assumes plain text in `textPayload`. If the check above prints nothing but you still see the marker in the Console, tell me the entry's field and I'll adjust.
+
+## Retention: quick patch or long-term fix
+
+Logs have only flowed since today, so there's no history at risk yet.
+
+| | Quick patch | Long-term fix |
+|---|---|---|
+| What | Raise `_Default` retention from 90 to 180 days | New `me-central2` bucket with 180 days, route logs into it, exclude from `_Default` |
+| Meets 6 months | yes | yes |
+| Meets `me-central2` | no | yes |
+| Cost | longer retention is billed beyond the default | same, without duplicate storage |
+
+**Recommendation:** the long-term fix. The quick patch: Logging → Logs Storage → `_Default` → Edit → Retention 180 days → Save. It doesn't solve location.
+
+## Still waiting on you
+
+1. Has the `cn-staging-logs-me2` bucket been created, or is global storage acceptable to compliance?
+2. The budget owner's yes for the recurring costs.
+3. Compliance's answers on flow and load balancer logs, and the `_Required` exception.
+4. The dev team's decision on the key line and on logging request bodies.
+
+Paste the two check outputs and tell me whether you applied the exclusion.
