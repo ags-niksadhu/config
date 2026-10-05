@@ -1,11 +1,40 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ # Running process env, as the owner user
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ sudo -u sa_108691235514385689272 -H pm2 env 0 | grep -i SECRET
-SECRET_LOCATION: me-central2
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ # Same via /proc, with sudo applied to the whole command
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ sudo bash -c "tr '\0' '\n' < /proc/1199/environ | grep -i SECRET"
+Confirmed: the running process has `SECRET_LOCATION=me-central2`, all 18 hashes match, and both MIG instances are on the same template. It is safe to disable.
 
-# Where is it set, if anywhere
-sudo grep -rn "SECRET_LOCATION" /var/www/careernavigator-backend --include=*.js --include=*.ts --include=.env* --exclude-dir=node_modules 2>/dev/null | headSECRET_LOCATION=me-central2
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$
+⚠️ Reversible (Disable, not Destroy). Run in Cloud Shell, or on this server without the `rg` override set:
 
+```bash
+P=pg-ae-n-app-125609
+for s in $(gcloud secrets list --project=$P --filter="name~CN_STAGING_" --format="value(name.basename())"); do
+  for v in $(gcloud secrets versions list $s --project=$P --filter="state=ENABLED" --format="value(name.basename())"); do
+    gcloud secrets versions disable $v --secret=$s --project=$P --quiet && echo "disabled $s v$v"
+  done
+done
+```
+
+**Verify (all must show 0):**
+
+```bash
+for s in $(gcloud secrets list --project=$P --filter="name~CN_STAGING_" --format="value(name.basename())"); do
+  echo "$s enabled: $(gcloud secrets versions list $s --project=$P --filter='state=ENABLED' --format='value(name.basename())' | wc -l)"
+done
+```
+
+**Prove a fresh instance still works (this is the real test):**
+
+```bash
+gcloud compute instance-groups managed rolling-action replace cn-backend-mig-regional --region=me-central2 --project=$P --max-surge=1 --max-unavailable=0
+```
+
+Then confirm the new instances reach `HEALTHY`, since `SECRET_LOCATION` was not found in `ecosystem.config.js` and must be set by another source (template or startup script) that new instances inherit. If the new instances fail to start, run the rollback.
+
+**Rollback:**
+
+```bash
+for s in $(gcloud secrets list --project=$P --filter="name~CN_STAGING_" --format="value(name.basename())"); do
+  for v in $(gcloud secrets versions list $s --project=$P --filter="state=DISABLED" --format="value(name.basename())"); do
+    gcloud secrets versions enable $v --secret=$s --project=$P --quiet
+  done
+done
+```
+
+Once stable for a few days, delete the global secrets to remove the residency exception. This applies to the backend only; if the frontend reads any `CN_STAGING_*` secret, tell me before running.
