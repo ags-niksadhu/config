@@ -1,41 +1,62 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ P=pg-ae-n-app-125609
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ N=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(name)" --limit=1)
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ Z=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(zone.basename())" --limit=1)
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ echo $N
-cn-frontend-mig-regional-c6s2
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="sudo grep -E 'Start-Date|End-Date' /var/log/apt/history.log | tail -10; echo ---; sudo tail -n 20 /var/log/unattended-upgrades/unattended-upgrades.log | cut -c1-170; echo ---; systemctl list-timers --all --no-pager | grep -E 'NEXT|apt'"
-Start-Date: 2026-10-05  08:10:30
-End-Date: 2026-10-05  08:10:31
-Start-Date: 2026-10-05  08:10:37
-End-Date: 2026-10-05  08:10:38
-Start-Date: 2026-10-05  08:10:42
-End-Date: 2026-10-05  08:10:43
-Start-Date: 2026-10-05  08:10:48
-End-Date: 2026-10-05  08:10:49
-Start-Date: 2026-10-05  08:10:53
-End-Date: 2026-10-05  08:10:53
----
-2026-10-05 08:08:20,580 INFO Starting unattended upgrades script
-2026-10-05 08:08:20,581 INFO Allowed origins are: o=Ubuntu,a=noble, o=Ubuntu,a=noble-security, o=UbuntuESMApps,a=noble-apps-security, o=UbuntuESM,a=noble-infra-security
-2026-10-05 08:08:20,581 INFO Initial blacklist:
-2026-10-05 08:08:20,581 INFO Initial whitelist (not strict):
-2026-10-05 08:08:40,194 INFO Packages that will be upgraded: dracut-install gir1.2-glib-2.0 libevent-core-2.1-7t64 libexpat1 libglib2.0-0t64 libglib2.0-bin libglib2.0-dat
-2026-10-05 08:08:40,195 INFO Writing dpkg log to /var/log/unattended-upgrades/unattended-upgrades-dpkg.log
-2026-10-05 08:10:59,042 INFO All upgrades installed
----
-NEXT                            LEFT LAST                              PASSED UNIT                            ACTIVATES
-Mon 2026-10-05 13:30:45 UTC 4h 11min Sat 2026-09-26 20:02:07 UTC            - apt-daily.timer                 apt-daily.service
-Tue 2026-10-06 06:31:50 UTC      21h Mon 2026-10-05 08:08:18 UTC 1h 11min ago apt-daily-upgrade.timer         apt-daily-upgrade.service
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ sudo grep -E 'Start-Date|End-Date' /var/log/apt/history.log | tail -8; sudo tail -n 8 /var/log/unattended-upgrades/unattended-upgrades.log | cut -c1-170; systemctl list-timers --all --no-pager | grep -E 'NEXT|apt'
-Start-Date: 2026-10-05  06:35:52
-End-Date: 2026-10-05  06:35:58
-Start-Date: 2026-10-05  06:36:07
-End-Date: 2026-10-05  06:36:18
-Start-Date: 2026-10-05  06:36:57
-End-Date: 2026-10-05  06:37:05
-tail: cannot open '/var/log/unattended-upgrades/unattended-upgrades.log' for reading: No such file or directory
-NEXT                            LEFT LAST                           PASSED UNIT                            ACTIVATES
-Mon 2026-10-05 09:22:05 UTC 1min 46s Sat 2026-09-26 20:02:08 UTC         - apt-daily-upgrade.timer         apt-daily-upgrade.service
-Mon 2026-10-05 11:20:06 UTC 1h 59min Sat 2026-09-26 20:02:07 UTC         - apt-daily.timer                 apt-daily.service
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$
+## The timing matches the hypothesis
 
+On `c6s2` (the frontend server that was alone until 08:09):
+
+| Time (UTC) | Event |
+|---|---|
+| 07:44 | server boots |
+| 08:08:18 | `apt-daily-upgrade.timer` fires |
+| 08:08:20 | unattended upgrades start, then run package upgrades: 08:08:40 "Packages that will be upgraded: dracut-install … libglib2.0 …" |
+| 08:09 | CPU 49%, scale-out at 08:09:03 |
+| 08:10 to 08:11 | CPU 93% then 75% |
+| 08:10:59 | `All upgrades installed` |
+
+CPU rose in the same minutes the upgrade was running and settled after it finished. The frontend upgrade is the best fit I have. It's circumstantial, because I haven't seen per-process CPU, but the minute-by-minute match is close.
+
+**The backend explains the 07:34 pair.** Its `apt-daily-upgrade.timer` is due in 1 minute 46 seconds (09:22), so it fires on its own shortly after boot, in a randomized window. A fresh backend server will do the same: it started at 08:33, and the timer fires about 45 minutes later. The backend's upgrade log doesn't exist yet, so it hasn't run on this server. The next scale-out on the backend, if this is right, should appear around 09:22 to 09:25.
+
+You can watch this directly, within the next few minutes on the backend server:
+```bash
+date -u; ls /var/log/unattended-upgrades/ 2>/dev/null
+top -b -n1 | head -12
+```
+and check the autoscaler's size shortly after:
+```bash
+gcloud compute instance-groups managed list --project=pg-ae-n-app-125609 --format="table(name,size,targetSize)"
+```
+
+## Why every new server does this
+
+Your servers are built from an image that gets frozen at build time, then boots with a fresh upgrade timer. So every new server, whether from a deploy or an autoscale, applies pending package updates shortly after boot. On a shared-core `e2-medium`, that can mean a few minutes at high CPU, and the autoscaler counts it as load.
+
+## Options
+
+| | What | Cost | Complexity | Trade-off |
+|---|---|---|---|---|
+| **A. Patch the image at build time and disable the boot-time upgrade timers** | in each Packer file, run `apt-get upgrade` once during the build, then disable `apt-daily.timer` and `apt-daily-upgrade.timer` | none | low | servers no longer patch themselves after boot, so patches arrive only with a rebuild. Compliance may require automatic patching, so ask |
+| **B. Keep timers, delay the first run** | a systemd drop-in so the upgrade runs only in a quiet window | none | medium | I haven't verified the exact settings |
+| **C. Raise the autoscaler's CPU target** | 60% to 80% | none | low | the frontend peaked at 93%, so it may still trigger |
+| **D. A bigger machine type** | non-shared-core, higher cost per server | higher | low | solves the symptom but costs more |
+| **E. Accept it** | leave as is | the extra server-hours seen so far | none | you keep paying roughly 4 extra server-hours in 15 hours |
+
+**Recommendation: A**, if compliance accepts patching through rebuilds. It's the standard golden-image approach: the image is patched when built, and servers are replaced instead of patched. Your pipeline rebuilds on every push, but quiet weeks mean stale images, so a scheduled monthly rebuild would be needed. I'd ask compliance first, because some policies require automatic security updates on servers.
+
+**What I'd add to the Packer provisioner,** in both repos, before the Ops Agent lines. I haven't tested these on your image:
+```
+      "sudo apt-get update",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get -y upgrade",
+      "sudo systemctl disable --now apt-daily.timer apt-daily-upgrade.timer",
+```
+`apt-get upgrade` during the build adds a few minutes to it. If the timers are masked by an image policy, the last line may fail, and the build would stop, which is a safe failure.
+
+**Effects and rollback:** a rolling update, no downtime. Revert the commit to go back. The image would be patched as of its build date, and you should record that in your compliance notes.
+
+## Do you want it?
+
+Tell me whether compliance accepts patching by image rebuild, and I'll give you both full `.pkr.hcl` files. Until then, don't change anything. The backend should confirm the theory when it fires at about 09:22.
+
+## Still open
+
+The Data Access audit request, flow logs, `_Default` retention, the `_Required` exception, the key line, the secrets work, the `US` bucket and the frontend cleanup dry run (next frontend build) are all unchanged.
+
+Paste what the backend shows after 09:22.
