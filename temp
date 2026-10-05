@@ -1,34 +1,37 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND jsonPayload.message:\"DDDDDD\"" --project=$P --freshness=12h --limit=1 --format="value(timestamp)"
-ERROR: (gcloud.logging.read) The project property is set to the empty string, which is invalid.
-To set your project, run:
+The error is only an empty shell variable. This is a new server (`lpw9`), so the `P` variable you set earlier doesn't exist in this shell. `--project=$P` became `--project=`, which gcloud rejects. Setting the default project didn't help, because the explicit empty flag overrides it. Define `P` again, and do it each time you land on a new server.
 
-  $ gcloud config set project PROJECT_ID
+## Run this block
 
-or to unset it, run:
+```bash
+P=pg-ae-n-app-125609
+gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND jsonPayload.message:\"DDDDDD\"" --project=$P --freshness=12h --limit=1 --format="value(timestamp)"
+gcloud logging read 'logName:"logs/backend_" OR logName:"logs/frontend_"' --bucket=cn-staging-logs-me2 --location=me-central2 --view=_AllLogs --project=$P --freshness=30m --limit=10 --format="table(timestamp,logName.basename())"
+gcloud logging sinks describe route-to-me2 --project=$P --format="yaml(filter,exclusions,destination,disabled)"
+gcloud logging sinks describe _Default --project=$P --format="yaml(filter,exclusions,disabled)"
+```
 
-  $ gcloud config unset project
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud config set project pg-ae-n-app-125609
-[environment: untagged] Read more to tag: g.co/cloud/project-env-tag.
-Updated property [core/project].
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND jsonPayload.message:\"DDDDDD\"" --project=$P --freshness=12h --limit=1 --format="value(timestamp)"
-ERROR: (gcloud.logging.read) The project property is set to the empty string, which is invalid.
-To set your project, run:
+## What each result means
 
-  $ gcloud config set project PROJECT_ID
+| Command | Result | Meaning |
+|---|---|---|
+| 1. Key line, 12h | prints a timestamp | the key line was stored in that window, so the dev team must remove it |
+| | prints nothing | not seen in 12 hours, but it may only appear on certain code paths |
+| 2. New bucket | rows with `backend_…` and `frontend_…` | the sink works |
+| | empty | wait 5 minutes, then check command 3 for the destination and the filter. If gcloud rejects the flags, use Logs Explorer → Refine scope → Log views and pick the new bucket |
+| 3. `route-to-me2` | `filter` matches the `_Default` one exactly | no log type is missed |
+| 4. `_Default` | `exclusions` list | shows whether the key-line exclusion is on `_Default` too |
 
-or to unset it, run:
+## Things to confirm
 
-  $ gcloud config unset project
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud config set project pg-ae-n-app-125609
-[environment: untagged] Read more to tag: g.co/cloud/project-env-tag.
-Updated property [core/project].
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND jsonPayload.message:\"DDDDDD\"" --project=$P --freshness=12h --limit=1 --format="value(timestamp)"
-ERROR: (gcloud.logging.read) The project property is set to the empty string, which is invalid.
-To set your project, run:
+- **The key-line exclusion has to be on both sinks.** If only `route-to-me2` has it, `_Default` still stores the key line. If command 4 shows no exclusion, add one in the Console: Log Router → `_Default` → Edit → add exclusion `exclude-key-debug` with the same filter.
+- **Both sinks are enabled now,** so every entry is stored twice (global and `me-central2`) while you verify. That's temporary.
 
-  $ gcloud config set project PROJECT_ID
+## When to disable `_Default`
 
-or to unset it, run:
+Not yet. Do it only after command 2 shows entries from **both** backend and frontend logs in the new bucket. Then Log Router → `_Default` → ⋮ → Disable sink.
 
-  $ gcloud config unset project
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
+⚠️ `_Required` stays global, and entries already in `_Default` stay until their retention expires.
+
+**Rollback:** re-enable `_Default` and delete `route-to-me2`.
+
+Paste the outputs of the four commands.
