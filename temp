@@ -1,48 +1,62 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-khkg:~$ P=pg-ae-n-app-125609
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-khkg:~$ for S in backend frontend; do
->   N=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(name)" --limit=1)
->   Z=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(zone.basename())" --limit=1)
->   echo "== $N"
->   gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="uptime; sudo tail -n 4 /var/log/unattended-upgrades/unattended-upgrades.log | cut -c1-170; ps -eo pcpu,comm --sort=-pcpu | head -4"
-> done
-== cn-backend-mig-regional-khkg
- 09:59:24 up 17 min,  2 users,  load average: 0.04, 0.12, 0.15
-tail: cannot open '/var/log/unattended-upgrades/unattended-upgrades.log' for reading: No such file or directory
-%CPU COMMAND
-27.4 python3
-18.0 systemd
- 9.1 ssh
-== cn-frontend-mig-regional-1dv8
- 09:59:40 up 20 min,  1 user,  load average: 0.22, 0.10, 0.09
-tail: cannot open '/var/log/unattended-upgrades/unattended-upgrades.log' for reading: No such file or directory
-%CPU COMMAND
-16.6 systemd
- 2.4 sshd
- 1.1 otelopscol
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-khkg:~$
+## What this shows
 
+| Item | Finding |
+|---|---|
+| Backend servers | `khkg` created 09:40:51 UTC (the rollout) and `p9rn` created 09:48:10 UTC. Console times are PDT, and I converted them. `p9rn` appeared 7 minutes after `khkg`, before the rollout finished at 09:52:19 |
+| Backend autoscaler | `recommendedSize: 2` and `targetSize: 2`. The second server is the autoscaler's decision, not a leftover. I don't know what CPU load it measured |
+| Upgrade log | doesn't exist yet on either server. Uptimes are 17 and 20 minutes, so the timer hasn't fired. This is not a pass or a fail yet |
+| `ps` CPU figures | **don't use them.** `ps` shows each process's average since it started. A 27% reading for `python3` is not current CPU, and I can't tell from this what that process is |
 
+For comparison, the upgrade fired about 24 minutes after boot on the frontend (07:44 boot, 08:08:18) and about 49 minutes after on the backend. Timers on this image show a last-run stamp of Sep 26 20:02, which is the image's creation time. My hypothesis is that each new server runs one catch-up after boot, at a random time within about an hour. I haven't confirmed the timer settings. Now that the image is patched, that run should have almost nothing to install.
 
+## What to run now
 
+**1. In Cloud Shell: per-minute CPU of the backend servers.** It shows whether CPU crossed 60% before `p9rn` appeared, and whether it's still high:
+```bash
+P=pg-ae-n-app-125609
+curl -s -G -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://monitoring.googleapis.com/v3/projects/$P/timeSeries" \
+ --data-urlencode 'filter=metric.type="compute.googleapis.com/instance/cpu/utilization" AND metric.labels.instance_name=starts_with("cn-backend-mig-regional")' \
+ --data-urlencode "interval.startTime=2026-10-05T09:38:00Z" --data-urlencode "interval.endTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+ --data-urlencode "aggregation.alignmentPeriod=60s" --data-urlencode "aggregation.perSeriesAligner=ALIGN_MEAN" \
+ | jq -r '.timeSeries[]? | .metric.labels.instance_name as $n | .points[] | "\($n) \(.interval.endTime) \(.value.doubleValue)"' | sort -k2 | awk '{printf "%s %s %.0f%%\n",$1,substr($2,12,5),$3*100}'
+```
+**2. On the backend server: current CPU rather than a lifetime average.** This takes two samples 5 seconds apart and keeps the second:
+```bash
+top -b -n2 -d5 | awk '/^top/{c++} c==2' | head -12
+```
 
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ P=pg-ae-n-app-125609
-gcloud compute instances list --project=$P --filter="name~cn-backend-mig" --format="table(name,id,creationTimestamp)"
-curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://compute.googleapis.com/compute/v1/projects/$P/regions/me-central2/autoscalers/cn-backend-mig-regional-np3m" | grep -E "recommendedSize|status"
-NAME: cn-backend-mig-regional-khkg
-ID: 7997117104022015566
-CREATION_TIMESTAMP: 2026-10-05T02:40:51.280-07:00
+## Reading the CPU output
 
-NAME: cn-backend-mig-regional-p9rn
-ID: 7965500256323292344
-CREATION_TIMESTAMP: 2026-10-05T02:48:10.284-07:00
-  "status": "ACTIVE",
-  "recommendedSize": 2
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize)"
-NAME: cn-backend-mig-regional
-SIZE: 2
-TARGET_SIZE: 2
+| What you see | Meaning | Likely fix |
+|---|---|---|
+| a CPU spike in the first minutes after each server's creation, then idle | boot-time CPU | raise the autoscaler cool-down so it ignores a new server's first 5 minutes. Console: Instance groups → `cn-backend-mig-regional` → Edit → Autoscaling → Cool-down `300`. No cost. Rollback: set it back to 60 |
+| a spike 25 to 60 minutes after boot | the upgrade timer again | check whether the upgrade log shows packages. If it does, the image patching didn't fully work |
+| steady CPU above 60% | real load, or something running continuously | I'd look at what's running before changing anything |
+| CPU low everywhere but the target is 2 | the recommendation comes from somewhere I haven't seen | I'd ask for the autoscaler's full configuration |
 
-NAME: cn-frontend-mig-regional
-SIZE: 1
-TARGET_SIZE: 1
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
+I withdrew the cool-down idea earlier because those spikes arrived 25 to 62 minutes after boot, and it fits only if this data shows a boot-time spike.
+
+## Recheck the upgrade timing around 10:45 UTC
+
+That's 60 minutes after `khkg` booted. From the backend server:
+```bash
+P=pg-ae-n-app-125609
+for S in backend frontend; do
+  N=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(name)" --limit=1)
+  Z=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(zone.basename())" --limit=1)
+  echo "== $N"
+  gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="uptime; sudo tail -n 4 /var/log/unattended-upgrades/unattended-upgrades.log | cut -c1-170; systemctl list-timers --all --no-pager | grep apt"
+done
+gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize)"
+```
+Success: the log shows no packages or only a few, and the frontend stays at 1. The backend extra server may remain until the autoscaler's 600-second scale-in wait ends.
+
+## Cost
+
+The backend is at 2 `e2-medium` servers now, up to 3, which is recurring spend. Don't change anything until the CPU data is in, because a premature change could hide the cause.
+
+## Still open
+
+The Data Access audit request, VPC flow logs and the budget owner's yes, `_Default` retention, the `_Required` exception, the key-line decision, the secrets work, the `US` bucket and the backend cleanup dry run (it needs a 6th backend template).
+
+Paste the CPU output and the top output.
