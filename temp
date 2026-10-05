@@ -1,59 +1,38 @@
-## Results
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ P=pg-ae-n-app-125609
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ Z=$(gcloud compute instances list --project=$P --filter="name=cn-frontend-mig-regional-32tm" --format="value(zone.basename())")
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ gcloud compute ssh cn-frontend-mig-regional-32tm --zone=$Z --project=$P --internal-ip --command="sudo ls -la --time-style=full-iso /home/sa_108691235514385689272/.pm2/logs/ /var/log/apache2/; date -u"
+WARNING: The private SSH key file for gcloud does not exist.
+WARNING: The public SSH key file for gcloud does not exist.
+WARNING: You do not have an SSH key for gcloud.
+WARNING: SSH keygen will be executed to generate a key.
+This tool needs to create the directory [/home/nikul_sadhu_gcp_pwc_com/.ssh] before being able to generate SSH keys.
 
-| Log | Entries (2h) | Status |
-|---|---|---|
-| `backend_apache_access`, `backend_apache_error`, `backend_apache_server_error` | 282 / 18 / 9 | ✅ |
-| `backend_auth_log` | 49 | ✅ |
-| `backend_pm2_out`, `backend_pm2_error` | 1079 / 14 | ✅ |
-| `frontend_apache_access` | 545 | ✅ |
-| `frontend_auth_log` | 4 | ✅ |
-| `frontend_apache_error`, `frontend_apache_server_error`, `frontend_pm2_out`, `frontend_pm2_error` | none | ❓ unconfirmed |
+Do you want to continue (Y/n)?  Y
 
-All six backend receivers work, so the paths there are correct. The four missing frontend logs may be legitimately quiet: Apache errors and PM2 errors only write when something fails, and Next.js prints to `out.log` mostly at startup. I can't tell empty from broken yet. The frontend is also back to one server.
+Generating public/private rsa key pair.
+Enter passphrase (empty for no passphrase):
+Enter same passphrase again:
+Your identification has been saved in /home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_engine
+Your public key has been saved in /home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_engine.pub
+The key fingerprint is:
+SHA256:kb5buMCIGEiM/zdIsRVbk4XkIJy+BkjatOI2tWrJDJc nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg.c.pg-ae-n-app-125609.internal
+The key's randomart image is:
++---[RSA 3072]----+
+|   ...o.++.      |
+|o.. o. *oo       |
+|+* o. o +        |
+|*.+..+ . .       |
+|+.oo+.  S        |
+|.*E=o+   o       |
+|*.=.+ = o .      |
+| *   . o +       |
+|.       o        |
++----[SHA256]-----+
+ERROR: (gcloud.compute.ssh) [/usr/bin/ssh] exited with return code [255].
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND jsonPayload.message:*" --project=$P --freshness=30m --limit=1 --format="value(timestamp)"
+2026-10-05T06:37:12.833561568Z
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND jsonPayload.message:\"DDDDDD\"" --project=$P --freshness=30m --limit=1 --format="value(timestamp)"
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$
 
-## Check the frontend log files (read-only)
 
-```bash
-P=pg-ae-n-app-125609
-Z=$(gcloud compute instances list --project=$P --filter="name=cn-frontend-mig-regional-32tm" --format="value(zone.basename())")
-gcloud compute ssh cn-frontend-mig-regional-32tm --zone=$Z --project=$P --internal-ip --command="sudo ls -la --time-style=full-iso /home/sa_108691235514385689272/.pm2/logs/ /var/log/apache2/; date -u"
-```
-- Files exist, are very small or stale: the logs are just quiet, which is fine.
-- Files are growing but nothing arrives: the path or pattern is wrong, and I'll fix it.
 
-## Correction: my key-line check wasn't reliable
-
-The empty result for `DDDDDD` doesn't prove the line isn't logged. I searched `textPayload`, but I believe the Ops Agent stores unparsed lines in `jsonPayload.message`. I haven't confirmed that. Run these two, which print only timestamps and no values:
-```bash
-gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND jsonPayload.message:*" --project=$P --freshness=30m --limit=1 --format="value(timestamp)"
-gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND jsonPayload.message:\"DDDDDD\"" --project=$P --freshness=30m --limit=1 --format="value(timestamp)"
-```
-- The first printing a timestamp confirms the field.
-- The second printing a timestamp means the key line is being stored.
-
-**If you already added the exclusion filter I gave you:** it uses `textPayload`, so it probably excludes nothing. Replace it, once the first command confirms the field, with:
-```
-logName="projects/pg-ae-n-app-125609/logs/backend_pm2_out" AND jsonPayload.message:"DDDDDD"
-```
-The key line needs removing at the source by the dev team, and the key should be rotated if it's real.
-
-## The `me-central2` log bucket
-
-The bucket step has waited two rounds. I haven't checked how the Log Router handles a sink that duplicates `_Default`, so I'm only giving the first half now.
-
-**Create the bucket (Console):** Logging → Logs Storage → Create log bucket.
-- Name: `cn-staging-logs-me2`
-- Region: `me-central2`
-- Retention: 180 days
-- Create
-
-Cost: retention beyond the default period is billed, and I haven't verified the rate. Nothing is stored until a sink routes logs there. Ask the budget owner before creating a sink, then tell me when the bucket exists. The next steps are a routing sink and an exclusion on `_Default`, and I'll check the docs for exact syntax before giving them.
-
-## Still waiting on you
-
-1. The budget owner's yes for the log costs.
-2. Compliance's answers on flow logs, load balancer logs and the `_Required` exception.
-3. The dev team's decision on the key line and request-body logging.
-4. The cleanup step: apply the corrected version from my earlier message. The filter fix is confirmed, so nothing deletes while `DRY_RUN=1`.
-
-Paste the frontend `ls` output and the two field checks.
