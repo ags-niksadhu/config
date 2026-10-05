@@ -1,26 +1,32 @@
-This confirms the two lists are separate: the global list returns global secrets, the regional list returns regional ones, and `regional OK` means the regional read works. Disabling the global versions will not affect the regional ones.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ P=pg-ae-n-app-125609
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ rg() { CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER=https://secretmanager.me-central2.rep.googleapis.com/ gcloud "$@"; }
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ for s in DB_HOST DB_USERNAME DB_PASSWORD DB_DATABASE DB_PORT GCP_BUCKET GCP_FILE_PATH MAIL_DRIVER MAIL_HOST MAIL_PORT MAIL_USERNAME MAIL_PASSWORD MAIL_FROM_NAME MAIL_FROM_ADDRESS REDIS_HOST REDIS_PORT REDIS_PASSWORD EMAIL_SENDING_ENABLED; do
+>   g=$(gcloud secrets versions access latest --secret=CN_STAGING_$s --project=$P | sha256sum | cut -c1-12)
+>   r=$(rg secrets versions access latest --secret=CN_STAGING_$s --location=me-central2 --project=$P | sha256sum | cut -c1-12)
+>   [ "$g" = "$r" ] && echo "OK   $s" || echo "DIFF $s"
+> done
+OK   DB_HOST
+OK   DB_USERNAME
+OK   DB_PASSWORD
+OK   DB_DATABASE
+OK   DB_PORT
+OK   GCP_BUCKET
+OK   GCP_FILE_PATH
+OK   MAIL_DRIVER
+OK   MAIL_HOST
+OK   MAIL_PORT
+OK   MAIL_USERNAME
+OK   MAIL_PASSWORD
+OK   MAIL_FROM_NAME
+OK   MAIL_FROM_ADDRESS
+OK   REDIS_HOST
+OK   REDIS_PORT
+OK   REDIS_PASSWORD
+OK   EMAIL_SENDING_ENABLED
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ pm2 env 0 | grep -i SECRET_LOCATION
+[PM2][ERROR] Modules with id 0 not found
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$ grep -n "SECRET_LOCATION\|secretmanager" /var/www/careernavigator-backend/dist/common/config/secret-manager.js | head
+7:const location = process.env.SECRET_LOCATION || "";
+9:    ? new secret_manager_1.SecretManagerServiceClient({ apiEndpoint: `secretmanager.${location}.rep.googleapis.com` })
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-82gk:/var/www/careernavigator-backend$
 
-Two checks are still needed before disabling. This output only proves `DB_HOST` is readable, not that all 18 regional values match the global ones, and it does not prove the running app reads regional.
-
-**1. Hash match for all 18 (run on this server):**
-
-```bash
-P=pg-ae-n-app-125609
-rg() { CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER=https://secretmanager.me-central2.rep.googleapis.com/ gcloud "$@"; }
-for s in DB_HOST DB_USERNAME DB_PASSWORD DB_DATABASE DB_PORT GCP_BUCKET GCP_FILE_PATH MAIL_DRIVER MAIL_HOST MAIL_PORT MAIL_USERNAME MAIL_PASSWORD MAIL_FROM_NAME MAIL_FROM_ADDRESS REDIS_HOST REDIS_PORT REDIS_PASSWORD EMAIL_SENDING_ENABLED; do
-  g=$(gcloud secrets versions access latest --secret=CN_STAGING_$s --project=$P | sha256sum | cut -c1-12)
-  r=$(rg secrets versions access latest --secret=CN_STAGING_$s --location=me-central2 --project=$P | sha256sum | cut -c1-12)
-  [ "$g" = "$r" ] && echo "OK   $s" || echo "DIFF $s"
-done
-```
-
-**2. Confirm the running app is on regional:**
-
-```bash
-pm2 env 0 | grep -i SECRET_LOCATION
-grep -n "SECRET_LOCATION\|secretmanager" /var/www/careernavigator-backend/dist/common/config/secret-manager.js | head
-```
-
-Expected output: `SECRET_LOCATION: me-central2` and the `rep.googleapis.com` endpoint in the loader. If either is missing, the app is still on global and disabling will break it on the next restart or scale-out.
-
-Paste both outputs. If all are `OK` and the app is on regional, run the disable loop.
