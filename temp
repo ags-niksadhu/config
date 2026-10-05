@@ -1,64 +1,87 @@
-## What these outputs show
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ P=pg-ae-n-app-125609
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ N=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(name)" --limit=1)
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ Z=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(zone.basename())" --limit=1)
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command='
+> uptime; df -h /var/log | tail -1
+> echo "--- timers"; systemctl list-timers --all --no-pager | head -15
+> echo "--- agents"; systemctl list-units --type=service --no-pager | grep -i -E "nessus|tenable|falcon|crowdstrike|defender|osconfig|unattended"
+> echo "--- rsyslog suspend count"; sudo journalctl -u rsyslog --since "2026-10-05 07:44" --no-pager | grep -c suspended
+> echo "--- top cpu now"; ps -eo pcpu,etime,comm --sort=-pcpu | head -8
+> echo "--- 08:03 to 08:09:30"; sudo journalctl --since "2026-10-05 08:03:00" --until "2026-10-05 08:09:30" --no-pager | grep -v GoogleHC | cut -c1-150 | head -40
+>
+> ^C
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize,instanceTemplate.basename())"
+NAME                      SIZE  TARGET_SIZE  INSTANCE_TEMPLATE
+cn-backend-mig-regional   1     1            cn-backend-template-bd3b2bb
+cn-frontend-mig-regional  1     1            cn-frontend-template-3255267
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$ gcloud builds list --region=me-central2 --project=$P --filter="substitutions.TRIGGER_NAME=careernavigator-backend-staging" --limit=6 --format="table(createTime,status,substitutions.SHORT_SHA)"
+CREATE_TIME                STATUS     SHORT_SHA
+2026-10-05T06:29:38+00:00  SUCCESS    bd3b2bb
+2026-10-05T05:43:19+00:00  SUCCESS    ffc8a89
+2026-10-05T05:42:31+00:00  CANCELLED  e5b63ce
+2026-10-04T20:22:33+00:00  SUCCESS    53262df
+2026-10-04T19:20:17+00:00  SUCCESS    054eefc
+2026-10-04T18:20:04+00:00  SUCCESS    41f3935
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-fbfj:~$
 
-**1. The scanner is ruled out, with one gap.** The Web Security Scanner log has no activity in 24 hours. The 08:09 scale-out falls in the hour `_Default` was disabled, so that one isn't covered, but the six earlier scale-outs are.
 
-**2. My journal command was cut off.** I used `tail -40`, so the output starts at 08:10:36, after the 08:09:03 scale-out. It can't explain that spike. It does show two things on `c6s2` worth a closer look:
-- `rsyslogd` repeatedly suspends and resumes its file-output action within the same second. That usually means writes are failing and retrying. I don't know whether it burns CPU.
-- A daily apt upgrade was still running at 08:10. Its PID (2776) is low, so it started soon after the 07:44 boot. It restarted Apache and polkit at 08:10:44.
 
-Neither is proven as the cause.
 
-**3. Backend autoscaler:** min 1, max 3, cool-down 60s, stabilization 600s, `recommendedSize` 1. Those settings match the frontend's. Its server creations mostly follow builds: the 06:29 build produced five creations in 14 minutes, and one name (`mbbf`) was created several times in 2 minutes, which looks like retries. The pair at 07:34 (`0tjw` and `fgzk`, 16 seconds apart) is the only one I can't classify.
-
-**4. A correction on my earlier recommendation.** I recommended lengthening the cool-down as option A. The timing doesn't support it well. Scale-outs came about 25, 44, 46, 57, 60 and 62 minutes after a server's creation, so a cool-down of a few minutes wouldn't have covered most of them. Don't change the autoscaler yet.
-
-## Two checks that should identify the cause
-
-**Check 1, in Cloud Shell: per-minute CPU of the frontend servers.** It shows whether and when CPU crossed 60% before 08:09:
-```bash
-P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ P=pg-ae-n-app-125609
 curl -s -G -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://monitoring.googleapis.com/v3/projects/$P/timeSeries" \
  --data-urlencode 'filter=metric.type="compute.googleapis.com/instance/cpu/utilization" AND metric.labels.instance_name=starts_with("cn-frontend-mig-regional")' \
  --data-urlencode "interval.startTime=2026-10-05T07:50:00Z" --data-urlencode "interval.endTime=2026-10-05T08:15:00Z" \
  --data-urlencode "aggregation.alignmentPeriod=60s" --data-urlencode "aggregation.perSeriesAligner=ALIGN_MEAN" \
  | jq -r '.timeSeries[]? | .metric.labels.instance_name as $n | .points[] | "\($n) \(.interval.endTime) \(.value.doubleValue)"' | sort -k2 | awk '{printf "%s %s %.0f%%\n",$1,substr($2,12,5),$3*100}'
-```
-I haven't verified this filter. If it prints nothing, rerun without the last two `|` lines and paste the error.
-
-**Check 2, from the backend server: the frontend server's timers, agents and the missing minutes.** It's read-only:
-```bash
-P=pg-ae-n-app-125609
-N=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(name)" --limit=1)
-Z=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(zone.basename())" --limit=1)
-gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command='
-uptime; df -h /var/log | tail -1
-echo "--- timers"; systemctl list-timers --all --no-pager | head -15
-echo "--- agents"; systemctl list-units --type=service --no-pager | grep -i -E "nessus|tenable|falcon|crowdstrike|defender|osconfig|unattended"
-echo "--- rsyslog suspend count"; sudo journalctl -u rsyslog --since "2026-10-05 07:44" --no-pager | grep -c suspended
-echo "--- top cpu now"; ps -eo pcpu,etime,comm --sort=-pcpu | head -8
-echo "--- 08:03 to 08:09:30"; sudo journalctl --since "2026-10-05 08:03:00" --until "2026-10-05 08:09:30" --no-pager | grep -v GoogleHC | cut -c1-150 | head -40
-'
-```
-The old VM had a security agent (`nessus-agent-monitor`) in its process list, and the corporate base image may include scanning agents. That's an inference. The `agents` line will show whether one is on the new servers.
-
-## Read the results like this
-
-| Check 1 shows | Likely meaning |
-|---|---|
-| CPU above 60% on `c6s2` for a few minutes before 08:09 | CPU load triggered it. Check 2 shows what ran then |
-| CPU stays below 60% | something else made the autoscaler grow the group, and I'd look at its recommendation history |
-
-## Backend: confirm it settled
-
-It was at 3 servers, target 1. Check its size and what the 08:24 and 08:33 creations were:
-```bash
-gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize,instanceTemplate.basename())"
-gcloud builds list --region=me-central2 --project=$P --filter="substitutions.TRIGGER_NAME=careernavigator-backend-staging" --limit=6 --format="table(createTime,status,substitutions.SHORT_SHA)"
-```
-If a backend build was triggered near 08:24 and 08:33, those were rollouts. Otherwise they were scale-outs.
-
-## Still waiting on
-
-Compliance exceptions (`_Required`, global logs), the Data Access audit request, flow logs and the budget owner's yes, the `_Default` retention decision, the dev team on the key line, and the secrets work.
-
-Paste the CPU output and the server output.
+cn-frontend-mig-regional-c6s2 07:51 5%
+cn-frontend-mig-regional-fx3z 07:51 6%
+cn-frontend-mig-regional-8vmg 07:51 6%
+cn-frontend-mig-regional-fx3z 07:52 5%
+cn-frontend-mig-regional-c6s2 07:52 5%
+cn-frontend-mig-regional-8vmg 07:52 5%
+cn-frontend-mig-regional-fx3z 07:53 5%
+cn-frontend-mig-regional-8vmg 07:53 5%
+cn-frontend-mig-regional-c6s2 07:53 5%
+cn-frontend-mig-regional-8vmg 07:54 5%
+cn-frontend-mig-regional-fx3z 07:54 5%
+cn-frontend-mig-regional-c6s2 07:54 7%
+cn-frontend-mig-regional-8vmg 07:55 7%
+cn-frontend-mig-regional-c6s2 07:55 13%
+cn-frontend-mig-regional-fx3z 07:55 14%
+cn-frontend-mig-regional-fx3z 07:56 5%
+cn-frontend-mig-regional-8vmg 07:56 13%
+cn-frontend-mig-regional-c6s2 07:56 16%
+cn-frontend-mig-regional-fx3z 07:57 5%
+cn-frontend-mig-regional-c6s2 07:57 6%
+cn-frontend-mig-regional-8vmg 07:57 11%
+cn-frontend-mig-regional-fx3z 07:58 5%
+cn-frontend-mig-regional-c6s2 07:58 6%
+cn-frontend-mig-regional-c6s2 07:59 6%
+cn-frontend-mig-regional-c6s2 08:00 6%
+cn-frontend-mig-regional-c6s2 08:01 7%
+cn-frontend-mig-regional-c6s2 08:02 6%
+cn-frontend-mig-regional-c6s2 08:03 6%
+cn-frontend-mig-regional-c6s2 08:04 8%
+cn-frontend-mig-regional-c6s2 08:05 14%
+cn-frontend-mig-regional-c6s2 08:06 19%
+cn-frontend-mig-regional-c6s2 08:07 6%
+cn-frontend-mig-regional-c6s2 08:08 13%
+cn-frontend-mig-regional-c6s2 08:09 49%
+cn-frontend-mig-regional-7svz 08:10 13%
+cn-frontend-mig-regional-258b 08:10 41%
+cn-frontend-mig-regional-c6s2 08:10 93%
+cn-frontend-mig-regional-258b 08:11 10%
+cn-frontend-mig-regional-7svz 08:11 49%
+cn-frontend-mig-regional-c6s2 08:11 75%
+cn-frontend-mig-regional-258b 08:12 5%
+cn-frontend-mig-regional-7svz 08:12 11%
+cn-frontend-mig-regional-c6s2 08:12 22%
+cn-frontend-mig-regional-258b 08:13 5%
+cn-frontend-mig-regional-7svz 08:13 5%
+cn-frontend-mig-regional-c6s2 08:13 6%
+cn-frontend-mig-regional-258b 08:14 5%
+cn-frontend-mig-regional-c6s2 08:14 6%
+cn-frontend-mig-regional-7svz 08:14 8%
+cn-frontend-mig-regional-c6s2 08:15 11%
+cn-frontend-mig-regional-7svz 08:15 13%
+cn-frontend-mig-regional-258b 08:15 13%
