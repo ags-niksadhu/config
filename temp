@@ -1,18 +1,40 @@
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ P=pg-ae-n-app-125609
-gcloud logging read 'protoPayload.serviceName="logging.googleapis.com" AND (protoPayload.methodName:"DeleteSink" OR protoPayload.methodName:"UpdateSink" OR protoPayload.methodName:"CreateSink")' --project=$P --freshness=6h --format="table(timestamp,protoPayload.methodName,protoPayload.resourceName)"
-TIMESTAMP: 2026-10-05T08:18:51.614796401Z
-METHOD_NAME: google.logging.v2.ConfigServiceV2.DeleteSink
-RESOURCE_NAME: projects/pg-ae-n-app-125609/sinks/cn-staging-logs-me2
+I can't query your project from here, so run this block in Cloud Shell and paste the output. It's read-only. It checks all six frontend logs, and whether they come from the current server and from servers that no longer exist.
 
-TIMESTAMP: 2026-10-05T08:14:36.863759359Z
-METHOD_NAME: google.logging.v2.ConfigServiceV2.UpdateSink
-RESOURCE_NAME: projects/pg-ae-n-app-125609/sinks/_Default
+```bash
+P=pg-ae-n-app-125609
+date -u
+echo "== FRONTEND SERVERS =="
+gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="table(name,id,status,creationTimestamp)"
+echo "== FRONTEND LOG COUNTS SINCE 08:20 UTC =="
+gcloud logging read 'logName:"logs/frontend_" AND timestamp>="2026-10-05T08:20:00Z"' --project=$P --limit=5000 --format="value(logName.basename())" | sort | uniq -c
+echo "== NEWEST ENTRY PER FRONTEND LOG (timestamp, instance id) =="
+for L in frontend_apache_access frontend_apache_error frontend_apache_server_error frontend_auth_log frontend_pm2_out frontend_pm2_error; do
+  T=$(gcloud logging read "LOG_ID(\"$L\")" --project=$P --freshness=7d --limit=1 --format="value(timestamp,resource.labels.instance_id)" 2>&1 | head -1)
+  printf "%-32s %s\n" "$L" "${T:-NONE}"
+done
+echo "== WHICH SERVERS SENT FRONTEND ACCESS LOGS (7d) =="
+gcloud logging read 'logName:"logs/frontend_apache_access"' --project=$P --freshness=7d --limit=3000 --format="value(resource.labels.instance_id)" | sort | uniq -c
+echo "== FRONTEND CLEANUP RESULT =="
+gcloud logging read "logName=\"projects/$P/logs/cloudbuild\" AND (textPayload:\"matched pipeline templates\" OR textPayload:\"DRY RUN would delete\" OR textPayload:\"SKIP in use\")" --project=$P --freshness=3h --limit=10 --format="value(timestamp,resource.labels.build_id,textPayload)"
+```
+I start the counts at 08:20, after the custom sink was deleted. That avoids the unreadable hour (07:13 to 08:14) and gives clean numbers.
 
-TIMESTAMP: 2026-10-05T07:13:49.529248589Z
-METHOD_NAME: google.logging.v2.ConfigServiceV2.UpdateSink
-RESOURCE_NAME: projects/pg-ae-n-app-125609/sinks/_Default
+## How I'll read it
 
-TIMESTAMP: 2026-10-05T06:58:33.116200282Z
-METHOD_NAME: google.logging.v2.ConfigServiceV2.CreateSink
-RESOURCE_NAME: projects/pg-ae-n-app-125609/sinks/cn-staging-logs-me2
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
+| Section | Healthy result |
+|---|---|
+| Servers | one running server, newer than the build triggered by your fix. A rollout takes about 10 minutes, so if the server's creation time is older than your push, wait and rerun |
+| Counts since 08:20 | `frontend_apache_access` in the hundreds, plus `frontend_auth_log` and `frontend_apache_server_error`. `frontend_apache_error` and the two PM2 logs can be small or zero |
+| Newest per log | access and auth within minutes. The two PM2 logs show the new server's boot time, because Next.js prints almost nothing after startup. Their instance id should match the running server |
+| Which servers sent logs | the running server's id, plus ids that are not in the server list. Those belong to deleted servers, and their logs still being there proves your goal of logs surviving a server's deletion |
+| Cleanup | `matched pipeline templates: 7` or so, and `DRY RUN would delete template cn-frontend-template-… and image cn-frontend-image-…` for the oldest two beyond `KEEP=5`. Nothing is deleted while `DRY_RUN=1` |
+
+## If something is off
+
+- **A busy log shows `NONE` or an old timestamp:** the agent isn't shipping it. I'd check the file's growth on the server, with the same `ls` command you used earlier.
+- **The cleanup shows `matched pipeline templates: 0` again:** the filter fix didn't land. Check the file on GitHub.
+- **No `DRY RUN would delete` lines but a count above 5:** the names may be marked `SKIP in use`, which is fine.
+
+Before you set `DRY_RUN=0`, confirm the names printed are only old pipeline templates and images.
+
+Paste the output.
