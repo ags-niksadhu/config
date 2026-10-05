@@ -1,82 +1,49 @@
-Both pipelines went green end to end. The agent install is proven, but logs actually arriving from the live servers isn't proven yet. The cleanup step also has a bug.
-
-## What these logs prove
-
-| Item | Evidence |
-|---|---|
-| Both pipelines succeeded | `Group is stable` and Cleanup finished. Backend `ffc8a89` and frontend `70499c9` are the live templates |
-| Regional templates | Both were created under `regions/me-central2` and the update accepted them |
-| Ops Agent installed | `installation succeeded`, with `ExecStartPre … config.yaml (status=0/SUCCESS)`. The agent read your config without a syntax error |
-| Backend startup checks | API, Network and Ports all `PASS` |
-| Apps healthy | Backend `APP IS UP`. Frontend `APACHE PATH OK` |
-
-**One alarming line that's harmless:** on the frontend, `[API Check] Result: ERROR` is about a metric being written too often. I restarted the agent seconds after its install, so Google rejected the second metric write. The same checks passed on the backend, and logging wasn't what failed. Removing the extra `systemctl restart` line would stop it, but it isn't required.
-
-## What isn't proven yet
-
-Logs from the running servers. The build VM being healthy doesn't show that the new servers ship Apache and PM2 logs. Run this now:
-```bash
-P=pg-ae-n-app-125609
-gcloud compute instances list --project=$P --filter="status=RUNNING" --format="table(name,id)"
-gcloud logging read "logName:\"projects/$P/logs/backend_\" OR logName:\"projects/$P/logs/frontend_\"" --project=$P --freshness=30m --limit=30 --format="table(timestamp,logName.basename(),resource.labels.instance_id)"
-```
-The instance IDs must match running MIG servers, not the stopped old VMs. Expect `backend_apache_access`, `backend_pm2_out`, `frontend_apache_access`, `frontend_pm2_out` and `*_auth_log`. The `*_error` logs only appear if something actually errors. A missing log name that should be there means that path is wrong, so tell me which one.
-
-If your terminal was on `pwk9`, the rollout replaced that server, so reconnect to the current one.
-
-## The bug: cleanup finds nothing
-
-Both builds print `WARNING: The following filter keys were not present in any resource : labels.app, labels.managed-by`. I think instance templates have no resource-level labels. The `--labels` flag sets labels on the servers created from the template, under `properties.labels`. So my filter has never matched anything, and the empty cleanup output was not "fewer than 5 builds" as I said earlier. I was wrong. Images do carry resource labels from Packer, so the image side is fine.
-
-Confirm it first:
-```bash
-gcloud compute instance-templates list --project=pg-ae-n-app-125609 --filter="properties.labels.managed-by=cloudbuild-packer" --format="table(name,selfLink.scope(projects))"
-```
-If it lists your recent pipeline templates, the corrected filter below is right.
-
-**Replace the cleanup step in each `cloudbuild.yaml`** (backend shown, with the `cn-frontend` names for the frontend). It stays in dry-run, and it now prints how many templates it matched:
-```yaml
-  - id: Cleanup Old Packer Artifacts
-    name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        # Deletes ONLY pipeline-created templates/images beyond the newest KEEP.
-        # DRY_RUN=1 prints only. Set DRY_RUN=0 after reviewing a dry-run log.
-        KEEP=5
-        DRY_RUN=1
-        PROJECT=pg-ae-n-app-125609
-        IN_USE=$$(gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --project=$$PROJECT --format="value(versions[].instanceTemplate.basename())")
-        ALL=$$(gcloud compute instance-templates list --project=$$PROJECT \
-          --filter="properties.labels.managed-by=cloudbuild-packer AND properties.labels.app=cn-backend AND name~^cn-backend-template-[0-9a-f]{7}$$" \
-          --sort-by=~creationTimestamp --format="value(name)")
-        echo "matched pipeline templates: $$(echo "$$ALL" | grep -c .)"
-        echo "$$ALL" | tail -n +$$((KEEP+1)) | while read T; do
-          [ -z "$$T" ] && continue
-          if echo "$$IN_USE" | grep -qw "$$T"; then echo "SKIP in use: $$T"; continue; fi
-          SHA=$${T#cn-backend-template-}
-          IMG=$$(gcloud compute images list --project=$$PROJECT --filter="name=cn-backend-image-$$SHA AND labels.managed-by=cloudbuild-packer" --format="value(name)")
-          if [ "$$DRY_RUN" = "1" ]; then
-            echo "DRY RUN would delete template $$T and image $${IMG:-none}"
-          else
-            gcloud compute instance-templates delete "$$T" --region=me-central2 --project=$$PROJECT --quiet
-            if [ -n "$$IMG" ]; then gcloud compute images delete "$$IMG" --project=$$PROJECT --quiet; fi
-          fi
-        done
-        exit 0
-```
-I haven't verified that `delete` accepts `--region` for regional templates. That matters only when you set `DRY_RUN=0`, so keep it at 1 until a dry run shows sensible names.
-
-## Two small items
-
-- **Frontend PM2 name.** Your PM2 list shows the app is now `careernavigator-frontend`, not `testnftapp.com_app_cpms`. My PM2 log paths use wildcards and still match. Only the failure diagnostic in `frontend.pkr.hcl` uses the old name: change `pm2 logs testnftapp.com_app_cpms` to `pm2 logs careernavigator-frontend`. It only affects the output of a failed build.
-- **Image size.** The agent adds about 531 MB per image, a small storage cost.
-
-## Still pending on the logs plan
-
-- The log bucket step (`cn-staging-logs-me2`, 180 days) and routing, plus an exclusion on `_Default`.
-- The compliance answers: global storage acceptable or not, VPC flow log sampling, and the `_Required` exception.
-- The dev team's decision on the key line. PM2 logs are now shipping in the images, so that decision matters now, not later.
-
-Paste the log check output. Then tell me whether the bucket exists and whether global storage is acceptable.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ P=pg-ae-n-app-125609
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ gcloud compute instances list --project=$P --filter="status=RUNNING" --format="table(name,id)"
+NAME                                         ID
+cn-backend-mig-regional-wtpg                 2364474070360032675
+cn-frontend-mig-regional-32tm                9034653728106251717
+packer-6ac33927-a392-3e36-2dc0-df95caeb7441  3655176064238258116
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ gcloud logging read "logName:\"projects/$P/logs/backend_\" OR logName:\"projects/$P/logs/frontend_\"" --project=$P --freshness=30m --limit=30 --format="table(timestamp,logName.basename(),resource.labels.instance_id)"
+TIMESTAMP                       LOG_NAME                INSTANCE_ID
+2026-10-05T06:26:22.863576399Z  backend_pm2_out         2364474070360032675
+2026-10-05T06:26:22.862184109Z  backend_pm2_out         2364474070360032675
+2026-10-05T06:26:22.742031453Z  backend_pm2_out         2364474070360032675
+2026-10-05T06:26:22.742027003Z  backend_pm2_out         2364474070360032675
+2026-10-05T06:26:22.415271841Z  backend_pm2_out         2364474070360032675
+2026-10-05T06:26:22.415266431Z  backend_pm2_out         2364474070360032675
+2026-10-05T06:26:21.866749969Z  frontend_apache_access  9034653728106251717
+2026-10-05T06:26:21.682188107Z  frontend_apache_access  9034653728106251717
+2026-10-05T06:26:21.537209781Z  frontend_apache_access  9034653728106251717
+2026-10-05T06:26:21.466198050Z  backend_apache_access   2364474070360032675
+2026-10-05T06:26:21.250855955Z  backend_apache_access   2364474070360032675
+2026-10-05T06:26:20.927695832Z  backend_apache_access   2364474070360032675
+2026-10-05T06:26:16.866966404Z  frontend_apache_access  9034653728106251717
+2026-10-05T06:26:16.682652153Z  frontend_apache_access  9034653728106251717
+2026-10-05T06:26:16.537609748Z  frontend_apache_access  9034653728106251717
+2026-10-05T06:26:12.863462091Z  backend_pm2_out         2364474070360032675
+2026-10-05T06:26:12.862004941Z  backend_pm2_out         2364474070360032675
+2026-10-05T06:26:12.741041695Z  backend_pm2_out         2364474070360032675
+2026-10-05T06:26:12.740629885Z  backend_pm2_out         2364474070360032675
+2026-10-05T06:26:12.415139842Z  backend_pm2_out         2364474070360032675
+2026-10-05T06:26:12.414470742Z  backend_pm2_out         2364474070360032675
+2026-10-05T06:26:11.867576222Z  frontend_apache_access  9034653728106251717
+2026-10-05T06:26:11.683727307Z  frontend_apache_access  9034653728106251717
+2026-10-05T06:26:11.538176313Z  frontend_apache_access  9034653728106251717
+2026-10-05T06:26:11.464950772Z  backend_apache_access   2364474070360032675
+2026-10-05T06:26:11.250261567Z  backend_apache_access   2364474070360032675
+2026-10-05T06:26:10.927490695Z  backend_apache_access   2364474070360032675
+2026-10-05T06:26:06.870403076Z  frontend_apache_access  9034653728106251717
+2026-10-05T06:26:06.685575872Z  frontend_apache_access  9034653728106251717
+2026-10-05T06:26:06.539266570Z  frontend_apache_access  9034653728106251717
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ gcloud compute instance-templates list --project=pg-ae-n-app-125609 --filter="properties.labels.managed-by=cloudbuild-packer" --format="table(name,selfLink.scope(projects))"
+NAME                          SELF_LINK
+cn-backend-template-054eefc   pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-backend-template-054eefc
+cn-backend-template-53262df   pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-backend-template-53262df
+cn-backend-template-ffc8a89   pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-backend-template-ffc8a89
+cn-frontend-template-0ae7410  pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-0ae7410
+cn-frontend-template-13633c6  pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-13633c6
+cn-frontend-template-70499c9  pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-70499c9
+cn-frontend-template-7696009  pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-7696009
+cn-frontend-template-b0ad954  pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-b0ad954
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$
