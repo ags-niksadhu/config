@@ -1,18 +1,60 @@
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ P=pg-ae-n-app-125609
-gcloud compute instance-groups managed describe cn-frontend-mig-regional --region=me-central2 --project=$P --format="value(versions[].instanceTemplate.basename())"
-gcloud compute instance-templates list --project=$P --filter="properties.labels.managed-by=cloudbuild-packer AND properties.labels.app=cn-frontend AND name~^cn-frontend-template-[0-9a-f]{7}$" --sort-by=~creationTimestamp --format="value(name)"
-cn-frontend-template-3255267
-cn-frontend-template-3255267
-cn-frontend-template-13bcacb
-cn-frontend-template-70499c9
-cn-frontend-template-0ae7410
-cn-frontend-template-13633c6
-cn-frontend-template-7696009
-cn-frontend-template-b0ad954
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://compute.googleapis.com/compute/v1/projects/$P/regions/me-central2/autoscalers/cn-frontend-mig-regional" | grep -E "minNumReplicas|maxNumReplicas|recommendedSize|status"
-gcloud logging read 'logName:"logs/frontend_apache_access" AND NOT jsonPayload.message:"GoogleHC" AND timestamp>="2026-10-05T07:55:00Z" AND timestamp<="2026-10-05T08:12:00Z"' --project=$P --limit=2000 --format="value(jsonPayload.message)" | awk -F'"' '{print $6}' | sort | uniq -c | sort -rn | head -8
-    "minNumReplicas": 1,
-    "maxNumReplicas": 3,
-  "status": "ACTIVE",
-  "recommendedSize": 1
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
+## Cleanup filter: confirmed working
+
+Your list shows 7 pipeline templates matching `app=cn-frontend`, the same filter as the fixed step. The newest, `3255267`, is the one the MIG uses. With `KEEP=5`, the dry run should name two candidates, the oldest: `cn-frontend-template-7696009` and `cn-frontend-template-b0ad954`, with images `cn-frontend-image-7696009` and `cn-frontend-image-b0ad954`. The newest five (`3255267`, `13bcacb`, `70499c9`, `0ae7410`, `13633c6`) stay.
+
+I can't confirm the real step output yet. The build with your fix probably ran while `_Default` was disabled, so its log is in the regional bucket you can't read. The next frontend build will print the dry-run lines in a log you can read. After you've seen those two names, set `DRY_RUN=0`. I haven't verified that `delete` accepts `--region`, so after the first live run, check that both templates are really gone.
+
+## My user-agent query was wrong
+
+It printed nothing because I chose the wrong window. 07:55 to 08:12 UTC sits inside 07:13:49 to 08:14:36, when `_Default` was disabled, so those frontend logs went only to the regional bucket. That was my mistake, not a sign the traffic was empty.
+
+## Autoscaler
+
+It's `ACTIVE`, min 1, max 3, and `recommendedSize` is 1. The group had 3 servers at 08:38, so it should shrink on its own once the stabilization wait ends. Check whether it already has:
+
+```bash
+P=pg-ae-n-app-125609
+gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize,instanceTemplate.basename())"
+```
+
+## What triggers the scale-outs
+
+I still don't know. This is a read-only way to find out that avoids the blind hour. Admin Activity audit logs live in `_Required`, which was never disabled, so they cover the whole day:
+
+```bash
+gcloud builds list --region=me-central2 --project=$P --filter="substitutions.TRIGGER_NAME=careernavigator-frontend-staging" --limit=8 --format="table(createTime,status,substitutions.SHORT_SHA)"
+gcloud logging read 'logName:"cloudaudit.googleapis.com%2Factivity" AND (protoPayload.methodName:"compute.instances.insert" OR protoPayload.methodName:"compute.instances.delete") AND protoPayload.resourceName:"cn-frontend-mig-regional"' --project=$P --freshness=24h --format="table(timestamp,protoPayload.methodName,protoPayload.resourceName.basename())"
+```
+The principal is the same for rollouts and autoscaling, so I'm leaving that column out. Timing separates them:
+
+| What you see | Meaning |
+|---|---|
+| server creations within a few minutes after a build's `createTime` | the extra servers come from rollouts, probably boot-time CPU on a new server pushing the group above 60% |
+| creations with no build nearby | the autoscaler reacting to real load, which I'd then investigate separately |
+| creations 30 seconds apart in pairs | one autoscaler step, as at 08:09 |
+
+I haven't established which one it is. If it's the rollout pattern, the options are:
+
+| | What | Cost | Complexity |
+|---|---|---|---|
+| **A. Lengthen the autoscaler cool-down** | Console → Instance groups → `cn-frontend-mig-regional` → Edit autoscaling → cool-down 60s to 300s | none | low |
+| **B. Cap max at 2** | same screen | lower ceiling | low |
+| **C. Observe** | accept up to 3 servers briefly after each deploy | up to 2 extra `e2-medium` for ~10 to 30 minutes per deploy | none |
+
+I'd recommend A, then watch the next deploy. It stops boot-time CPU from being counted as load. Don't change anything until the timeline above is in.
+
+## Before your next frontend push
+
+Wait until the group is back at 1 server. A rollout with `--max-surge=3` on top of 3 servers briefly costs more.
+
+## Evidence and open items
+
+| Item | State |
+|---|---|
+| Frontend logs received in `_Default` | ✅ confirmed earlier |
+| Cleanup filter | ✅ confirmed, waiting for a readable build log |
+| Frontend scale-outs | cause unknown, waiting for the timeline |
+| Compliance exceptions, Data Access audit, VPC flow logs, `_Default` retention | waiting on your side, as listed before |
+| Secrets (18 regional copies, `SECRET_LOCATION`, endpoint change, 5 unread secrets) | not started |
+
+Paste the three outputs and tell me the group size.
