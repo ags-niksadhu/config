@@ -1,7 +1,4 @@
-I can't query your project from here, so run this block in Cloud Shell and paste the output. It's read-only. It checks all six frontend logs, and whether they come from the current server and from servers that no longer exist.
-
-```bash
-P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ P=pg-ae-n-app-125609
 date -u
 echo "== FRONTEND SERVERS =="
 gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="table(name,id,status,creationTimestamp)"
@@ -16,25 +13,40 @@ echo "== WHICH SERVERS SENT FRONTEND ACCESS LOGS (7d) =="
 gcloud logging read 'logName:"logs/frontend_apache_access"' --project=$P --freshness=7d --limit=3000 --format="value(resource.labels.instance_id)" | sort | uniq -c
 echo "== FRONTEND CLEANUP RESULT =="
 gcloud logging read "logName=\"projects/$P/logs/cloudbuild\" AND (textPayload:\"matched pipeline templates\" OR textPayload:\"DRY RUN would delete\" OR textPayload:\"SKIP in use\")" --project=$P --freshness=3h --limit=10 --format="value(timestamp,resource.labels.build_id,textPayload)"
-```
-I start the counts at 08:20, after the custom sink was deleted. That avoids the unreadable hour (07:13 to 08:14) and gives clean numbers.
+Mon Oct  5 08:38:33 AM UTC 2026
+== FRONTEND SERVERS ==
+NAME: cn-frontend-mig-regional-258b
+ID: 8174552820178937295
+STATUS: RUNNING
+CREATION_TIMESTAMP: 2026-10-05T01:09:07.172-07:00
 
-## How I'll read it
+NAME: cn-frontend-mig-regional-7svz
+ID: 8576944475030349265
+STATUS: RUNNING
+CREATION_TIMESTAMP: 2026-10-05T01:09:37.924-07:00
 
-| Section | Healthy result |
-|---|---|
-| Servers | one running server, newer than the build triggered by your fix. A rollout takes about 10 minutes, so if the server's creation time is older than your push, wait and rerun |
-| Counts since 08:20 | `frontend_apache_access` in the hundreds, plus `frontend_auth_log` and `frontend_apache_server_error`. `frontend_apache_error` and the two PM2 logs can be small or zero |
-| Newest per log | access and auth within minutes. The two PM2 logs show the new server's boot time, because Next.js prints almost nothing after startup. Their instance id should match the running server |
-| Which servers sent logs | the running server's id, plus ids that are not in the server list. Those belong to deleted servers, and their logs still being there proves your goal of logs surviving a server's deletion |
-| Cleanup | `matched pipeline templates: 7` or so, and `DRY RUN would delete template cn-frontend-template-… and image cn-frontend-image-…` for the oldest two beyond `KEEP=5`. Nothing is deleted while `DRY_RUN=1` |
-
-## If something is off
-
-- **A busy log shows `NONE` or an old timestamp:** the agent isn't shipping it. I'd check the file's growth on the server, with the same `ls` command you used earlier.
-- **The cleanup shows `matched pipeline templates: 0` again:** the filter fix didn't land. Check the file on GitHub.
-- **No `DRY RUN would delete` lines but a count above 5:** the names may be marked `SKIP in use`, which is fine.
-
-Before you set `DRY_RUN=0`, confirm the names printed are only old pipeline templates and images.
-
-Paste the output.
+NAME: cn-frontend-mig-regional-c6s2
+ID: 2513631094774885292
+STATUS: RUNNING
+CREATION_TIMESTAMP: 2026-10-05T00:44:04.767-07:00
+== FRONTEND LOG COUNTS SINCE 08:20 UTC ==
+   1423 frontend_apache_access
+      6 frontend_apache_server_error
+     26 frontend_auth_log
+== NEWEST ENTRY PER FRONTEND LOG (timestamp, instance id) ==
+frontend_apache_access           2026-10-05T08:38:38.682115273Z 2513631094774885292
+frontend_apache_error            2026-10-05T07:07:19.413418073Z 4717526556932503883
+frontend_apache_server_error     2026-10-05T08:28:42.057497050Z 8174552820178937295
+frontend_auth_log                2026-10-05T08:35:01.694075627Z 2513631094774885292
+frontend_pm2_out                 2026-10-05T06:47:05.114203518Z 4717526556932503883
+frontend_pm2_error               2026-10-05T06:47:05.195308560Z 4717526556932503883
+== WHICH SERVERS SENT FRONTEND ACCESS LOGS (7d) ==
+    494 2513631094774885292
+    170 3749319642832632631
+   1369 4717526556932503883
+    486 8174552820178937295
+    481 8576944475030349265
+== FRONTEND CLEANUP RESULT ==
+2026-10-05T06:50:38.811395027Z  2e1de670-34b8-4594-8ef2-f97be3167cd5    Step #7 - "Cleanup Old Packer Artifacts": matched pipeline templates: 4
+2026-10-05T06:49:54.493785313Z  5a279870-ee4a-4067-a013-fbc599a9f52e    Step #7 - "Cleanup Old Packer Artifacts": matched pipeline templates: 0
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
