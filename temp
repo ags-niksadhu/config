@@ -1,62 +1,18 @@
-`_Default` was re-enabled at 08:14:37Z, and your query shows it now holds fresh entries for every log that should be active. Three things need attention: Data Access logs are not confirmed, VPC flow logs are off, and one window has a hole.
-
-## Received or not
-
-| Log | Newest entry (UTC) | Verdict |
-|---|---|---|
-| `backend_apache_access`, `backend_pm2_out`, `frontend_apache_access`, `syslog`, `requests` | 08:28 | ✅ live |
-| `backend_auth_log`, `frontend_auth_log` | 08:25 / 08:28 | ✅ |
-| `backend_apache_error`, `backend_apache_server_error`, `frontend_apache_server_error`, `backend_pm2_error` | 08:25 to 08:27 | ✅ |
-| `frontend_apache_error` | 07:07:19 | ✅ matches the file's last write time (07:07:19) |
-| `frontend_pm2_out`, `frontend_pm2_error` | 06:47:05 | ✅ matches the files' last write time (06:47:05), so they're quiet, not broken |
-| Cloud SQL `postgres.log`, firewall, NAT flows, MIG events | 08:25 to 08:29 | ✅ |
-| Audit `activity`, `system_event`, `policy` | 08:24 / 08:28 / 06:46 | ✅ |
-| `shielded_vm_integrity` | 07:00 | ✅ written when servers boot |
-| `healthchecks` | 06:47 | ✅ probably health-state changes only, which lines up with the rollout. I called it a busy log earlier, and that was wrong |
-| `redis.googleapis.com/redis` | Oct 4, 21:30 | ✅ probably quiet, but I can't confirm |
-| `cloudbuild` | 06:50 | see below |
-| `cloudaudit.googleapis.com/data_access` | NONE | ❓ see below |
-| `vpc_flows` | NONE | ❌ flow logs are off |
-
-The frontend PM2 and Apache error entries matching the file times to the millisecond is the clearest proof that shipping works.
-
-## The hole between 07:13:49 and 08:14:37
-
-While `_Default` was disabled, logs went only to the regional bucket. Your account can't read it, so that hour looks empty. That also explains `cloudbuild` stopping at 06:50: the build whose page showed the "No logs found" error ran in that window. Its logs, including the frontend cleanup count I asked about, are in the regional bucket, and the bucket still exists with 180 days.
-
-I don't know when you deleted the custom sink. If it was before 08:14:37, some entries in between matched no sink and are gone. Check the exact times, which are in the audit log your account can read:
-```bash
-P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ P=pg-ae-n-app-125609
 gcloud logging read 'protoPayload.serviceName="logging.googleapis.com" AND (protoPayload.methodName:"DeleteSink" OR protoPayload.methodName:"UpdateSink" OR protoPayload.methodName:"CreateSink")' --project=$P --freshness=6h --format="table(timestamp,protoPayload.methodName,protoPayload.resourceName)"
-```
-If the delete is after 08:14:37, nothing was lost. The method names are my assumption, so tell me if it prints nothing.
+TIMESTAMP: 2026-10-05T08:18:51.614796401Z
+METHOD_NAME: google.logging.v2.ConfigServiceV2.DeleteSink
+RESOURCE_NAME: projects/pg-ae-n-app-125609/sinks/cn-staging-logs-me2
 
-## Data Access: not confirmed
+TIMESTAMP: 2026-10-05T08:14:36.863759359Z
+METHOD_NAME: google.logging.v2.ConfigServiceV2.UpdateSink
+RESOURCE_NAME: projects/pg-ae-n-app-125609/sinks/_Default
 
-`NONE` can mean the logging is off, or that your account can't read private audit logs. The earlier error-free empty result doesn't separate the two. Check in the Console: IAM & Admin → Audit Logs, and see which services are ticked. Enabling needs a project IAM admin, and I'd guess your account lacks that. The request to send:
+TIMESTAMP: 2026-10-05T07:13:49.529248589Z
+METHOD_NAME: google.logging.v2.ConfigServiceV2.UpdateSink
+RESOURCE_NAME: projects/pg-ae-n-app-125609/sinks/_Default
 
-> Please enable Data Access audit logs (Admin Read, Data Read, Data Write) for Secret Manager, Cloud SQL and Cloud Storage in project pg-ae-n-app-125609, and give nikul.sadhu@gcp.pwc.com the Private Logs Viewer role.
-
-Recurring cost: this volume can be large for Cloud Storage. I believe the Cloud SQL ones cover API calls, not individual queries. Ask compliance which they mean.
-
-## VPC flow logs (Console)
-
-⚠️ This adds recurring cost, so it needs the budget owner's yes first.
-1. VPC network → VPC networks → `default` → Subnets → the `me-central2` row → Edit.
-2. Flow logs: On. Keep the default aggregation and sample rate unless compliance names others.
-3. Save.
-
-Entries land in `_Default`, so they're stored globally for now. After a day, check ingestion in Logs Storage.
-
-## `_Default` retention
-
-It's 90 days, but your policy says 6 months. Logging → Logs Storage → `_Default` → Edit → Retention 180 days. Beyond the default period it's billed, so confirm with the budget owner. Old entries from before today age out under the old setting.
-
-## What to do next
-
-1. Run the audit-log command and tell me the sink delete time.
-2. Wait for the next build. Its logs will be readable, and I'll check the frontend `matched pipeline templates` count then.
-3. Send the Data Access request and get the budget owner's yes for flow logs.
-4. Decide on retention.
-
-The exceptions for compliance now include logs stored globally (`_Default` and `_Required`), plus the unreadable hour in the regional bucket. The key-line decision from the dev team is still pending. Paste the audit-log output.
+TIMESTAMP: 2026-10-05T06:58:33.116200282Z
+METHOD_NAME: google.logging.v2.ConfigServiceV2.CreateSink
+RESOURCE_NAME: projects/pg-ae-n-app-125609/sinks/cn-staging-logs-me2
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
