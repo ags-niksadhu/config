@@ -1,63 +1,57 @@
-## Direct proof
+Pushing the Packer files started a build in each repo. Nothing is live-changed until a build's rolling update finishes. Run this in Cloud Shell about 10 minutes from now. It's read-only:
 
-On the backend server at 09:22:19, five seconds after the timer was due at 09:22:05, `top` shows:
-
-- `unatten+` (unattended-upgrade), PID 4093, running as root at **91.7% CPU**
-- the CPU line is 48.8% "ni", meaning low-priority work, and `ls /var/log/unattended-upgrades/` is empty because it's the first run on this server
-
-So an automatic OS upgrade is eating the CPU on a server that serves almost no one. It's the same pattern as the frontend at 08:08, and I predicted this one from the timer. As far as I know, the autoscaler uses the VM's total CPU metric, so low scheduling priority doesn't hide it.
-
-## Watch whether the autoscaler reacts (read-only)
-
-Both groups were at 1 server right after the upgrade started. This samples every 30 seconds for 8 minutes:
 ```bash
 P=pg-ae-n-app-125609
-T=$(gcloud auth print-access-token)
-for i in $(seq 1 16); do
-  echo "$(date -u +%H:%M:%S) $(gcloud compute instance-groups managed list --project=$P --format='value(name,size)' | tr '\n' ' ') rec=$(curl -s -H "Authorization: Bearer $T" "https://compute.googleapis.com/compute/v1/projects/$P/regions/me-central2/autoscalers/cn-backend-mig-regional-np3m" | grep recommendedSize | tr -d ' ,')"
-  sleep 30
-done
+date -u
+gcloud builds list --region=me-central2 --project=$P --limit=4 --format="table(createTime,status,substitutions.TRIGGER_NAME,substitutions.SHORT_SHA)"
+echo "== KEY LINES FROM BUILD LOGS =="
+gcloud logging read "logName=\"projects/$P/logs/cloudbuild\" AND (textPayload:\"upgraded,\" OR textPayload:\"APP IS UP\" OR textPayload:\"APACHE PATH OK\" OR textPayload:\"FATAL\" OR textPayload:\"matched pipeline templates\" OR textPayload:\"DRY RUN would delete\" OR textPayload:\"SKIP in use\" OR textPayload:\"Group is stable\")" --project=$P --freshness=2h --limit=40 --format="value(timestamp,resource.labels.build_id,textPayload)" | cut -c1-200 | sort
+echo "== GROUPS =="
+gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize,instanceTemplate.basename())"
 ```
-If the backend size goes to 2 or 3 within a few minutes, the theory is confirmed on the backend as well. The token lasts an hour, so it's fine for this. If it stays at 1, the autoscaler's CPU sample was lower than the spike on this server, and I'll say so.
+Both builds ran after `_Default` was re-enabled, so their logs are readable now.
 
-## Better fix than disabling patching
+## What success looks like
 
-My earlier recommendation was to disable the timers, but that has a compliance cost. A better approach keeps automatic patching:
+| Check | Expected |
+|---|---|
+| Builds | both `SUCCESS` for the new commits. A rollout can take 15 to 20 minutes, so `WORKING` means wait |
+| `upgraded,` line | an apt summary such as `26 upgraded, …`, showing the build patched the image |
+| `APP IS UP` and, for the frontend, `APACHE PATH OK` | as in earlier builds |
+| `Group is stable` | the rolling update finished |
+| Frontend cleanup | `matched pipeline templates: 8`, and three dry-run lines: `13633c6`, `7696009` and `b0ad954`, each with its image. They're the three oldest beyond `KEEP=5`. This is the first readable proof that the filter fix works |
+| Backend cleanup | `matched pipeline templates: 5`, and no deletion lines, because 5 equals the keep count |
+| Groups | both at size 1, with the new template names |
 
-**Patch the image during the build, and leave the timers on.** The base image is old, and the Packer log showed 26 upgradable packages at build time. A new server then boots with those packages already installed, so the first scheduled upgrade has almost nothing to do. Newly released patches still install automatically afterward, in small amounts.
+Before you ever set `DRY_RUN=0`, check the names in those lines.
 
-| | Disable timers (earlier idea) | Patch at build, keep timers (new) |
-|---|---|---|
-| Automatic patching stays | no | yes |
-| Boot-time CPU spike | gone | probably much smaller |
-| Compliance question | needed | not needed |
-| Cost | none | a few minutes longer builds |
+## If a build fails
 
-I haven't tested this on your image. The first build after the change will show the result in the CPU graph.
-
-**Add these two lines to the main shell provisioner,** in both `backend.pkr.hcl` and `frontend.pkr.hcl`, as the first lines of the `inline` list, before the Node.js line:
-```
-      "sudo apt-get update",
-      "sudo DEBIAN_FRONTEND=noninteractive apt-get -y upgrade",
-```
-Risk: if an upgrade restarts the SSH service during the build, Packer can lose its connection and fail the build. The earlier logs show restarts being deferred, so I expect it to work. A failed build changes nothing live, and I'd need the log tail.
-
-**Effects:** no downtime, a normal rolling update, and no new cost. The image becomes patched as of its build date, which is also what your audit would see.
-
-**Rollback:** revert the commit and push.
-
-**Verify after the next deploy.** The new server boots from the new image, and about 45 minutes later its upgrade timer fires. Check:
+Rolling updates replace servers only after a successful build, so a failure changes nothing live. Send me the build id and:
 ```bash
-sudo tail -n 5 /var/log/unattended-upgrades/unattended-upgrades.log | cut -c1-170
+gcloud builds describe BUILD_ID --region=me-central2 --project=$P --format="yaml(status,failureInfo,steps[].id,steps[].status)"
 ```
-It should say there's nothing to upgrade or only a few packages, and the group should stay at 1 server. Wait until both groups are at 1 before pushing.
+The likeliest cause is the new `apt-get upgrade` restarting SSH and dropping Packer's connection. I expect a restart to be deferred, but I haven't proven it. Revert that commit to restore the old behavior.
 
-## Do you want the full files?
+## The real test comes about an hour after the new servers boot
 
-Say yes, and I'll give you both full `.pkr.hcl` files with those lines. I'd push the frontend first, then the backend once the frontend run proves it.
+Both servers' upgrade timers fire 25 to 60 minutes after boot. Check them then, from the backend server (it's inside the VPC, and Cloud Shell isn't):
+```bash
+P=pg-ae-n-app-125609
+for S in backend frontend; do
+  N=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(name)" --limit=1)
+  Z=$(gcloud compute instances list --project=$P --filter="name~cn-$S-mig" --format="value(zone.basename())" --limit=1)
+  echo "== $N"
+  gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="uptime; sudo tail -n 4 /var/log/unattended-upgrades/unattended-upgrades.log | cut -c1-170"
+done
+gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize)"
+```
+If gcloud says reauthentication is needed, run `gcloud auth login --no-launch-browser` first. Success means the log shows no packages, or only a few, and both groups stay at size 1. A server that scales out at that time would show the fix didn't work, and I'd look at CPU again before changing anything else. A server whose uptime is under about 25 minutes may not have hit its timer yet, so wait.
+
+Don't push anything else until both groups are back at 1 after the rollout.
 
 ## Still open
 
-The Data Access audit request, VPC flow logs and the budget owner's yes, `_Default` retention, the `_Required` exception, the key-line decision, the secrets work, the `US` bucket, and the frontend cleanup dry run (it will show in the next frontend build).
+The Data Access audit request, VPC flow logs and the budget owner's yes, `_Default` retention, the `_Required` exception, the key-line decision, the secrets work and the `US` bucket.
 
-Paste the 8-minute sampling output.
+Paste the first block's output.
