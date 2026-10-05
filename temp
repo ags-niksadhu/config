@@ -1,55 +1,14 @@
-## What this shows
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ P=pg-ae-n-app-125609
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ gcloud logging read "logName:\"projects/$P/logs/backend_\" OR logName:\"projects/$P/logs/frontend_\"" --project=$P --freshness=2h --limit=2000 --format="value(logName.basename())" | sort | uniq -c
+    282 backend_apache_access
+     18 backend_apache_error
+      9 backend_apache_server_error
+     49 backend_auth_log
+     14 backend_pm2_error
+   1079 backend_pm2_out
+    545 frontend_apache_access
+      4 frontend_auth_log
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$ gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND textPayload:\"DDDDDD\"" --project=$P --freshness=30m --limit=1 --format="value(timestamp)"
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-wtpg:~$
 
-- **The new servers ship logs.** The entries come from instance `2364474070360032675` (`cn-backend-mig-regional-wtpg`) and `9034653728106251717` (`cn-frontend-mig-regional-32tm`), both running MIG servers. This confirms `backend_apache_access`, `backend_pm2_out` and `frontend_apache_access`. In this 30-line window I did not see `frontend_pm2_out`, the `*_auth_log` logs or any error logs. They're less frequent, so one 30-line sample can't show them.
-- **The cleanup diagnosis was right.** `properties.labels.managed-by` matches 8 pipeline templates: 3 backend and 5 frontend. The old filter matched none. Apply the corrected cleanup step from my last message. With `KEEP=5`, the frontend has exactly 5, so nothing would be deleted until the next build.
-- **A Packer VM is running right now,** so a build is in progress. That's normal.
 
-## Check every log name (read-only)
-
-```bash
-P=pg-ae-n-app-125609
-gcloud logging read "logName:\"projects/$P/logs/backend_\" OR logName:\"projects/$P/logs/frontend_\"" --project=$P --freshness=2h --limit=2000 --format="value(logName.basename())" | sort | uniq -c
-```
-It shows how many entries each log name received in the last 2 hours. A name missing from the list means that path or receiver isn't working. `*_error` logs may legitimately be empty.
-
-## The key exposure is now live
-
-PM2 logs started shipping, and `backend_pm2_out` is writing a burst of entries every 10 seconds. That log goes to `_Default`, which keeps entries 90 days, and entries can't be edited once stored. If the `DDDDDD` key line prints on those requests, the key is being stored every few seconds. I can't tell from these outputs whether it does. This check prints only a timestamp, never the value:
-```bash
-gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND textPayload:\"DDDDDD\"" --project=$P --freshness=30m --limit=1 --format="value(timestamp)"
-```
-If it prints a timestamp, the line is being logged.
-
-**Interim control while the dev team decides (Console):**
-1. Logging → Log Router → the `_Default` sink → Edit sink.
-2. Under exclusion filters, add one named `exclude-key-debug` with this filter:
-```
-logName="projects/pg-ae-n-app-125609/logs/backend_pm2_out" AND textPayload:"DDDDDD"
-```
-3. Save.
-
-**Effects:** it drops only entries containing that marker before storage, and it reduces ingestion. It's reversible. It doesn't touch what's already stored, and it doesn't fix the source. The dev team still needs to remove the line. If that key is real, treat it as exposed and rotate it.
-
-I haven't confirmed how Ops Agent shapes these entries. The filter assumes plain text in `textPayload`. If the check above prints nothing but you still see the marker in the Console, tell me the entry's field and I'll adjust.
-
-## Retention: quick patch or long-term fix
-
-Logs have only flowed since today, so there's no history at risk yet.
-
-| | Quick patch | Long-term fix |
-|---|---|---|
-| What | Raise `_Default` retention from 90 to 180 days | New `me-central2` bucket with 180 days, route logs into it, exclude from `_Default` |
-| Meets 6 months | yes | yes |
-| Meets `me-central2` | no | yes |
-| Cost | longer retention is billed beyond the default | same, without duplicate storage |
-
-**Recommendation:** the long-term fix. The quick patch: Logging → Logs Storage → `_Default` → Edit → Retention 180 days → Save. It doesn't solve location.
-
-## Still waiting on you
-
-1. Has the `cn-staging-logs-me2` bucket been created, or is global storage acceptable to compliance?
-2. The budget owner's yes for the recurring costs.
-3. Compliance's answers on flow and load balancer logs, and the `_Required` exception.
-4. The dev team's decision on the key line and on logging request bodies.
-
-Paste the two check outputs and tell me whether you applied the exclusion.
