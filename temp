@@ -1,6 +1,54 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ P=pg-ae-n-app-125609
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging sinks describe cn-staging-logs-me2 --project=$P --format="yaml(filter,exclusions,writerIdentity,disabled)"
-filter: NOT LOG_ID("cloudaudit.googleapis.com/activity") AND NOT LOG_ID("externalaudit.googleapis.com/activity")
-  AND NOT LOG_ID("cloudaudit.googleapis.com/system_event") AND NOT LOG_ID("externalaudit.googleapis.com/system_event")
-  AND NOT LOG_ID("cloudaudit.googleapis.com/access_transparency") AND NOT LOG_ID("externalaudit.googleapis.com/access_transparency")
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
+Run this whole block once in a single shell and paste everything it prints. It's read-only, so nothing changes. The first line matters on every new server, because variables don't carry over.
+
+```bash
+P=pg-ae-n-app-125609
+
+echo "== 1. SINKS =="
+gcloud logging sinks list --project=$P --format="table(name,disabled)"
+
+echo "== 2. LOG VIEWS ON NEW BUCKET =="
+gcloud logging views list --bucket=cn-staging-logs-me2 --location=me-central2 --project=$P
+
+echo "== 3. ENTRIES AFTER DISABLE (project scope, last 15 min) =="
+gcloud logging read 'logName:"logs/backend_" OR logName:"logs/frontend_"' --project=$P --freshness=15m --limit=500 --format="value(logName.basename())" | sort | uniq -c
+
+echo "== 4. KEY LINE, LAST 24H =="
+gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND jsonPayload.message:\"DDDDDD\"" --project=$P --freshness=24h --limit=1 --format="value(timestamp)"
+
+echo "== 5. DATA ACCESS AUDIT: WHICH SERVICES =="
+gcloud logging read 'logName:"cloudaudit.googleapis.com%2Fdata_access"' --project=$P --freshness=7d --limit=300 --format="value(protoPayload.serviceName)" | sort | uniq -c
+
+echo "== 6. MIG SIZES =="
+gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize,instanceTemplate.basename())"
+
+echo "== 7. LAST BUILDS =="
+gcloud builds list --region=me-central2 --project=$P --limit=4 --format="table(id,status,createTime,substitutions.TRIGGER_NAME,substitutions.SHORT_SHA)"
+
+echo "== 8. FRONTEND LOG FILES =="
+Z=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(zone.basename())" --limit=1)
+N=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(name)" --limit=1)
+gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="sudo ls -la --time-style=full-iso /home/sa_108691235514385689272/.pm2/logs/ /var/log/apache2/; date -u"
+```
+
+## What each part tells me
+
+| # | I'm checking | Good result | If it fails |
+|---|---|---|---|
+| 1 | sinks | `_Default` shows `True`; `cn-staging-logs-me2` is enabled | tell me what shows |
+| 2 | views on the new bucket | a list including `_AllLogs` | `PERMISSION_DENIED` means your account has no access, and I'll give you the exact request for the admin |
+| 3 | arrival after the disable | counts of `backend_*` and `frontend_*` | an empty result is not proof of loss, since this scope may hide the new bucket from your account. Use the Console check from my last message |
+| 4 | key line | nothing printed | a timestamp means the line is being stored, so tell the dev team |
+| 5 | Data Access logs | service names such as `secretmanager.googleapis.com` or `cloudsql.googleapis.com` with counts | permission denied means you need someone with IAM access, or the Console at IAM & Admin → Audit Logs |
+| 6 | cost | backend 1, frontend 1 | a higher number means an autoscale event, and I'll ask about the timing |
+| 7 | builds | recent `SUCCESS` builds | any `FAILURE`, send me the step name |
+| 8 | frontend log files | files with recent timestamps | if ssh fails again, paste the last 5 lines |
+
+## Things I can't check by command, so I need answers
+
+1. Did you apply the corrected cleanup step to both `cloudbuild.yaml` files, or is that still pending?
+2. The Console check: does `cn-staging-logs-me2` show growing storage under Logging → Logs Storage?
+3. Compliance's answers: the `_Required` exception, and VPC flow log sampling.
+4. The budget owner's yes for VPC flow logs.
+5. The dev team's decision on the key line and request-body logging.
+
+Paste the full output of the block.
