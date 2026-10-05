@@ -1,15 +1,58 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ P=pg-ae-n-app-125609
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ D=$(gcloud logging sinks describe _Default --project=$P --format="value(updateTime)")
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "default disabled at: $D"; date -u
-default disabled at: 2026-10-05T07:13:49.678878972Z
-Mon Oct  5 07:19:27 AM UTC 2026
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging read 'logName:"logs/backend_" OR logName:"logs/frontend_"' --project=$P --limit=1 --format="value(timestamp,logName.basename())"
-2026-10-05T07:19:25.167584496Z  backend_pm2_out
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging read "(logName:\"logs/backend_\" OR logName:\"logs/frontend_\") AND timestamp>=\"$D\"" --project=$P --limit=3 --format="value(timestamp,logName.basename())"
-2026-10-05T07:19:31.042425982Z  backend_apache_access
-2026-10-05T07:19:30.525862938Z  backend_apache_access
-2026-10-05T07:19:27.865523247Z  frontend_apache_access
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging read "logName=\"projects/$P/logs/cloudbuild\" AND (textPayload:\"matched pipeline templates\" OR textPayload:\"DRY RUN would delete\")" --project=$P --freshness=4h --limit=10 --format="value(timestamp,textPayload)"
-2026-10-05T06:50:38.811395027Z  Step #7 - "Cleanup Old Packer Artifacts": matched pipeline templates: 4
-2026-10-05T06:49:54.493785313Z  Step #7 - "Cleanup Old Packer Artifacts": matched pipeline templates: 0
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
+## Routing works
+
+`_Default` was disabled at 07:13:49Z. Your query shows entries newer than that (07:19:25 `backend_pm2_out`, 07:19:31 `backend_apache_access`, 07:19:27 `frontend_apache_access`). A disabled sink stores nothing, so those entries can only be in `cn-staging-logs-me2`, in `me-central2`. Entries are arriving within seconds. The Console size check is now optional.
+
+| Item | State |
+|---|---|
+| Server and app logs for new entries | ✅ stored only in `me-central2`, 180-day retention |
+| Old entries written before 07:13 | still in `_Default` (global) until their 90 days run out |
+| Admin Activity audit logs | `_Required`, still global |
+
+## The cleanup step: backend correct, frontend likely wrong
+
+| Log line | Likely build | What I expected |
+|---|---|---|
+| `matched pipeline templates: 4` at 06:50:38 | backend | 4 ✅ (054eefc, 53262df, ffc8a89, bd3b2bb) |
+| `matched pipeline templates: 0` at 06:49:54 | frontend | 6 ❌ (0ae7410, 13633c6, 70499c9, 7696009, b0ad954, 13bcacb) |
+
+Backend has 4, below `KEEP=5`, so there's nothing to delete, and no `DRY RUN would delete` line is correct. Frontend has 6, so it should name one candidate. Zero means its filter matches nothing. A leftover `cn-backend` name in the frontend copy would cause that, but I can't see the file, so this is a guess.
+
+**Confirm which build printed the 0:**
+```bash
+P=pg-ae-n-app-125609
+gcloud logging read "logName=\"projects/$P/logs/cloudbuild\" AND textPayload:\"matched pipeline templates\"" --project=$P --freshness=6h --limit=4 --format="value(timestamp,resource.labels.build_id,textPayload)"
+```
+Build IDs: frontend `5a279870-…`, backend `2e1de670-…`.
+
+**Then paste the frontend Cleanup step.** Open `cloudbuild.yaml` in the frontend repo on GitHub, and paste the `IN_USE=`, the `--filter=` line and the `SHA=` line. No secrets are in it. I'll point to the exact mismatch.
+
+## Keep `DRY_RUN=1`
+
+With the frontend fixed, the dry run should name one old template. Review the names before setting `DRY_RUN=0`. I haven't verified that `delete` accepts `--region` for regional templates. The step ends with `exit 0`, so a failed delete wouldn't break a deploy, but I'd expect to need a fix on the first live run.
+
+## What's left from the logging plan
+
+| Item | Needs |
+|---|---|
+| `_Required` (Admin Activity audit logs) | a written compliance exception |
+| VPC flow logs (off) | compliance's sampling answer and the budget owner's yes |
+| Data Access audit config | read access, or an IAM-capable person checking IAM & Admin → Audit Logs |
+| Read access to the new bucket for your account | the admin request I gave earlier |
+| Key line and request-body logging | the dev team's decision |
+| Old `_Default` entries | leave to age out unless compliance says delete |
+
+## From earlier, not started
+
+- The 18 regional secrets and `SECRET_LOCATION`, plus the endpoint fix in `secret-manager.ts`.
+- The 5 secrets the app doesn't read.
+- The `US` bucket, which waits on its owner.
+
+## Evidence to keep for compliance
+
+Take screenshots of:
+- Log Router, showing `_Default` disabled and `cn-staging-logs-me2` enabled.
+- Logs Storage, showing the bucket in `me-central2` at 180 days.
+- Logs Explorer scoped to the new bucket with fresh entries, once you have access.
+- The terminal output from this session's checks.
+
+Paste the build-id output and the frontend cleanup lines.
