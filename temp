@@ -1,62 +1,15 @@
-## What this run shows
-
-| # | Result | Meaning |
-|---|---|---|
-| 1 | `_Default` disabled, `cn-staging-logs-me2` and `_Required` enabled | ✅ the state you intended |
-| 2 | the new bucket has the `_AllLogs` view | ✅ |
-| 4 | no `DDDDDD` in 24h | ✅ logs only began about 1.5 hours ago, so this is a short window |
-| 6 | backend 1/1, frontend 1/1 | ✅ no extra servers |
-| 7 | the newest builds succeeded, commits `bd3b2bb` and `13bcacb` | ✅ |
-| 8 | frontend log files exist and have content | ✅ they match my receiver patterns |
-| 3 | entries in the last 15 min | ⚠️ not proof, see below |
-| 5 | Data Access services: empty | ❓ ambiguous, see below |
-
-**Frontend paths are correct.** The files are `careernavigator-frontend-out.log`, `-error.log`, `careernavigator-frontend-staging-access.log`, `-error.log` and `error.log`. They match my wildcards.
-
-## Result 3 isn't proof that the new bucket works
-
-Your account couldn't read the new bucket's views earlier. So the entries in result 3 may come from `_Default`, written before you disabled it, and not from the new bucket at all. One hint: `careernavigator-frontend-staging-error.log` was written at 07:07, inside the 15-minute window, yet `frontend_apache_error` doesn't appear in the output. That fits "entries from before the disable".
-
-I can't tell which it is. The disable time settles it:
-```bash
-P=pg-ae-n-app-125609
-D=$(gcloud logging sinks describe _Default --project=$P --format="value(updateTime)")
-echo "default disabled at: $D"; date -u
-gcloud logging read 'logName:"logs/backend_" OR logName:"logs/frontend_"' --project=$P --limit=1 --format="value(timestamp,logName.basename())"
-gcloud logging read "(logName:\"logs/backend_\" OR logName:\"logs/frontend_\") AND timestamp>=\"$D\"" --project=$P --limit=3 --format="value(timestamp,logName.basename())"
-```
-- **Entries after the disable time appear:** your account reads logs written after the disable, so they come from the new bucket, and routing works.
-- **None appear while the servers are live:** either the new bucket isn't receiving, or your account can't read it. Open Logging → Logs Storage and look at the size of `cn-staging-logs-me2`. If it isn't growing, **re-enable `_Default` now** (Log Router → `_Default` → ⋮ → Enable sink), because logs are being lost.
-
-The storage size in the Console is the one proof I can't get from a command, and I've asked for it before. Please look at it.
-
-## Get read access to the new bucket
-
-Compliance reviewers and your team must be able to read these logs. Ask a project admin:
-
-> Please give nikul.sadhu@gcp.pwc.com read access to the log views of bucket `cn-staging-logs-me2` (me-central2) in project pg-ae-n-app-125609, and access to read Data Access audit logs.
-
-I believe the roles are Logs View Accessor and Private Logs Viewer, but I haven't verified the names.
-
-## Data Access result: ambiguous
-
-An empty result can mean no service has Data Access logging on, or that your account can't read those logs. The `data_access` log name did exist earlier, so something wrote it. Once you have access, rerun check 5. Until then, someone with IAM access can look in the Console under IAM & Admin → Audit Logs.
-
-## Cleanup step: has the corrected version been applied?
-
-I still haven't heard. The corrected version prints `matched pipeline templates:`, so this shows whether it's live:
-```bash
-gcloud logging read "logName=\"projects/$P/logs/cloudbuild\" AND (textPayload:\"matched pipeline templates\" OR textPayload:\"DRY RUN would delete\")" --project=$P --freshness=4h --limit=10 --format="value(timestamp,textPayload)"
-```
-With 6 frontend pipeline templates and `KEEP=5`, a working dry run should name one deletion candidate. Nothing is deleted while `DRY_RUN=1`.
-
-## Still waiting on
-
-| Item | Needs |
-|---|---|
-| `_Required` global audit logs | a written compliance exception |
-| VPC flow logs (off) | compliance's sampling answer and the budget owner's yes |
-| Key line, request-body logging | the dev team's decision |
-| Secrets (18 regional copies and `SECRET_LOCATION`), 5 unread secrets, the `US` bucket | not started |
-
-Paste the output of the first command block and the Console size of the bucket.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ P=pg-ae-n-app-125609
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ D=$(gcloud logging sinks describe _Default --project=$P --format="value(updateTime)")
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "default disabled at: $D"; date -u
+default disabled at: 2026-10-05T07:13:49.678878972Z
+Mon Oct  5 07:19:27 AM UTC 2026
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging read 'logName:"logs/backend_" OR logName:"logs/frontend_"' --project=$P --limit=1 --format="value(timestamp,logName.basename())"
+2026-10-05T07:19:25.167584496Z  backend_pm2_out
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging read "(logName:\"logs/backend_\" OR logName:\"logs/frontend_\") AND timestamp>=\"$D\"" --project=$P --limit=3 --format="value(timestamp,logName.basename())"
+2026-10-05T07:19:31.042425982Z  backend_apache_access
+2026-10-05T07:19:30.525862938Z  backend_apache_access
+2026-10-05T07:19:27.865523247Z  frontend_apache_access
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging read "logName=\"projects/$P/logs/cloudbuild\" AND (textPayload:\"matched pipeline templates\" OR textPayload:\"DRY RUN would delete\")" --project=$P --freshness=4h --limit=10 --format="value(timestamp,textPayload)"
+2026-10-05T06:50:38.811395027Z  Step #7 - "Cleanup Old Packer Artifacts": matched pipeline templates: 4
+2026-10-05T06:49:54.493785313Z  Step #7 - "Cleanup Old Packer Artifacts": matched pipeline templates: 0
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
