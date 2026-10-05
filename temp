@@ -1,99 +1,62 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ P=pg-ae-n-app-125609
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "== 1. SINKS =="
-== 1. SINKS ==
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging sinks list --project=$P --format="table(name,disabled)"
-NAME                 DISABLED
-_Default             True
-cn-staging-logs-me2
-_Required
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "== 2. LOG VIEWS ON NEW BUCKET =="
-== 2. LOG VIEWS ON NEW BUCKET ==
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging views list --bucket=cn-staging-logs-me2 --location=me-central2 --project=$P
-VIEW_ID   FILTER  CREATE_TIME  UPDATE_TIME
-_AllLogs
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "== 3. ENTRIES AFTER DISABLE (project scope, last 15 min) =="
-== 3. ENTRIES AFTER DISABLE (project scope, last 15 min) ==
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging read 'logName:"logs/backend_" OR logName:"logs/frontend_"' --project=$P --freshness=15m --limit=500 --format="value(logName.basename())" | sort | uniq -c
-    115 backend_apache_access
-      2 backend_auth_log
-    202 backend_pm2_out
-    179 frontend_apache_access
-      2 frontend_auth_log
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "== 4. KEY LINE, LAST 24H =="
-== 4. KEY LINE, LAST 24H ==
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging read "logName=\"projects/$P/logs/backend_pm2_out\" AND jsonPayload.message:\"DDDDDD\"" --project=$P --freshness=24h --limit=1 --format="value(timestamp)"
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "== 5. DATA ACCESS AUDIT: WHICH SERVICES =="
-== 5. DATA ACCESS AUDIT: WHICH SERVICES ==
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud logging read 'logName:"cloudaudit.googleapis.com%2Fdata_access"' --project=$P --freshness=7d --limit=300 --format="value(protoPayload.serviceName)" | sort | uniq -c
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "== 6. MIG SIZES =="
-== 6. MIG SIZES ==
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud compute instance-groups managed list --project=$P --format="table(name,size,targetSize,instanceTemplate.basename())"
-NAME                      SIZE  TARGET_SIZE  INSTANCE_TEMPLATE
-cn-backend-mig-regional   1     1            cn-backend-template-bd3b2bb
-cn-frontend-mig-regional  1     1            cn-frontend-template-13bcacb
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "== 7. LAST BUILDS =="
-== 7. LAST BUILDS ==
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud builds list --region=me-central2 --project=$P --limit=4 --format="table(id,status,createTime,substitutions.TRIGGER_NAME,substitutions.SHORT_SHA)"
-ID                                    STATUS   CREATE_TIME                TRIGGER_NAME                      SHORT_SHA
-2e1de670-34b8-4594-8ef2-f97be3167cd5  SUCCESS  2026-10-05T06:29:38+00:00  careernavigator-backend-staging   bd3b2bb
-5a279870-ee4a-4067-a013-fbc599a9f52e  SUCCESS  2026-10-05T06:29:10+00:00  careernavigator-frontend-staging  13bcacb
-a88dbfe2-68d8-49a4-8e59-ba1a4b54259a  SUCCESS  2026-10-05T05:43:46+00:00  careernavigator-frontend-staging  70499c9
-2ad1a406-c92b-41f9-9503-35193725fd74  SUCCESS  2026-10-05T05:43:19+00:00  careernavigator-backend-staging   ffc8a89
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ echo "== 8. FRONTEND LOG FILES =="
-== 8. FRONTEND LOG FILES ==
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ Z=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(zone.basename())" --limit=1)
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ N=$(gcloud compute instances list --project=$P --filter="name~cn-frontend-mig" --format="value(name)" --limit=1)
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$ gcloud compute ssh $N --zone=$Z --project=$P --internal-ip --command="sudo ls -la --time-style=full-iso /home/sa_108691235514385689272/.pm2/logs/ /var/log/apache2/; date -u"
-WARNING: The private SSH key file for gcloud does not exist.
-WARNING: The public SSH key file for gcloud does not exist.
-WARNING: You do not have an SSH key for gcloud.
-WARNING: SSH keygen will be executed to generate a key.
-This tool needs to create the directory [/home/nikul_sadhu_gcp_pwc_com/.ssh] before being able to generate SSH keys.
+## What this run shows
 
-Do you want to continue (Y/n)?  y
+| # | Result | Meaning |
+|---|---|---|
+| 1 | `_Default` disabled, `cn-staging-logs-me2` and `_Required` enabled | ✅ the state you intended |
+| 2 | the new bucket has the `_AllLogs` view | ✅ |
+| 4 | no `DDDDDD` in 24h | ✅ logs only began about 1.5 hours ago, so this is a short window |
+| 6 | backend 1/1, frontend 1/1 | ✅ no extra servers |
+| 7 | the newest builds succeeded, commits `bd3b2bb` and `13bcacb` | ✅ |
+| 8 | frontend log files exist and have content | ✅ they match my receiver patterns |
+| 3 | entries in the last 15 min | ⚠️ not proof, see below |
+| 5 | Data Access services: empty | ❓ ambiguous, see below |
 
-Generating public/private rsa key pair.
-Enter passphrase (empty for no passphrase):
-Enter same passphrase again:
-Your identification has been saved in /home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_engine
-Your public key has been saved in /home/nikul_sadhu_gcp_pwc_com/.ssh/google_compute_engine.pub
-The key fingerprint is:
-SHA256:EDPd1fVJvtRyB9PxpKWzhQnvUzDL3PLqKYz8KLed2aw nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9.c.pg-ae-n-app-125609.internal
-The key's randomart image is:
-+---[RSA 3072]----+
-|      +. . .o.===|
-|       +. .  =+#*|
-|      .       &+X|
-|       .     ..Xo|
-|        S     +..|
-|               o |
-|         . o  .  |
-|        . +oo* . |
-|         oooEo=  |
-+----[SHA256]-----+
-/home/sa_108691235514385689272/.pm2/logs/:
-total 16
-drwxrwxr-x 2 sa_108691235514385689272 sa_108691235514385689272 4096 2026-10-05 06:35:11.201949887 +0000 .
-drwxrwxr-x 5 sa_108691235514385689272 sa_108691235514385689272 4096 2026-10-05 06:46:54.484812893 +0000 ..
--rw-rw-r-- 1 sa_108691235514385689272 sa_108691235514385689272  238 2026-10-05 06:47:05.191177049 +0000 careernavigator-frontend-error.log
--rw-rw-r-- 1 sa_108691235514385689272 sa_108691235514385689272  385 2026-10-05 06:47:05.113177120 +0000 careernavigator-frontend-out.log
+**Frontend paths are correct.** The files are `careernavigator-frontend-out.log`, `-error.log`, `careernavigator-frontend-staging-access.log`, `-error.log` and `error.log`. They match my wildcards.
 
-/var/log/apache2/:
-total 196
-drwxr-x---  2 root adm      4096 2026-10-05 06:35:22.416940091 +0000 .
-drwxrwxr-x 12 root syslog   4096 2026-10-05 06:46:45.486144220 +0000 ..
--rw-r-----  1 root adm         0 2026-10-05 06:33:55.085016553 +0000 access.log
--rw-r--r--  1 root root   177293 2026-10-05 07:16:42.882287746 +0000 careernavigator-frontend-staging-access.log
--rw-r--r--  1 root root     3381 2026-10-05 07:07:19.412078848 +0000 careernavigator-frontend-staging-error.log
--rw-r-----  1 root adm      1135 2026-10-05 06:46:49.217396577 +0000 error.log
--rw-r-----  1 root adm         0 2026-10-05 06:33:55.089016540 +0000 other_vhosts_access.log
-Mon Oct  5 07:16:45 AM UTC 2026
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-lpw9:~$
+## Result 3 isn't proof that the new bucket works
+
+Your account couldn't read the new bucket's views earlier. So the entries in result 3 may come from `_Default`, written before you disabled it, and not from the new bucket at all. One hint: `careernavigator-frontend-staging-error.log` was written at 07:07, inside the 15-minute window, yet `frontend_apache_error` doesn't appear in the output. That fits "entries from before the disable".
+
+I can't tell which it is. The disable time settles it:
+```bash
+P=pg-ae-n-app-125609
+D=$(gcloud logging sinks describe _Default --project=$P --format="value(updateTime)")
+echo "default disabled at: $D"; date -u
+gcloud logging read 'logName:"logs/backend_" OR logName:"logs/frontend_"' --project=$P --limit=1 --format="value(timestamp,logName.basename())"
+gcloud logging read "(logName:\"logs/backend_\" OR logName:\"logs/frontend_\") AND timestamp>=\"$D\"" --project=$P --limit=3 --format="value(timestamp,logName.basename())"
+```
+- **Entries after the disable time appear:** your account reads logs written after the disable, so they come from the new bucket, and routing works.
+- **None appear while the servers are live:** either the new bucket isn't receiving, or your account can't read it. Open Logging → Logs Storage and look at the size of `cn-staging-logs-me2`. If it isn't growing, **re-enable `_Default` now** (Log Router → `_Default` → ⋮ → Enable sink), because logs are being lost.
+
+The storage size in the Console is the one proof I can't get from a command, and I've asked for it before. Please look at it.
+
+## Get read access to the new bucket
+
+Compliance reviewers and your team must be able to read these logs. Ask a project admin:
+
+> Please give nikul.sadhu@gcp.pwc.com read access to the log views of bucket `cn-staging-logs-me2` (me-central2) in project pg-ae-n-app-125609, and access to read Data Access audit logs.
+
+I believe the roles are Logs View Accessor and Private Logs Viewer, but I haven't verified the names.
+
+## Data Access result: ambiguous
+
+An empty result can mean no service has Data Access logging on, or that your account can't read those logs. The `data_access` log name did exist earlier, so something wrote it. Once you have access, rerun check 5. Until then, someone with IAM access can look in the Console under IAM & Admin → Audit Logs.
+
+## Cleanup step: has the corrected version been applied?
+
+I still haven't heard. The corrected version prints `matched pipeline templates:`, so this shows whether it's live:
+```bash
+gcloud logging read "logName=\"projects/$P/logs/cloudbuild\" AND (textPayload:\"matched pipeline templates\" OR textPayload:\"DRY RUN would delete\")" --project=$P --freshness=4h --limit=10 --format="value(timestamp,textPayload)"
+```
+With 6 frontend pipeline templates and `KEEP=5`, a working dry run should name one deletion candidate. Nothing is deleted while `DRY_RUN=1`.
+
+## Still waiting on
+
+| Item | Needs |
+|---|---|
+| `_Required` global audit logs | a written compliance exception |
+| VPC flow logs (off) | compliance's sampling answer and the budget owner's yes |
+| Key line, request-body logging | the dev team's decision |
+| Secrets (18 regional copies and `SECRET_LOCATION`), 5 unread secrets, the `US` bucket | not started |
+
+Paste the output of the first command block and the Console size of the bucket.
