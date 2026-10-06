@@ -1,14 +1,39 @@
-The loader answers the naming question. Secret names are `SECRET_PREFIX` (default `CN_STAGING_`) plus a key, so the DB ones should be `CN_STAGING_DB_HOST`, `CN_STAGING_DB_USERNAME`, `CN_STAGING_DB_PASSWORD`, `CN_STAGING_DB_DATABASE` and `CN_STAGING_DB_PORT`. The location is read from `SECRET_LOCATION`, so I need to see what the app actually sets.
-
-The empty `curl` output is expected. The listing was probably denied, because `sa-cn-backend` has access to read secrets but not to list them. The `gcloud secrets list` error is a CLI limitation with regional secrets, so skip both.
-
-Run these (read-only, and the file contains no secret values):
-```bash
-cd /var/www/careernavigator-backend
-sed -n '1,47p' dist/common/config/secret-manager.js
-grep -nE "SECRET_|GCP_PROJECT" ecosystem.config.js
-```
-
-**Why I need them:** the loader runs on the VM as `sa-cn-backend` through the metadata server. I'd rather reuse that than your personal gcloud login, because your account probably can't read these secrets, and `sa-cn-backend` already can. With the full file I can give you a one-off Node command that calls the app's own loader and then runs `migration:show` in the same process. Nothing is written to disk, and no passwords are printed.
-
-Don't paste any secret values.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$ sed -n '1,47p' dist/common/config/secret-manager.js
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.loadSecrets = loadSecrets;
+const secret_manager_1 = require("@google-cloud/secret-manager");
+const projectId = process.env.GCP_PROJECT_ID || "pg-ae-n-app-125609";
+const prefix = process.env.SECRET_PREFIX ?? "CN_STAGING_";
+const location = process.env.SECRET_LOCATION || "";
+const client = location
+    ? new secret_manager_1.SecretManagerServiceClient({ apiEndpoint: `secretmanager.${location}.rep.googleapis.com` })
+    : new secret_manager_1.SecretManagerServiceClient();
+function buildSecretName(key) {
+    const fullName = `${prefix}${key}`;
+    return location
+        ? `projects/${projectId}/locations/${location}/secrets/${fullName}/versions/latest`
+        : `projects/${projectId}/secrets/${fullName}/versions/latest`;
+}
+async function getSecret(key) {
+    const [version] = await client.accessSecretVersion({ name: buildSecretName(key) });
+    const value = version.payload?.data?.toString() || "";
+    if (!value) {
+        throw new Error(`Secret "${prefix}${key}" returned an empty value`);
+    }
+    return value;
+}
+async function loadSecrets() {
+    const keys = ["DB_HOST", "DB_USERNAME", "DB_PASSWORD", "DB_DATABASE", "DB_PORT",
+        "GCP_BUCKET", "GCP_FILE_PATH",
+        "MAIL_DRIVER", "MAIL_HOST", "MAIL_PORT", "MAIL_USERNAME", "MAIL_PASSWORD", "MAIL_FROM_NAME", "MAIL_FROM_ADDRESS",
+        "REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD",
+        "EMAIL_SENDING_ENABLED"
+    ];
+    const results = await Promise.allSettled(keys.map((key) => getSecret(key)));
+    const failures = [];
+    results.forEach((result, index) => {
+        const key = keys[index];
+        if (result.status === "fulfilled") {
+            process.env[key] = result.value;
+        }
