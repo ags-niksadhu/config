@@ -1,5 +1,21 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$ gcloud secrets list --location=me-central2 --project=pg-ae-n-app-125609 --format="value(name)" | grep CN_STAGING
-ERROR: (gcloud.secrets.list) INVALID_ARGUMENT: The provided Project ID [projects/pg-ae-n-app-125609/locations/me-central2] does not match the expected format [projects/*]
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$ grep -rhoE "CN_STAGING_[A-Z_]+" dist | sort -u
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$
+Two separate problems. The `gcloud secrets list` failure is a CLI quirk with regional secrets. The empty `grep` means the secret names aren't written literally in `dist`, probably because the app builds them dynamically. Read the app's own loader instead, since that is the source of truth:
 
+```bash
+cd /var/www/careernavigator-backend
+grep -rlE "secretmanager|accessSecretVersion|SecretManager" dist --include=*.js | head
+```
+Then open the file it lists first, masking nothing, since the file should only contain names and no values:
+```bash
+grep -nE "secret|locations|projects|DB_|process\.env" <file-from-above>
+```
+
+**In parallel, list the secrets two ways** (read-only). Try the first. If it still errors, use the second:
+```bash
+gcloud beta secrets list --project=pg-ae-n-app-125609 --location=me-central2 --format="value(name)"
+```
+```bash
+curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://secretmanager.me-central2.rep.googleapis.com/v1/projects/pg-ae-n-app-125609/locations/me-central2/secrets" | grep '"name"'
+```
+A `403` is expected here and is a good sign. The VM account `sa-cn-backend` should have only `secretAccessor`, not list permission. In that case the loader code from the first command tells us the names, and we skip listing.
+
+Paste the outputs of the first and third commands at minimum. Don't paste secret values.
