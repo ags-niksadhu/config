@@ -1,22 +1,6 @@
-**Closed:**
-- ✅ Service accounts are created, bound and verified (secrets, bucket, Token Creator, logging).
-- ✅ Both MIGs run as `sa-cn-backend` and `sa-cn-frontend`, and are healthy.
-- ✅ The stopped-VM assignment is moot, and so is the "both instances" compliance question.
+nikul_sadhu@cloudshell:~$ gcloud compute disks list --project pg-ae-n-app-125609 --filter="-users:*" --format="table(name,zone.basename(),sizeGb,type.basename(),creationTimestamp)"
+nikul_sadhu@cloudshell:~$ gcloud compute instances describe cn-backend-mig-regional-l5n6 --zone me-central2-a --project pg-ae-n-app-125609 --format="value(shieldedInstanceConfig)"
+enableIntegrityMonitoring=True;enableSecureBoot=True;enableVtpm=True
+nikul_sadhu@cloudshell:~$ 
 
-**One check after the deletion:** the VMs may have left disks behind. Orphaned disks still cost money and still hold data in scope for residency.
-```bash
-gcloud compute disks list --project pg-ae-n-app-125609 --filter="-users:*" --format="table(name,zone.basename(),sizeGb,type.basename(),creationTimestamp)"
-```
-Anything listed with no attached instance is orphaned. ⚠️ Deleting a disk is irreversible, so send me the list before removing any.
 
-**Still open:**
-1. Shielded VM check on the new backend instance (backend wasn't re-confirmed earlier):
-   ```bash
-   gcloud compute instances describe cn-backend-mig-regional-l5n6 --zone me-central2-a --project pg-ae-n-app-125609 --format="value(shieldedInstanceConfig)"
-   ```
-   Expect Secure Boot, vTPM and Integrity monitoring all `True`.
-2. One upload and one download through the app, to prove the bucket access.
-3. The question to compliance on the `cloud-platform` scope for the new accounts.
-4. Old default-account templates: delete after about a day of stable running. The cleanup step is still `DRY_RUN=1`.
-
-Send the disk list and the Shielded VM output, and I'll confirm the rest.
