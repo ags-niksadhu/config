@@ -1,21 +1,37 @@
-nikul_sadhu@cloudshell:~$ gcloud sql backups list --instance=cn-staging-db --project=pg-ae-n-app-125609 --filter="type=ON_DEMAND" --format="table(id,windowStartTime,description)"
-ID: 1791294088906
-WINDOW_START_TIME: 2026-10-06T13:41:28.906+00:00
-DESCRIPTION: pre-migration-36689c0
-nikul_sadhu@cloudshell:~$ gcloud compute backend-services get-health app-backend-service --global --project=pg-ae-n-app-125609
----
-backend: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroups/cn-backend-mig-regional
-status:
-  healthStatus:
-  - healthState: HEALTHY
-    instance: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-a/instances/cn-backend-mig-regional-05vr
-    ipAddress: 10.216.0.2
-    port: 80
-  kind: compute#backendServiceGroupHealth
-nikul_sadhu@cloudshell:~$ 
+The deploy is verified:
+- Backup `pre-migration-36689c0` exists.
+- The new VM `cn-backend-mig-regional-05vr` is `HEALTHY` behind `app-backend-service`.
+- Staging is on the new code and schema.
 
+**Correction to my earlier count:** I said the DB had 5 more migrations than the repo. The build log said 82 files in source, which includes the one that was pending, and 87 rows in the DB before it ran. So 81 files were already applied, which leaves **about 6 DB rows with no file in the repo**. The log also named `Migrations1778000000000` as the last executed migration, and it is not in your `migration:show` list, so a migration from outside this branch was applied to this DB.
 
+The 82 files on the VM match the source count, so this is not a packaging problem. The branch is missing files. I won't guess which migrations they are, so run this on the MIG VM. It is read-only (one `SELECT`) and prints no secrets:
+```bash
+cat > /tmp/dbmig.js <<'EOF'
+const base = '/var/www/careernavigator-backend';
+process.chdir(base);
+process.env.SECRET_LOCATION = 'me-central2';
+const fs = require('fs');
+const { loadSecrets } = require(base + '/dist/common/config/secret-manager.js');
+const { Client } = require(base + '/node_modules/pg');
+const dir = base + '/dist/migrations/';
+const inRepo = new Set(fs.readdirSync(dir).filter(f => f.endsWith('.js')).map(f => (fs.readFileSync(dir + f, 'utf8').match(/class\s+(\w+)/) || [])[1]));
+loadSecrets().then(async () => {
+  const c = new Client({ host: process.env.DB_HOST, port: 5432, user: process.env.DB_USERNAME, password: process.env.DB_PASSWORD, database: process.env.DB_DATABASE, ssl: { rejectUnauthorized: false } });
+  await c.connect();
+  const { rows } = await c.query('SELECT id, name FROM "migrations_TypeORM" ORDER BY id');
+  await c.end();
+  console.log('DB rows:', rows.length, '| files:', inRepo.size);
+  console.log('In DB but not in repo:');
+  rows.filter(r => !inRepo.has(r.name)).forEach(r => console.log(' ', r.id, r.name));
+}).catch(e => { console.error(e.message); process.exit(1); });
+EOF
+node /tmp/dbmig.js; rm -f /tmp/dbmig.js
+```
+Paste the output. Then ask your dev which branch those migrations came from. Merge that branch's migration files into `staging` before prod, so a fresh DB built from the repo matches this one.
 
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-05vr:~$ ls /var/www/careernavigator-backend/dist/migrations/*.js | wc -l
-82
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-05vr:~$
+**Next work:** I listed two follow-ups last time and you haven't picked one.
+1. **Backup cleanup step** keeps the last 5 `pre-migration-*` backups. Only one exists today, so there is no cost pressure yet, but every push adds one.
+2. **Dedicated `sa-cn-build` service account** replaces the default compute account on the trigger. This is the bigger security gap.
+
+I recommend 2 first. Tell me which one and I'll write the exact edits.
