@@ -1,22 +1,11 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$ find node_modules/.bin -type f ! -perm -u+x | wc -l
-63
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$ find node_modules/.bin -type f | wc -l
-63
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$ node -e "const p=require('./package.json');console.log('typeorm in dependencies:',!!p.dependencies.typeorm,'| devDependencies:',!!(p.devDependencies||{}).typeorm)"
-node -e "const p=require('./package.json');console.log('typeorm in dependencies:',find node_modules/.bin -type f | wc -lp.dependencies.typeorm,'| devDependencies:',find node_modules/.bin -type f | wc -l(p.devDependencies||{}).typeorm)"
-[eval]:1
-const p=require('./package.json');console.log('typeorm in dependencies:',find node_modules/.bin -type f | wc -lp.dependencies.typeorm,'| devDependencies:',find node_modules/.bin -type f | wc -l(p.devDependencies||{}).typeorm)
-                                                                         ^^^^
-Expected ',', got 'ident'
+Confirmed: all 63 of 63 binaries in `node_modules/.bin` lack the exec bit, so it is systemic and not just `typeorm`. `package-lock.json` is present, so `npm ci` will work.
 
-SyntaxError: missing ) after argument list
-    at makeContextifyScript (node:internal/vm:185:14)
-    at compileScript (node:internal/process/execution:383:10)
-    at evalTypeScript (node:internal/process/execution:256:22)
-    at node:internal/main/eval_string:74:3
+The Node command got garbled when you pasted it. Use this one instead:
+```bash
+grep -n -E '"(dependencies|devDependencies)"|"typeorm"' package.json
+```
+If `"typeorm"` appears after `"dependencies"` and before `"devDependencies"`, it's a runtime dependency and `npm ci --omit=dev` is safe.
 
-Node.js v22.23.3
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$ ls package-lock.json
-package-lock.json
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$
-
+Then paste the two items from the repo. Everything else is ready:
+1. The Packer `.pkr.hcl`, especially the `file` and `shell` provisioners that copy and install the app.
+2. The `cloudbuild.yaml` steps that run before the Packer step.
