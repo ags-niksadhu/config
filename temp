@@ -1,2 +1,85 @@
+Good choice. Three things I asked about are still unknown, so run these first (read-only):
+
+```bash
 gcloud sql instances list --project=pg-ae-n-app-125609 --format="table(name,region,settings.ipConfiguration.privateNetwork,settings.ipConfiguration.ipv4Enabled)"
 gcloud builds triggers describe careernavigator-backend-staging --region=me-central2 --project=pg-ae-n-app-125609 --format="value(serviceAccount)"
+```
+These give the Cloud SQL instance name and network, and the service account the build runs as. Paste both outputs. Console equivalent for the second: Cloud Build → Triggers → the trigger → **Service account**.
+
+The draft below is ready except for one substitution, `INSTANCE_NAME`, which comes from the first command. ⚠️ Don't push it until the service account has the permissions in the checklist.
+
+**1. New file `scripts/run-migrations.js`** (GitHub → `staging` branch → **Add file**)
+It loads only the 5 DB secrets, not all 18 that the app loader needs, so the build account gets the least privilege.
+```js
+const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
+const { spawnSync } = require('child_process');
+
+const project = 'pg-ae-n-app-125609';
+const location = 'me-central2';
+const prefix = 'CN_STAGING_';
+const keys = ['DB_HOST', 'DB_USERNAME', 'DB_PASSWORD', 'DB_DATABASE'];
+const client = new SecretManagerServiceClient({
+  apiEndpoint: `secretmanager.${location}.rep.googleapis.com`,
+});
+
+(async () => {
+  for (const k of keys) {
+    const [v] = await client.accessSecretVersion({
+      name: `projects/${project}/locations/${location}/secrets/${prefix}${k}/versions/latest`,
+    });
+    const val = v.payload.data.toString();
+    if (!val) throw new Error(`${prefix}${k} is empty`);
+    process.env[k] = val;
+  }
+  const r = spawnSync('./node_modules/.bin/typeorm', ['migration:run', '-d', 'dist/data-source.js'], {
+    stdio: 'inherit',
+    env: { ...process.env, NODE_ENV: 'staging' },
+  });
+  process.exit(r.status ?? 1);
+})().catch((e) => { console.error(e.message); process.exit(1); });
+```
+
+**2. `cloudbuild.yaml`: insert these two steps after `Create Instance Template` and before `Rolling Update MIG`**
+```yaml
+  - id: Backup Database
+    name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        # REQUIRED SUBSTITUTION: INSTANCE_NAME = Cloud SQL instance name from the command above
+        gcloud sql backups create --instance=INSTANCE_NAME --project=pg-ae-n-app-125609 --description="pre-migration-$SHORT_SHA"
+
+  - id: Run DB Migrations
+    name: 'node:22'
+    entrypoint: node
+    args: ['scripts/run-migrations.js']
+```
+
+**Why this position:** the image and template are already built and health-checked, so the schema changes only just before the rollout. A failed build before this point never touches the DB, and a failure here stops the rollout while the old VMs keep serving. The build workspace already has `dist/` and `node_modules` from earlier steps, so no extra install is needed.
+
+**Permissions checklist** (Console → IAM, for the service account from the second command):
+
+| Role | Scope | Needed for |
+|---|---|---|
+| Secret Manager Secret Accessor | Only the 4 `CN_STAGING_DB_*` regional secrets | Reading DB credentials |
+| Cloud SQL Editor | The project, or the instance if you can scope it | Creating the backup |
+
+Your account can't read the project IAM policy, so ask whoever manages it at PwC if the Console blocks you.
+
+**Cost flag:** on-demand Cloud SQL backups are not deleted automatically, so each build adds recurring backup storage. Either keep the retention for on-demand backups short (Console → SQL → instance → **Backups** → **Manage retention**), or tell me and I'll add a cleanup step that keeps the last 5, like your template cleanup.
+
+**Risks:**
+- ⚠️ The private pool must reach the DB IP. If the step times out, the cause is network, and the output of the first command will show it.
+- Don't run two builds on `staging` at the same time. TypeORM does not lock migrations by default.
+- Because old VMs serve while the schema changes, migrations must be backward compatible: add columns, don't drop or rename them.
+
+**Verify after the build**
+- Build log: the `Run DB Migrations` step shows `Migration Migrations1791285240484 has been executed successfully`. Later builds show `No migrations are pending`.
+- On a new VM: `curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3024/health` should return `200`.
+
+**Rollback**
+- Migration step failed: nothing to do. The rollout didn't start, and TypeORM rolled back that migration's transaction.
+- Migration ran but the app is broken: restore the backup (Console → SQL → instance → **Backups** → **Restore**). ⚠️ This overwrites the whole DB. Then redeploy the previous template: Compute Engine → Instance groups → `cn-backend-mig-regional` → **Update VMs**.
+
+If the pending migration hasn't been applied manually, this pipeline will apply it on the next push to `staging`. If you want an approval gate for prod, it is a trigger setting: Cloud Build → Triggers → the trigger → **Approval** → require approval. That gates the whole build, not just the migration.
