@@ -1,43 +1,12 @@
-Memory is updated. Here is what your outputs show.
-
-## `cn-staging-ai-staging`: my earlier note was out of date
-
-It now runs as **sa-cn-backend** (e2-medium, no GPU, Shielded VM on, no external IP, narrow scopes), not the default account.
-- ⚠️ That is the backend's identity, which can read every CN_STAGING_* secret. A test VM shouldn't hold it.
-- Vertex AI calls need the cloud-platform scope, and your VM's narrow scopes don't allow them. The shortcut would be to widen sa-cn-backend, which gives the test VM full secret access.
-
-| Option | Cost | Complexity | Downtime |
-|---|---|---|---|
-| A. Delete after the test | None | None | None |
-| B. New SA, aiplatform.user only | Same VM cost | Admin ticket | ⚠️ restart (test VM only) |
-
-**Recommendation:** B if it lives more than a few days, otherwise A. Steps for B are in my last message, with the VM's current account switched to the new one.
-
-## #4 Templates: only 4 of the 27 are safe to keep
-
-- **Default-account templates (16 pipeline + 2 manual):** frontend b0ad954, 7696009, 13633c6, 0ae7410, 70499c9, 13bcacb, 3255267, 809b228, ee22731. Backend 054eefc, 53262df, ffc8a89, bd3b2bb, 6a5ff7e, b5141a9, 3aaffe9. Manual: clean-ubuntu-26092026 and cnstagingbackend-instance-template-22-sept-2026-v2.
-- **sa-cn-backend templates (8):** 98b9081, a62c29d, b0288db, 9bf4fed, 4dbdd20, 6532834, 8f5b2a1, 36689c0.
-- **sa-cn-frontend templates (1):** a81eb16.
-- **The cleanup script alone won't fix this.** With KEEP=5, the frontend would keep 4 default-account templates as rollback targets until 5 new frontend builds exist.
-
-**Recommendation:** delete the 18 default-account templates by hand (Console: Compute Engine → Instance templates → tick → **Delete**). GCP refuses to delete a template a MIG still uses, which is a safety net.
-- ⚠️ This is irreversible and leaves one frontend rollback target (a81eb16). After that, rolling back the frontend means rebuilding from git.
-- Check first that no MIG points at any of them:
-```bash
-P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
 for M in cn-backend-mig-regional cn-frontend-mig-regional; do echo $M; gcloud compute instance-groups managed describe $M --region=me-central2 --project=$P --format="value(versions[].instanceTemplate.basename())"; done
-```
-- Flip `DRY_RUN` to 0 only after you paste me the dry-run candidate lines from the latest build log.
-
-## #5 Logging results
-
-- **5a Retention: closed.** `_Default` reads 180 days.
-- **5b Flow logs: still off** (`logConfig` null). Needs an admin and brings new cost, as in my last message.
-- **5c Data Access: still unconfirmed.** No entries in 7 days despite today's secret reads, which is consistent with it being off. Needs an admin.
-- **5d DDDDDD: no hits in 7 days in `backend_pm2_out`.** I can't see the pm2 error log, and the code may still exist, so dev team confirmation stays open.
-- **5e Body logging: active.** The query hit its 1000 cap in one day. Check whether sensitive fields appear (counts only, nothing printed):
-```bash
-for K in password token otp email; do echo -n "$K: "; gcloud logging read "logName:\"backend_pm2_out\" AND jsonPayload.message:\"Body :\" AND jsonPayload.message:\"$K\"" --project=$P --freshness=1d --limit=1000 --format="value(timestamp)" | wc -l; done
-```
-Send me those counts. If they're high, this one should go to the dev team as urgent. The sensitive entries stay in logs for 180 days.
-- **5f SECRET_KEY "abc": waiting on the dev team.**
+cn-backend-mig-regional
+cn-backend-template-36689c0
+cn-frontend-mig-regional
+cn-frontend-template-a81eb16
+nikul_sadhu@cloudshell:~$ for K in password token otp email; do echo -n "$K: "; gcloud logging read "logName:\"backend_pm2_out\" AND jsonPayload.message:\"Body :\" AND jsonPayload.message:\"$K\"" --project=$P --freshness=1d --limit=1000 --format="value(timestamp)" | wc -l; done
+password: 26
+token: 1
+otp: 0
+email: 34
+nikul_sadhu@cloudshell:~$ 
