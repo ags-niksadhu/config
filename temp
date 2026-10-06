@@ -1,40 +1,21 @@
-The pipeline worked end to end. In the build log:
-- **Backup:** `cn-staging-db` was backed up before the migration.
-- **Migration:** `Migrations1791285240484` ran in a transaction and committed. It adds `organizations.ai_allowed boolean NOT NULL DEFAULT false`. That is additive, so the old VMs kept working during the rollout.
-- **Rollout:** the MIG moved to `cn-backend-template-36689c0` and reported `Group is stable`. This also means the private pool can reach the DB, so the `nettest` check is no longer needed.
+nikul_sadhu@cloudshell:~$ gcloud sql backups list --instance=cn-staging-db --project=pg-ae-n-app-125609 --filter="type=ON_DEMAND" --format="table(id,windowStartTime,description)"
+ID: 1791294088906
+WINDOW_START_TIME: 2026-10-06T13:41:28.906+00:00
+DESCRIPTION: pre-migration-36689c0
+nikul_sadhu@cloudshell:~$ gcloud compute backend-services get-health app-backend-service --global --project=pg-ae-n-app-125609
+---
+backend: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroups/cn-backend-mig-regional
+status:
+  healthStatus:
+  - healthState: HEALTHY
+    instance: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-a/instances/cn-backend-mig-regional-05vr
+    ipAddress: 10.216.0.2
+    port: 80
+  kind: compute#backendServiceGroupHealth
+nikul_sadhu@cloudshell:~$ 
 
-**Verify (read-only, in Cloud Shell):**
-```bash
-gcloud sql backups list --instance=cn-staging-db --project=pg-ae-n-app-125609 --filter="type=ON_DEMAND" --format="table(id,windowStartTime,description)"
-gcloud compute backend-services get-health app-backend-service --global --project=pg-ae-n-app-125609
-```
-The first should list `pre-migration-36689c0`. The second should show the new VM `HEALTHY`. On your next push, the migration step should print `No migrations are pending`.
 
-**Rollback**
-- App only: Console → Compute Engine → Instance groups → `cn-backend-mig-regional` → **Update VMs** → `cn-backend-template-6532834`. This is safe because the schema change is additive.
-- Schema: restore backup `pre-migration-36689c0` (Console → SQL → `cn-staging-db` → **Backups** → **Restore**). ⚠️ This overwrites the whole DB, including data written since.
 
-**Follow-ups, in priority order**
-
-1. **Backup cost.** Every push now creates an on-demand backup, even when no migration is pending, and Cloud SQL doesn't expire them. That is recurring storage spend that grows with every build.
-
-| Option | Cost | Complexity | Downtime |
-|---|---|---|---|
-| A. Delete old backups by hand (Console → SQL → **Backups**) | None | Low | None, but you have to remember |
-| B. Cleanup step that keeps the last 5 `pre-migration-*` backups, with the same `DRY_RUN=1` pattern as your template cleanup | None | Medium | None |
-
-**Recommendation:** B. It needs `cloudsql.backupRuns.delete` on the build account, which ties into item 2.
-
-2. **The build runs as the default compute service account.** The migration step read the DB secrets as that account, and it normally holds Editor. This is not least-privilege. The fix is a dedicated `sa-cn-build` with only Secret Accessor on the 4 `CN_STAGING_DB_*` secrets, Cloud SQL backup rights, and the roles the existing steps need. ⚠️ Change it separately, because a wrong role set breaks Packer and the rolling update.
-
-3. **Migration source mismatch.** The log says 82 migrations in the source and 87 in the DB, so the DB has 5 more than the repo. It isn't blocking, but someone ran migrations from another branch or deleted files. Check this on a MIG VM:
-```bash
-ls /var/www/careernavigator-backend/dist/migrations/*.js | wc -l
-```
-Ask your dev which branch produced the extra 5 before the first prod run.
-
-4. **No approval gate.** Every push to `staging` now migrates the DB. That is fine for staging. For prod, add trigger approval (Cloud Build → Triggers → the trigger → **Approval**) and don't skip the backup step.
-
-5. **Template cleanup is still `DRY_RUN=1`.** It matched 15 templates, and the 10 oldest would be deleted. Your newest 5 are kept, including the rollback target `cn-backend-template-6532834`. One caveat: the failed build's template `8f5b2a1` takes one of the 5 slots. You can switch to `DRY_RUN=0` when ready, but the regional delete path is still unproven.
-
-I'd do 1 and 2 next. Tell me which and I'll write the exact edits.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-05vr:~$ ls /var/www/careernavigator-backend/dist/migrations/*.js | wc -l
+82
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-05vr:~$
