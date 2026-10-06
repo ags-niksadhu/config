@@ -1,84 +1,22 @@
-nikul_sadhu@cloudshell:~$ export P=pg-ae-n-app-125609
+**Closed:**
+- ✅ Service accounts are created, bound and verified (secrets, bucket, Token Creator, logging).
+- ✅ Both MIGs run as `sa-cn-backend` and `sa-cn-frontend`, and are healthy.
+- ✅ The stopped-VM assignment is moot, and so is the "both instances" compliance question.
 
-# 1. Template service account (backend and frontend)
-gcloud compute instance-templates list --project $P --format="table(name,properties.serviceAccounts[0].email,creationTimestamp)" --sort-by=~creationTimestamp --limit=6
+**One check after the deletion:** the VMs may have left disks behind. Orphaned disks still cost money and still hold data in scope for residency.
+```bash
+gcloud compute disks list --project pg-ae-n-app-125609 --filter="-users:*" --format="table(name,zone.basename(),sizeGb,type.basename(),creationTimestamp)"
+```
+Anything listed with no attached instance is orphaned. ⚠️ Deleting a disk is irreversible, so send me the list before removing any.
 
-# 2. Running MIG instances and their service accounts
-gcloud compute instances list --project $P --filter="name~cn-backend-mig OR name~cn-frontend-mig" --format="table(name,zone.basename(),status,serviceAccounts[0].email)"
+**Still open:**
+1. Shielded VM check on the new backend instance (backend wasn't re-confirmed earlier):
+   ```bash
+   gcloud compute instances describe cn-backend-mig-regional-l5n6 --zone me-central2-a --project pg-ae-n-app-125609 --format="value(shieldedInstanceConfig)"
+   ```
+   Expect Secure Boot, vTPM and Integrity monitoring all `True`.
+2. One upload and one download through the app, to prove the bucket access.
+3. The question to compliance on the `cloud-platform` scope for the new accounts.
+4. Old default-account templates: delete after about a day of stable running. The cleanup step is still `DRY_RUN=1`.
 
-# 3. Are the MIGs fully on the new template?
-gcloud compute instance-groups managed list-instances cn-backend-mig-regional --region me-central2 --project $P
-gcloud compute instance-groups managed list-instances cn-frontend-mig-regional --region me-central2 --project $P
-
-# 4. Backend health
-curl -s -o /dev/null -w "%{http_code}\n" https://stagingapi.careerdevelopmentnavigator.mer.pwc.com/health
-NAME: cn-frontend-template-a81eb16
-EMAIL: sa-cn-frontend@pg-ae-n-app-125609.iam.gserviceaccount.com
-CREATION_TIMESTAMP: 2026-10-06T02:58:23.231-07:00
-
-NAME: cn-backend-template-a62c29d
-EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
-CREATION_TIMESTAMP: 2026-10-06T02:40:44.978-07:00
-
-NAME: cn-backend-template-98b9081
-EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
-CREATION_TIMESTAMP: 2026-10-05T23:43:29.007-07:00
-
-NAME: cn-backend-template-3aaffe9
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-05T03:53:02.416-07:00
-
-NAME: cn-backend-template-b5141a9
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-05T03:32:09.326-07:00
-
-NAME: cn-frontend-template-ee22731
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-05T03:31:18.325-07:00
-NAME: cn-backend-mig-regional-l5n6
-ZONE: me-central2-a
-STATUS: RUNNING
-EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
-
-NAME: cn-frontend-mig-regional-jzmx
-ZONE: me-central2-a
-STATUS: RUNNING
-EMAIL: sa-cn-frontend@pg-ae-n-app-125609.iam.gserviceaccount.com
-NAME: cn-backend-mig-regional-l5n6
-ZONE: me-central2-a
-STATUS: RUNNING
-HEALTH_STATE: HEALTHY
-ACTION: NONE
-INSTANCE_TEMPLATE: cn-backend-template-a62c29d
-VERSION_NAME: 
-LAST_ERROR: 
-NAME: cn-frontend-mig-regional-jzmx
-ZONE: me-central2-a
-STATUS: RUNNING
-HEALTH_STATE: HEALTHY
-ACTION: NONE
-INSTANCE_TEMPLATE: cn-frontend-template-a81eb16
-VERSION_NAME: 
-LAST_ERROR: 
-200
-nikul_sadhu@cloudshell:~$ 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-l5n6:~$ echo test | gcloud iam service-accounts sign-blob /dev/stdin /tmp/sig.out --iam-account=sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com && echo OK
-signed blob [/dev/stdin] as [/tmp/sig.out] for [sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com] using key [15bb3da9eb0c88ba5339f321ec7745585b23463f]
-OK
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-l5n6:~$
+Send the disk list and the Shielded VM output, and I'll confirm the rest.
