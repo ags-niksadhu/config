@@ -1,34 +1,1029 @@
-**Correction to my last message:** I said f183's CPU looked like a result of the scale-out. That was backwards. 7nz1 and kcc7 are different servers, so their boot can't load f183. f183's readings were 55% in the minute ending 08:53:00 UTC and 50% in the minute ending 09:27:00. The inserts were at 08:52:55 and 09:26:54. So f183's CPU could well be what triggered the scale-outs, and I'd treat it as the lead.
-
-**New facts from the audit log**
-- f183 was created 2026-10-05 10:31 UTC (the rollout after the apt fix) and deleted 2026-10-06 09:39 UTC by a scale-in. It was not replaced by jzmx, so my earlier guess on that was wrong.
-- Oct 5 had a scale-out roughly every hour, mostly two servers at once (1→3). From 10:31 UTC Oct 5 to 08:52 UTC Oct 6 there were none, about 22 hours.
-- The Oct 6 events are single inserts (1→2), 34 minutes apart: 08:52 (7nz1) and 09:26 (kcc7).
-- The cause is still unproven. I need to see what f183 was doing in the minutes before each spike.
-
-Your last command failed because the `<...>` placeholder was pasted literally. The real ID is filled in below.
-
-**Read-only checks**
-
-1. f183's logs around both spikes:
-```bash
-P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
 for W in "2026-10-06T08:45:00Z 2026-10-06T08:54:00Z" "2026-10-06T09:19:00Z 2026-10-06T09:28:00Z"; do set -- $W
 echo "== $1 -> $2"
 gcloud logging read "resource.type=\"gce_instance\" AND resource.labels.instance_id=\"3584862561929970285\" AND timestamp>=\"$1\" AND timestamp<=\"$2\"" --project=$P --order=asc --limit=100 --format="table(timestamp,logName.basename(),textPayload,jsonPayload.message)"
 done
-```
-2. Which log types exist for f183 (shows whether logs exist at all if step 1 is empty):
-```bash
-gcloud logging read 'resource.type="gce_instance" AND resource.labels.instance_id="3584862561929970285"' --project=$P --freshness=2d --limit=3000 --format="value(logName.basename())" | sort | uniq -c
-```
-3. f183's CPU ramp (minutes at or above 20%) before each spike:
-```bash
-TOKEN=$(gcloud auth print-access-token)
+== 2026-10-06T08:45:00Z -> 2026-10-06T08:54:00Z
+TIMESTAMP: 2026-10-06T08:45:01.712543147Z
+LOG_NAME: frontend_auth_log
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:45:01.711687+00:00 cn-frontend-mig-regional-f183 CRON[61421]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+
+TIMESTAMP: 2026-10-06T08:45:01.721008087Z
+LOG_NAME: frontend_auth_log
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:45:01.720054+00:00 cn-frontend-mig-regional-f183 CRON[61421]: pam_unix(cron:session): session closed for user root
+
+TIMESTAMP: 2026-10-06T08:45:01.878733373Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:45:01.719826+00:00 cn-frontend-mig-regional-f183 CRON[61422]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+
+TIMESTAMP: 2026-10-06T08:45:02.053388310Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:45:02 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:02.233930876Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:45:02 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:02.755881495Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:45:02 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:07.052684015Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:45:07 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:07.231321712Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:45:07 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:07.753877350Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:45:07 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:12.052671400Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:45:12 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:12.231727207Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:45:12 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:12.754103245Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:45:12 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:17.051583976Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:45:17 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:17.229581673Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:45:17 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:17.751859512Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:45:17 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:22.053357621Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:45:22 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:22.230243207Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:45:22 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:22.752853579Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:45:22 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:27.051087966Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:45:27 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:27.230027424Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:45:27 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:27.754039893Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:45:27 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:32.052128562Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:45:32 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:32.231473878Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:45:32 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:32.752324408Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:45:32 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:37.050544207Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:45:37 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:37.229588775Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:45:37 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:37.752090773Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:45:37 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:42.049694382Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:45:42 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:42.228320599Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:45:42 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:42.750720899Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:45:42 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:46.478162300Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:45:46.321122+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-e44a6465-4558-45ba-a732-03f85e795f06.scope.
+
+TIMESTAMP: 2026-10-06T08:45:47.050685839Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:45:47 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:47.228971925Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:45:47 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:47.750729417Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:45:47 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:48.478463609Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:45:48.461867+00:00 cn-frontend-mig-regional-f183 systemd[60797]: snap.google-cloud-cli.gcloud-e44a6465-4558-45ba-a732-03f85e795f06.scope: Consumed 1.203s CPU time.
+
+TIMESTAMP: 2026-10-06T08:45:48.677843625Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:45:48.646129+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-67c5aa75-b8af-4439-88aa-0ed6d96af56d.scope.
+
+TIMESTAMP: 2026-10-06T08:45:50.677505213Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:45:50.600351+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-0eaa5c5d-2669-42b2-b50d-d91692b0327c.scope.
+
+TIMESTAMP: 2026-10-06T08:45:52.050610935Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:45:52 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:52.230309480Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:45:52 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:52.477666825Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:45:52.450159+00:00 cn-frontend-mig-regional-f183 systemd[60797]: snap.google-cloud-cli.gcloud-0eaa5c5d-2669-42b2-b50d-d91692b0327c.scope: Consumed 1.107s CPU time.
+
+TIMESTAMP: 2026-10-06T08:45:52.677937411Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:45:52.618004+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-c714cdc2-a1be-4d56-a769-6476ee52aac9.scope.
+
+TIMESTAMP: 2026-10-06T08:45:52.753359709Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:45:52 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:54.478191823Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:45:54.417903+00:00 cn-frontend-mig-regional-f183 systemd[60797]: snap.google-cloud-cli.gcloud-c714cdc2-a1be-4d56-a769-6476ee52aac9.scope: Consumed 1.098s CPU time.
+
+TIMESTAMP: 2026-10-06T08:45:54.677771889Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:45:54.581322+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-c38c0b45-2ec3-4296-9f4e-dd32707d3ddb.scope.
+
+TIMESTAMP: 2026-10-06T08:45:56.677808627Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:45:56.621079+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-0430d8e5-ad18-4dd9-b55a-9dfd1f3138c0.scope.
+
+TIMESTAMP: 2026-10-06T08:45:57.048860549Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:45:57 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:57.232370226Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:45:57 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:57.749299555Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:45:57 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:45:58.677727006Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:45:58.603078+00:00 cn-frontend-mig-regional-f183 systemd[60797]: snap.google-cloud-cli.gcloud-0430d8e5-ad18-4dd9-b55a-9dfd1f3138c0.scope: Consumed 1.181s CPU time.
+
+TIMESTAMP: 2026-10-06T08:45:58.878162972Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:45:58.764190+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-b7186104-045b-4378-9674-9bd052849b0d.scope.
+
+TIMESTAMP: 2026-10-06T08:46:00.877874410Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:00.697760+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-4d0653e2-f961-4f59-99c0-aabe19a0f8e2.scope.
+
+TIMESTAMP: 2026-10-06T08:46:02.048371166Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:46:02 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:02.226207432Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:46:02 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:02.678170803Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:02.619892+00:00 cn-frontend-mig-regional-f183 systemd[60797]: snap.google-cloud-cli.gcloud-4d0653e2-f961-4f59-99c0-aabe19a0f8e2.scope: Consumed 1.099s CPU time.
+
+TIMESTAMP: 2026-10-06T08:46:02.750917411Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:46:02 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:02.877517688Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:02.790365+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-6f00fbe5-2de8-4b1b-9cf3-7a639eeddfe3.scope.
+
+TIMESTAMP: 2026-10-06T08:46:04.878610657Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:04.705797+00:00 cn-frontend-mig-regional-f183 systemd[60797]: snap.google-cloud-cli.gcloud-6f00fbe5-2de8-4b1b-9cf3-7a639eeddfe3.scope: Consumed 1.182s CPU time.
+
+TIMESTAMP: 2026-10-06T08:46:05.078204663Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:04.881358+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-b2cecd9a-c716-461b-a7b0-63e238bfbb8f.scope.
+
+TIMESTAMP: 2026-10-06T08:46:06.877880355Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:06.800805+00:00 cn-frontend-mig-regional-f183 systemd[60797]: snap.google-cloud-cli.gcloud-b2cecd9a-c716-461b-a7b0-63e238bfbb8f.scope: Consumed 1.215s CPU time.
+
+TIMESTAMP: 2026-10-06T08:46:07.048189832Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:46:07 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:07.077998421Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:07.016050+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-584d27cd-53c2-4d44-95f1-e713e017e7b5.scope.
+
+TIMESTAMP: 2026-10-06T08:46:07.231966958Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:46:07 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:07.751056177Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:46:07 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:09.078510379Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:08.999802+00:00 cn-frontend-mig-regional-f183 systemd[60797]: snap.google-cloud-cli.gcloud-584d27cd-53c2-4d44-95f1-e713e017e7b5.scope: Consumed 1.251s CPU time.
+
+TIMESTAMP: 2026-10-06T08:46:09.278303375Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:09.169691+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-792f9cb4-9495-4548-8267-ac7f602b41e8.scope.
+
+TIMESTAMP: 2026-10-06T08:46:11.277982834Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:11.119157+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-9a8268d4-8b7d-4f94-8717-3c26ff60705b.scope.
+
+TIMESTAMP: 2026-10-06T08:46:12.047629508Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:46:12 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:12.226214384Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:46:12 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:12.748910503Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:46:12 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:12.877770320Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:12.842308+00:00 cn-frontend-mig-regional-f183 systemd[60797]: snap.google-cloud-cli.gcloud-9a8268d4-8b7d-4f94-8717-3c26ff60705b.scope: Consumed 1.047s CPU time.
+
+TIMESTAMP: 2026-10-06T08:46:13.077733096Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:12.993624+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-e2ea7ae0-2470-442e-a326-1a3129a854be.scope.
+
+TIMESTAMP: 2026-10-06T08:46:14.877947108Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:14.735945+00:00 cn-frontend-mig-regional-f183 systemd[60797]: snap.google-cloud-cli.gcloud-e2ea7ae0-2470-442e-a326-1a3129a854be.scope: Consumed 1.009s CPU time.
+
+TIMESTAMP: 2026-10-06T08:46:15.077780064Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:14.911479+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-78ff98b7-41b8-44b1-89b0-9fd5a8ad787b.scope.
+
+TIMESTAMP: 2026-10-06T08:46:16.878817047Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:16.801096+00:00 cn-frontend-mig-regional-f183 systemd[60797]: snap.google-cloud-cli.gcloud-78ff98b7-41b8-44b1-89b0-9fd5a8ad787b.scope: Consumed 1.108s CPU time.
+
+TIMESTAMP: 2026-10-06T08:46:17.047091634Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:46:17 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:17.078582343Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:16.972787+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-d7767695-f535-40d4-8651-d6eed07829f2.scope.
+
+TIMESTAMP: 2026-10-06T08:46:17.226025759Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:46:17 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:17.747897439Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:46:17 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:19.077979161Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:18.897911+00:00 cn-frontend-mig-regional-f183 systemd[60797]: snap.google-cloud-cli.gcloud-d7767695-f535-40d4-8651-d6eed07829f2.scope: Consumed 1.052s CPU time.
+
+TIMESTAMP: 2026-10-06T08:46:19.077984201Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:19.059462+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-b973c5e1-1605-4073-94ff-c7dc0925cf06.scope.
+
+TIMESTAMP: 2026-10-06T08:46:20.877873123Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:20.867663+00:00 cn-frontend-mig-regional-f183 systemd[60797]: snap.google-cloud-cli.gcloud-b973c5e1-1605-4073-94ff-c7dc0925cf06.scope: Consumed 1.027s CPU time.
+
+TIMESTAMP: 2026-10-06T08:46:21.078005629Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:21.027337+00:00 cn-frontend-mig-regional-f183 systemd[60797]: Started snap.google-cloud-cli.gcloud-510922a2-0f8c-4cbe-ad7f-31c3953a7e4d.scope.
+
+TIMESTAMP: 2026-10-06T08:46:22.045775149Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:46:22 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:22.225929787Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:46:22 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:22.751314854Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:46:22 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:23.077534768Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T08:46:22.918746+00:00 cn-frontend-mig-regional-f183 systemd[60797]: snap.google-cloud-cli.gcloud-510922a2-0f8c-4cbe-ad7f-31c3953a7e4d.scope: Consumed 1.059s CPU time.
+
+TIMESTAMP: 2026-10-06T08:46:27.043700136Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:46:27 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:27.226999551Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:46:27 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:27.746669552Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:46:27 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:32.043081190Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:46:32 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:32.222546176Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:46:32 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:32.745037456Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:46:32 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:37.042918158Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:46:37 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:37.223273672Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:46:37 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:37.746225901Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:46:37 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:42.041409812Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:46:42 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:42.221819210Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:46:42 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:42.744409478Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:08:46:42 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:47.043019418Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:08:46:47 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T08:46:47.224912764Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:08:46:47 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+== 2026-10-06T09:19:00Z -> 2026-10-06T09:28:00Z
+TIMESTAMP: 2026-10-06T09:19:01.866282944Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:19:01 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:02.042704430Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:19:02 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:02.561581401Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:19:02 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:02.877968533Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T09:19:02.793955+00:00 cn-frontend-mig-regional-f183 systemd[1]: Starting motd-news.service - Message of the Day...
+
+TIMESTAMP: 2026-10-06T09:19:05.078363869Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T09:19:05.056711+00:00 cn-frontend-mig-regional-f183 50-motd-news[64856]:  * Canonical Workshop gives developers fast, composable, reproducible, and
+
+TIMESTAMP: 2026-10-06T09:19:05.078369139Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T09:19:05.057195+00:00 cn-frontend-mig-regional-f183 50-motd-news[64856]:    secure developer environments that are perfect for agentic workflows.
+
+TIMESTAMP: 2026-10-06T09:19:05.078369689Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T09:19:05.057234+00:00 cn-frontend-mig-regional-f183 50-motd-news[64856]:    https://ubuntu.com/workshop
+
+TIMESTAMP: 2026-10-06T09:19:05.278404673Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T09:19:05.098333+00:00 cn-frontend-mig-regional-f183 systemd[1]: motd-news.service: Deactivated successfully.
+
+TIMESTAMP: 2026-10-06T09:19:05.278407063Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T09:19:05.098682+00:00 cn-frontend-mig-regional-f183 systemd[1]: Finished motd-news.service - Message of the Day.
+
+TIMESTAMP: 2026-10-06T09:19:06.864995730Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:19:06 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:07.042979985Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:19:07 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:07.561239734Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:19:07 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:11.865528702Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:19:11 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:12.041229329Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:19:12 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:12.560590730Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:19:12 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:16.864466456Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:19:16 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:17.042505884Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:19:17 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:17.562700222Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:19:17 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:21.862771961Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:19:21 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:22.040120047Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:19:22 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:22.559276158Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:19:22 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:26.865781706Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:19:26 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:27.039940873Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:19:27 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:27.559525720Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:19:27 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:31.864352939Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:19:31 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:32.040254096Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:19:32 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:32.559531116Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:19:32 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:36.862608943Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:19:36 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:37.038858320Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:19:37 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:37.560624940Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:19:37 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:41.863273786Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:19:41 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:42.038757472Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:19:42 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:42.557590501Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:19:42 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:46.862137357Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:19:46 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:47.038885983Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:19:47 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:47.557919532Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:19:47 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:51.860464103Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:19:51 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:52.038461969Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:19:52 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:52.555817557Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:19:52 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:56.864033135Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:19:56 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:57.036397722Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:19:57 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:19:57.558250019Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:19:57 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:01.863260298Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:20:01 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:02.035216914Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:20:02 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:02.558719213Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:20:02 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:06.859976010Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:20:06 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:07.035322836Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:20:07 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:07.554303584Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:20:07 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:11.861677513Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:20:11 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:12.035107468Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:20:12 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:12.556888217Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:20:12 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:16.859612644Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:20:16 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:17.033273430Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:20:17 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:17.554640080Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:20:17 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:17.878103512Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T09:20:17.837343+00:00 cn-frontend-mig-regional-f183 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+
+TIMESTAMP: 2026-10-06T09:20:17.878104782Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T09:20:17.844236+00:00 cn-frontend-mig-regional-f183 systemd[1]: sysstat-collect.service: Deactivated successfully.
+
+TIMESTAMP: 2026-10-06T09:20:17.878105062Z
+LOG_NAME: syslog
+TEXT_PAYLOAD: 
+MESSAGE: 2026-10-06T09:20:17.845062+00:00 cn-frontend-mig-regional-f183 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+
+TIMESTAMP: 2026-10-06T09:20:21.858618637Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:20:21 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:22.033592524Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:20:22 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:22.554080493Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:20:22 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:26.860519472Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:20:26 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:27.032482699Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:20:27 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:27.553246535Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:20:27 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:31.862949445Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:20:31 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:32.032137310Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:20:32 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:32.553637701Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:20:32 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:36.858278006Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:20:36 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:37.031939595Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:20:37 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:37.553072502Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:20:37 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:41.859279171Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:20:41 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:42.034049916Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:20:42 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:42.554988515Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:20:42 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:46.856391505Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:20:46 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:47.029391291Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:20:47 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:47.551582529Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:20:47 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:51.855372719Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:20:51 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:52.028787633Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:20:52 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:52.549796093Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:20:52 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:56.859206730Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:20:56 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:57.029017136Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:20:57 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:20:57.560011705Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:20:57 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:01.857721922Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:21:01 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:02.029176988Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:21:02 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:02.557780618Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:21:02 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:06.854579955Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:21:06 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:07.026798003Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:21:07 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:07.556505011Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:21:07 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:11.853592979Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:21:11 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:12.026304284Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:21:12 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:12.555601714Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:21:12 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:16.853357731Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:21:16 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:17.028392748Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:21:17 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:17.556385155Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:21:17 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:21.852295065Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:21:21 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:22.024934452Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:21:22 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:22.555329899Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:21:22 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:26.851935188Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:21:26 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:27.023908864Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.214 - - [06/Oct/2026:09:21:27 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:27.554779724Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.212 - - [06/Oct/2026:09:21:27 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+
+TIMESTAMP: 2026-10-06T09:21:31.851258291Z
+LOG_NAME: frontend_apache_access
+TEXT_PAYLOAD: 
+MESSAGE: 35.191.217.211 - - [06/Oct/2026:09:21:31 +0000] "GET /login HTTP/1.1" 200 15031 "-" "GoogleHC/1.0"
+nikul_sadhu@cloudshell:~$ gcloud logging read 'resource.type="gce_instance" AND resource.labels.instance_id="3584862561929970285"' --project=$P --freshness=2d --limit=3000 --format="value(logName.basename())" | sort | uniq -c
+      2 cloudaudit.googleapis.com%2Factivity
+      1 compute.googleapis.com%2Fshielded_vm_integrity
+      1 diagnostic-log
+   2062 frontend_apache_access
+      1 frontend_apache_error
+      1 frontend_apache_server_error
+     21 frontend_auth_log
+      2 GCEGuestAgent
+      2 google_metadata_script_runner
+    568 ops-agent-fluent-bit
+      5 ops-agent-health
+    334 syslog
+nikul_sadhu@cloudshell:~$ TOKEN=$(gcloud auth print-access-token)
 curl -s -G -H "Authorization: Bearer $TOKEN" "https://monitoring.googleapis.com/v3/projects/$P/timeSeries" \
  --data-urlencode 'filter=metric.type="compute.googleapis.com/instance/cpu/utilization" AND metric.labels.instance_name="cn-frontend-mig-regional-f183"' \
  --data-urlencode "interval.startTime=2026-10-06T08:30:00Z" --data-urlencode "interval.endTime=2026-10-06T09:35:00Z" \
  | jq -r '.timeSeries[].points[] | select(.value.doubleValue>=0.2) | [.interval.endTime,(.value.doubleValue*100|floor)]|@tsv' | sort
-```
-
-Paste all three outputs.
+2026-10-06T08:47:00Z    34
+2026-10-06T08:53:00Z    55
+2026-10-06T08:54:00Z    20
+2026-10-06T09:00:00Z    49
+2026-10-06T09:27:00Z    50
+nikul_sadhu@cloudshell:~$ 
