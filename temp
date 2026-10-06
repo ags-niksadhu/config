@@ -1,12 +1,32 @@
-nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
-for M in cn-backend-mig-regional cn-frontend-mig-regional; do echo $M; gcloud compute instance-groups managed describe $M --region=me-central2 --project=$P --format="value(versions[].instanceTemplate.basename())"; done
-cn-backend-mig-regional
-cn-backend-template-36689c0
-cn-frontend-mig-regional
-cn-frontend-template-a81eb16
-nikul_sadhu@cloudshell:~$ for K in password token otp email; do echo -n "$K: "; gcloud logging read "logName:\"backend_pm2_out\" AND jsonPayload.message:\"Body :\" AND jsonPayload.message:\"$K\"" --project=$P --freshness=1d --limit=1000 --format="value(timestamp)" | wc -l; done
-password: 26
-token: 1
-otp: 0
-email: 34
-nikul_sadhu@cloudshell:~$ 
+## #4 Templates: safe to delete
+
+The backend MIG uses `cn-backend-template-36689c0` and the frontend MIG uses `cn-frontend-template-a81eb16`. Neither is in the default-account list, so none of the 18 is in use. This is the delete list:
+- **Frontend (9):** b0ad954, 7696009, 13633c6, 0ae7410, 70499c9, 13bcacb, 3255267, 809b228, ee22731
+- **Backend (7):** 054eefc, 53262df, ffc8a89, bd3b2bb, 6a5ff7e, b5141a9, 3aaffe9
+- **Manual (2):** clean-ubuntu-26092026, cnstagingbackend-instance-template-22-sept-2026-v2
+
+⚠️ Irreversible, and the frontend is left with one rollback target (a81eb16). Console: Compute Engine → Instance templates → tick the 18 → **Delete**. If GCP refuses one, it is in use, so leave it and tell me.
+
+The images those templates pointed at also cost storage. Check them after:
+```bash
+gcloud compute images list --project=$P --format="table(name,diskSizeGb,storageLocations.list(),creationTimestamp.date())" --sort-by=creationTimestamp
+```
+
+## 5e Request-body logging: urgent for the dev team
+
+Last 24h, lines containing the word: **password 26, email 34, token 1, otp 0**. I can't tell yet whether the values are real or masked. This command prints only the lengths of the password values, nothing readable:
+```bash
+gcloud logging read 'logName:"backend_pm2_out" AND jsonPayload.message:"Body :" AND jsonPayload.message:"password"' --project=$P --freshness=1d --limit=1000 --format="value(jsonPayload.message)" | grep -oiP "password['\"]?\s*[:=]\s*['\"]?\K[^'\",} ]*" | awk '{print length($0)}' | sort -n | uniq -c
+```
+Varied lengths (for example 8-20) mean real passwords are in the logs. All the same length (3 or 4) means masked.
+
+Send it to the dev team now either way, because emails are personal data, in the logs for 180 days. The ask is to remove the body logging, or redact password, token, otp and email.
+
+| Option | Cost | Complexity | Downtime |
+|---|---|---|---|
+| A. Dev team removes or redacts in code, then rebuild | None | Code change | None (rolling update) |
+| B. Add a Log Router exclusion for `"Body :"` on `_Default` first | None | Admin needed | None |
+
+**Recommendation:** A, with B as a stopgap only if it takes days. B drops those lines permanently, which affects debugging, and you earlier chose not to add exclusions. Entries already written stay for 180 days. Purging them means deleting the whole `backend_pm2_out` log, which conflicts with the 6-month retention rule and needs PwC security to decide, so don't do it yourself.
+
+Paste the lengths output and I'll tell you whether this is severe.
