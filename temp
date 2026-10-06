@@ -1,261 +1,49 @@
-cloudbuild.yaml
+Confirmed: the `file` provisioner uploads `../node_modules`, which strips the exec bits. `cloudbuild.yaml` needs no change.
 
-steps:
-  - id: Install Dependencies
-    name: 'node:22'
-    entrypoint: npm
-    args: ['ci']
+**Edit `packer/backend.pkr.hcl`** (GitHub → `staging` branch → `packer/backend.pkr.hcl` → pencil icon)
 
-  - id: Run Tests
-    name: 'node:22'
-    entrypoint: npm
-    args:
-      - run
-      - test
-      - --
-      - --passWithNoTests
-
-  - id: Build Staging
-    name: 'node:22'
-    entrypoint: npm
-    args: ['run', 'build:staging']
-
-  - id: Build Packer Image
-    name: 'hashicorp/packer:latest'
-    entrypoint: sh
-    args:
-      - -c
-      - |
-        cd packer
-        packer init .
-        packer build -var="commit_sha=$SHORT_SHA" .
-
-  - id: Create Instance Template
-    name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        gcloud compute instance-templates create cn-backend-template-$SHORT_SHA \
-          --service-account=sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com \
-          --instance-template-region=me-central2 \
-          --project=pg-ae-n-app-125609 \
-          --region=me-central2 \
-          --machine-type=e2-medium \
-          --image=cn-backend-image-$SHORT_SHA \
-          --network=default \
-          --subnet=default \
-          --no-address \
-          --scopes=cloud-platform \
-          --tags=cn-backend \
-          --shielded-secure-boot \
-          --shielded-vtpm \
-          --shielded-integrity-monitoring \
-          --labels=managed-by=cloudbuild-packer,app=cn-backend
-
-  - id: Rolling Update MIG
-    name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        gcloud compute instance-groups managed rolling-action start-update cn-backend-mig-regional \
-          --project=pg-ae-n-app-125609 \
-          --region=me-central2 \
-          --version=template=projects/pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-backend-template-$SHORT_SHA \
-          --max-surge=3 \
-          --max-unavailable=0
-
-  - id: Verify Rollout Health
-    name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        gcloud compute instance-groups managed wait-until cn-backend-mig-regional \
-          --project=pg-ae-n-app-125609 \
-          --region=me-central2 \
-          --stable \
-          --timeout=1800
-
-  - id: Cleanup Old Packer Artifacts
-    name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        # Deletes ONLY pipeline-created templates/images beyond the newest KEEP.
-        # DRY_RUN=1 prints only. Set DRY_RUN=0 after reviewing a dry-run log.
-        KEEP=5
-        DRY_RUN=1
-        PROJECT=pg-ae-n-app-125609
-        IN_USE=$$(gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --project=$$PROJECT --format="value(versions[].instanceTemplate.basename())")
-        ALL=$$(gcloud compute instance-templates list --project=$$PROJECT \
-          --filter="properties.labels.managed-by=cloudbuild-packer AND properties.labels.app=cn-backend AND name~^cn-backend-template-[0-9a-f]{7}$$" \
-          --sort-by=~creationTimestamp --format="value(name)")
-        echo "matched pipeline templates: $$(echo "$$ALL" | grep -c .)"
-        echo "$$ALL" | tail -n +$$((KEEP+1)) | while read T; do
-          [ -z "$$T" ] && continue
-          if echo "$$IN_USE" | grep -qw "$$T"; then echo "SKIP in use: $$T"; continue; fi
-          SHA=$${T#cn-backend-template-}
-          IMG=$$(gcloud compute images list --project=$$PROJECT --filter="name=cn-backend-image-$$SHA AND labels.managed-by=cloudbuild-packer" --format="value(name)")
-          if [ "$$DRY_RUN" = "1" ]; then
-            echo "DRY RUN would delete template $$T and image $${IMG:-none}"
-          else
-            gcloud compute instance-templates delete "$$T" --region=me-central2 --project=$$PROJECT --quiet
-            if [ -n "$$IMG" ]; then gcloud compute images delete "$$IMG" --project=$$PROJECT --quiet; fi
-          fi
-        done
-        exit 0
-
-options:
-  pool:
-    name: 'projects/pg-ae-n-app-125609/locations/me-central2/workerPools/cn-backend-private-pool'
-  logging: CLOUD_LOGGING_ONLY
-  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
-
-timeout: 3000s
-
-
-
-
-
-
-
-
-
-
-
-
-packer/backend.pkr.hcl
-
-
-packer {
-  required_plugins {
-    googlecompute = {
-      version = ">= 1.1.0"
-      source  = "github.com/hashicorp/googlecompute"
-    }
-  }
-}
-
-variable "commit_sha" {
-  type    = string
-  default = "manual"
-}
-
-source "googlecompute" "backend" {
-  project_id   = "pg-ae-n-app-125609"
-  service_account_email = "sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com"
-  zone         = "me-central2-a"
-  machine_type = "e2-medium"
-
-  enable_secure_boot          = true
-  enable_vtpm                 = true
-  enable_integrity_monitoring = true
-
-  source_image            = "clean-ubuntu-26092026-img-v2"
-  image_storage_locations = ["me-central2"]
-  disk_size               = 100
-
-  image_name = "cn-backend-image-${var.commit_sha}"
-
-  image_labels = {
-    managed-by = "cloudbuild-packer"
-    app        = "cn-backend"
-  }
-
-  network    = "default"
-  subnetwork = "default"
-
-  omit_external_ip = true
-  use_internal_ip  = true
-
-  tags = ["packer-build-temp"]
-
-  scopes = ["https://www.googleapis.com/auth/cloud-platform"]
-
-  ssh_username = "packer"
-}
-
-build {
-  sources = ["source.googlecompute.backend"]
-
-  provisioner "shell" {
-    inline = [
-      "sudo mkdir -p /var/www/careernavigator-backend",
-      "sudo chown $(whoami):$(whoami) /var/www/careernavigator-backend"
-    ]
-  }
-
-  provisioner "file" {
-    source      = "../dist"
-    destination = "/var/www/careernavigator-backend/dist"
-  }
+**1. Delete this block entirely:**
+```hcl
   provisioner "file" {
     source      = "../node_modules"
     destination = "/var/www/careernavigator-backend/node_modules"
   }
-  provisioner "file" {
-    source      = "../package.json"
-    destination = "/var/www/careernavigator-backend/package.json"
-  }
-  provisioner "file" {
-    source      = "../package-lock.json"
-    destination = "/var/www/careernavigator-backend/package-lock.json"
-  }
-  provisioner "file" {
-    source      = "../ecosystem.config.js"
-    destination = "/var/www/careernavigator-backend/ecosystem.config.js"
-  }
+```
 
-  provisioner "file" {
-    source      = "files/careernavigator-backend.conf"
-    destination = "/tmp/careernavigator-backend.conf"
-  }
+**2. In the big `shell` provisioner, add 3 lines right after `"sudo npm install -g pm2",`:**
+```hcl
+      "cd /var/www/careernavigator-backend && npm ci --omit=dev",
+      "test -x /var/www/careernavigator-backend/node_modules/.bin/typeorm || (echo 'FATAL: typeorm binary not executable - failing build' && exit 1)",
+      "cd /var/www/careernavigator-backend && ./node_modules/.bin/typeorm --version",
+```
+The second line fails the build if the exec bit is missing again. The third proves `typeorm` runs.
 
-  provisioner "file" {
-    source      = "files/ops-agent-config.yaml"
-    destination = "/tmp/ops-agent-config.yaml"
-  }
+**3. Before committing, check that nothing at runtime needs devDependencies:**
+```bash
+cat /var/www/careernavigator-backend/ecosystem.config.js
+```
+Run it on the VM. If it runs `node dist/main`, you're fine. If it uses `cross-env` or `nest`, those are devDependencies and I'll adjust.
 
-  provisioner "shell" {
-    inline = [
-      "sudo apt-get update",
-      "sudo DEBIAN_FRONTEND=noninteractive apt-get -y upgrade",
-      "sudo systemctl start apt-daily-upgrade.service || true",
-      "curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -",
-      "sudo apt-get install -y nodejs apache2",
-      "sudo a2enmod proxy proxy_http headers rewrite ssl http2 remoteip",
-      "sudo npm install -g pm2",
+**Trade-offs**
 
-      "sudo mv /tmp/careernavigator-backend.conf /etc/apache2/sites-available/careernavigator-backend.conf",
-      "sudo a2ensite careernavigator-backend.conf",
-      "sudo a2dissite 000-default.conf",
+| | Pros | Cons |
+|---|---|---|
+| `npm ci --omit=dev` on image | Correct perms, platform-matched binaries, smaller image, same as frontend | Build is about 1-2 min longer; depends on npm registry egress (already works for the frontend) |
 
-      "sudo systemctl enable apache2",
+**Deploy:** commit to `staging`. The rolling update uses `--max-unavailable=0`, so there is no downtime. It briefly adds up to 3 extra e2-medium VMs, the same as every deploy.
 
-      "curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh",
-      "sudo bash add-google-cloud-ops-agent-repo.sh --also-install",
-      "sudo mv /tmp/ops-agent-config.yaml /etc/google-cloud-ops-agent/config.yaml",
-      "sudo systemctl enable google-cloud-ops-agent",
-      "sudo systemctl restart google-cloud-ops-agent",
-      "sudo systemctl status google-cloud-ops-agent --no-pager || true",
+**Verify on a new MIG VM after the build succeeds** (the name changes, so look it up first):
+```bash
+gcloud compute instances list --filter="name~cn-backend-mig"
+```
+SSH in, then:
+```bash
+cd /var/www/careernavigator-backend
+find node_modules/.bin -type f ! -perm -u+x | wc -l
+NODE_ENV=staging npm run migration:show
+```
+The first command should print `0`. The second should list migrations without a permission error.
 
-      "cd /var/www/careernavigator-backend && pm2 start ecosystem.config.js --env staging",
-      "sleep 10",
+**Rollback:** if the build or health check fails, the MIG keeps serving the old version, so nothing breaks. To revert, run `git revert` on the commit and push. To roll back the MIG itself: GUI → Compute Engine → Instance groups → `cn-backend-mig-regional` → **Update VMs** → pick a recent template. Choose one whose image still exists.
 
-      "echo '=== PM2 STATUS AFTER START ==='",
-      "pm2 list",
-      "echo \"PM2 running as: $(whoami), home: $HOME\"",
-
-      "pm2 save",
-      "ls -la $HOME/.pm2/dump.pm2",
-      "sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u $(whoami) --hp $(eval echo ~$(whoami))",
-
-      "echo '=== VERIFYING /health ==='",
-      "for i in 1 2 3 4 5 6; do curl -sf http://localhost:3024/health > /dev/null && echo 'APP IS UP' && break || (echo \"attempt $i failed, retrying...\" && sleep 5); done",
-      "curl -sf http://localhost:3024/health > /dev/null || (echo 'FATAL: /health did not respond after 30s - failing build' && pm2 logs careernavigator-backend --lines 100 --nostream && exit 1)"
-    ]
-  }
-}
+⚠️ After the fix, take a Cloud SQL backup (Console → SQL → instance → Backups → **Create backup**). Then run `NODE_ENV=staging npm run migration:run` on the new VM. It changes the DB.
