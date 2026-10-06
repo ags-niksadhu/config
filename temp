@@ -1,39 +1,32 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$ sed -n '1,47p' dist/common/config/secret-manager.js
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.loadSecrets = loadSecrets;
-const secret_manager_1 = require("@google-cloud/secret-manager");
-const projectId = process.env.GCP_PROJECT_ID || "pg-ae-n-app-125609";
-const prefix = process.env.SECRET_PREFIX ?? "CN_STAGING_";
-const location = process.env.SECRET_LOCATION || "";
-const client = location
-    ? new secret_manager_1.SecretManagerServiceClient({ apiEndpoint: `secretmanager.${location}.rep.googleapis.com` })
-    : new secret_manager_1.SecretManagerServiceClient();
-function buildSecretName(key) {
-    const fullName = `${prefix}${key}`;
-    return location
-        ? `projects/${projectId}/locations/${location}/secrets/${fullName}/versions/latest`
-        : `projects/${projectId}/secrets/${fullName}/versions/latest`;
+I still don't know `SECRET_LOCATION`, because the `ecosystem.config.js` output wasn't in your paste. Instead of guessing, this script reads those settings from `ecosystem.config.js`, calls the app's own `loadSecrets()` and runs `migration:show` in the same process. It's read-only. It uses the VM's `sa-cn-backend` identity, writes no secrets to disk and prints no values.
+
+```bash
+cat > /tmp/mig.js <<'EOF'
+const path = '/var/www/careernavigator-backend';
+process.chdir(path);
+const app = require(path + '/ecosystem.config.js').apps[0];
+const e = { ...(app.env || {}), ...(app.env_staging || {}) };
+for (const k of ['GCP_PROJECT_ID', 'SECRET_PREFIX', 'SECRET_LOCATION']) {
+  if (e[k] !== undefined) process.env[k] = String(e[k]);
 }
-async function getSecret(key) {
-    const [version] = await client.accessSecretVersion({ name: buildSecretName(key) });
-    const value = version.payload?.data?.toString() || "";
-    if (!value) {
-        throw new Error(`Secret "${prefix}${key}" returned an empty value`);
-    }
-    return value;
-}
-async function loadSecrets() {
-    const keys = ["DB_HOST", "DB_USERNAME", "DB_PASSWORD", "DB_DATABASE", "DB_PORT",
-        "GCP_BUCKET", "GCP_FILE_PATH",
-        "MAIL_DRIVER", "MAIL_HOST", "MAIL_PORT", "MAIL_USERNAME", "MAIL_PASSWORD", "MAIL_FROM_NAME", "MAIL_FROM_ADDRESS",
-        "REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD",
-        "EMAIL_SENDING_ENABLED"
-    ];
-    const results = await Promise.allSettled(keys.map((key) => getSecret(key)));
-    const failures = [];
-    results.forEach((result, index) => {
-        const key = keys[index];
-        if (result.status === "fulfilled") {
-            process.env[key] = result.value;
-        }
+process.env.NODE_ENV = 'staging';
+console.log('location =', process.env.SECRET_LOCATION || '(global)', '| prefix =', process.env.SECRET_PREFIX || '(default)');
+const { loadSecrets } = require(path + '/dist/common/config/secret-manager.js');
+loadSecrets().then(() => {
+  const r = require('child_process').spawnSync(
+    path + '/node_modules/.bin/typeorm',
+    ['migration:show', '-d', 'dist/data-source.js'],
+    { stdio: 'inherit', env: process.env });
+  process.exit(r.status ?? 1);
+}).catch((err) => { console.error(err.message); process.exit(1); });
+EOF
+node /tmp/mig.js; rm -f /tmp/mig.js
+```
+
+**What the result tells us:**
+- **Migration list with `[X]` / `[ ]`:** it connected. `[ ]` entries are pending, and we go to the backup step, then `migration:run`.
+- **`Cannot read properties of undefined`:** `ecosystem.config.js` has a different structure. Paste `grep -nE "SECRET_|GCP_PROJECT|env" ecosystem.config.js`.
+- **`PERMISSION_DENIED` or `NOT_FOUND` on a secret:** the location or prefix is wrong, or `sa-cn-backend` lacks `secretAccessor` on it. Paste the error line, which shows only secret names.
+- **`ETIMEDOUT` or `ECONNREFUSED` on a non-127.0.0.1 address:** the secrets loaded but the VM can't reach the DB. I'll ask for the Cloud SQL network settings.
+
+Paste the output, but don't include any secret values.
