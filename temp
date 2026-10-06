@@ -1,148 +1,33 @@
-nikul_sadhu@cloudshell:~$ gcloud compute images list --project=$P --no-standard-images --format="table(name,diskSizeGb,archiveSizeBytes,creationTimestamp.date())" --sort-by=creationTimestamp
-NAME: cn-backend-os-image-v1
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 11579343936
-CREATION_TIMESTAMP: 2026-09-22T01:43:55
+## Delete the 19 images
 
-NAME: clean-ubuntu-26092026-img-v2
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 1725895936
-CREATION_TIMESTAMP: 2026-10-04T10:52:45
+⚠️ Irreversible, and I can't undo it for you. Run it after the 18 templates are deleted. It frees about **60 GB** (56 GiB) of storage; the legacy `cn-backend-os-image-v1` alone is 11.6 GB. Check the pricing page for the me-central2 rate to see the saving.
 
-NAME: cn-frontend-image-d3dff86
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2610075136
-CREATION_TIMESTAMP: 2026-10-04T11:25:47
+**Preflight:** the remaining templates must only point at images you keep.
+```bash
+P=pg-ae-n-app-125609
+gcloud compute instance-templates list --project=$P --format="table(name,properties.disks[0].initializeParams.sourceImage.basename())"
+```
+Every row should show a `cn-backend-image-` image from the keep list (98b9081, a62c29d, 9bf4fed, b0288db, 4dbdd20, 6532834, 8f5b2a1, 36689c0) or `cn-frontend-image-a81eb16`. Stop if you see any name from the delete list.
 
-NAME: cn-backend-image-41f3935
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2091016896
-CREATION_TIMESTAMP: 2026-10-04T11:27:13
+**Delete:** no `--quiet`, so gcloud lists the images and asks for confirmation. Check that list before you answer `y`.
+```bash
+gcloud compute images delete \
+  cn-backend-os-image-v1 \
+  cn-frontend-image-d3dff86 cn-frontend-image-b0ad954 cn-frontend-image-7696009 cn-frontend-image-13633c6 cn-frontend-image-0ae7410 \
+  cn-frontend-image-70499c9 cn-frontend-image-13bcacb cn-frontend-image-3255267 cn-frontend-image-809b228 cn-frontend-image-ee22731 \
+  cn-backend-image-41f3935 cn-backend-image-054eefc cn-backend-image-53262df cn-backend-image-ffc8a89 \
+  cn-backend-image-bd3b2bb cn-backend-image-6a5ff7e cn-backend-image-b5141a9 cn-backend-image-3aaffe9 \
+  --project=$P
+```
 
-NAME: cn-frontend-image-b0ad954
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2815601600
-CREATION_TIMESTAMP: 2026-10-04T11:57:35
+**Verify:** exactly 10 project images should remain (the Packer base, `cn-frontend-image-a81eb16`, and the 8 backend sa-era images):
+```bash
+gcloud compute images list --project=$P --no-standard-images --format="value(name)" | sort
+```
+If a delete fails with "in use", leave that image and send me the error.
 
-NAME: cn-frontend-image-7696009
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2611797568
-CREATION_TIMESTAMP: 2026-10-04T12:12:38
+**Rollback:** none for the images. You'd rebuild from git through Packer, and the deleted images were default-account builds you wouldn't roll back to anyway.
 
-NAME: cn-backend-image-054eefc
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2577477376
-CREATION_TIMESTAMP: 2026-10-04T12:28:39
+## Distinct password values: 10
 
-NAME: cn-backend-image-53262df
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2577231424
-CREATION_TIMESTAMP: 2026-10-04T13:30:33
-
-NAME: cn-frontend-image-13633c6
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2610386304
-CREATION_TIMESTAMP: 2026-10-04T13:38:29
-
-NAME: cn-frontend-image-0ae7410
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2611374336
-CREATION_TIMESTAMP: 2026-10-04T13:38:31
-
-NAME: cn-frontend-image-70499c9
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 3100019328
-CREATION_TIMESTAMP: 2026-10-04T22:50:29
-
-NAME: cn-backend-image-ffc8a89
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2374723712
-CREATION_TIMESTAMP: 2026-10-04T22:51:42
-
-NAME: cn-frontend-image-13bcacb
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 3368340416
-CREATION_TIMESTAMP: 2026-10-04T23:36:42
-
-NAME: cn-backend-image-bd3b2bb
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2386598656
-CREATION_TIMESTAMP: 2026-10-04T23:38:15
-
-NAME: cn-frontend-image-3255267
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2894497152
-CREATION_TIMESTAMP: 2026-10-05T00:33:00
-
-NAME: cn-frontend-image-809b228
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2904838016
-CREATION_TIMESTAMP: 2026-10-05T02:37:35
-
-NAME: cn-backend-image-6a5ff7e
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2396836480
-CREATION_TIMESTAMP: 2026-10-05T02:39:13
-
-NAME: cn-frontend-image-ee22731
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 3175745280
-CREATION_TIMESTAMP: 2026-10-05T03:29:43
-
-NAME: cn-backend-image-b5141a9
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2655285120
-CREATION_TIMESTAMP: 2026-10-05T03:31:01
-
-NAME: cn-backend-image-3aaffe9
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 3071240768
-CREATION_TIMESTAMP: 2026-10-05T03:51:28
-
-NAME: cn-backend-image-98b9081
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2659054464
-CREATION_TIMESTAMP: 2026-10-05T23:42:03
-
-NAME: cn-backend-image-a62c29d
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2717187328
-CREATION_TIMESTAMP: 2026-10-06T02:39:21
-
-NAME: cn-frontend-image-a81eb16
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 3178180800
-CREATION_TIMESTAMP: 2026-10-06T02:57:04
-
-NAME: cn-backend-image-9bf4fed
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2698997824
-CREATION_TIMESTAMP: 2026-10-06T04:31:13
-
-NAME: cn-backend-image-b0288db
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2711962560
-CREATION_TIMESTAMP: 2026-10-06T04:31:40
-
-NAME: cn-backend-image-4dbdd20
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 2658826432
-CREATION_TIMESTAMP: 2026-10-06T04:47:20
-
-NAME: cn-backend-image-6532834
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 3501234688
-CREATION_TIMESTAMP: 2026-10-06T05:23:51
-
-NAME: cn-backend-image-8f5b2a1
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 3097507264
-CREATION_TIMESTAMP: 2026-10-06T06:16:10
-
-NAME: cn-backend-image-36689c0
-DISK_SIZE_GB: 100
-ARCHIVE_SIZE_BYTES: 3047385792
-CREATION_TIMESTAMP: 2026-10-06T06:39:58
-nikul_sadhu@cloudshell:~$ gcloud logging read 'logName:"backend_pm2_out" AND jsonPayload.message:"Body :" AND jsonPayload.message:"password"' --project=$P --freshness=1d --limit=1000 --format="value(jsonPayload.message)" | grep -oiP "password['\"]?\s*[:=]\s*['\"]?\K[^'\",} ]*" | sort -u | wc -l
-10
-nikul_sadhu@cloudshell:~$ 
+There are 10 different password-like values in one day. That is more than one reused test password, so the logs probably hold several accounts' credentials. I still can't tell real users from test accounts without looking at the values, which I wouldn't recommend printing. This is a good reason to send the dev team the ask now: remove body logging, or redact password, token, otp and email.
