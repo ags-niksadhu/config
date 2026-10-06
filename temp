@@ -1,6 +1,5 @@
-nikul_sadhu@cloudshell:~$ gcloud compute disks list --project pg-ae-n-app-125609 --filter="-users:*" --format="table(name,zone.basename(),sizeGb,type.basename(),creationTimestamp)"
-nikul_sadhu@cloudshell:~$ gcloud compute instances describe cn-backend-mig-regional-l5n6 --zone me-central2-a --project pg-ae-n-app-125609 --format="value(shieldedInstanceConfig)"
-enableIntegrityMonitoring=True;enableSecureBoot=True;enableVtpm=True
-nikul_sadhu@cloudshell:~$ 
-
-
+P=pg-ae-n-app-125609
+gcloud compute backend-services get-health frontend-service --global --project=$P
+gcloud compute backend-services get-health app-backend-service --global --project=$P
+gcloud compute instance-groups list --project=$P
+gcloud compute instances list --project=$P --filter="name~cn-backend-mig" --format="table(name,zone.basename(),shieldedInstanceConfig.enableSecureBoot,shieldedInstanceConfig.enableVtpm,shieldedInstanceConfig.enableIntegrityMonitoring)"
