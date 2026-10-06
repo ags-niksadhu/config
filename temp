@@ -1,83 +1,21 @@
-nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
+**Findings**
+- **Autoscaler config:** ACTIVE, min 1, max 3, CPU target 60%, no predictive scaling. Nothing unusual.
+- **7nz1 and kcc7 were not the trigger.** Each peaked at 36% and 42% in its first minute (boot), then sat at 2-15%. Neither came near 60%. The autoscaler averages CPU across the group, so something else pushed that average over 60%. The most likely source is the existing server, but I haven't seen its CPU, so this is not yet confirmed.
+- **The syslog query returned nothing.** That means either no apt-daily/unattended entries exist on those two servers, or my filter didn't match. It's consistent with the Packer apt-daily-upgrade fix working, but it doesn't prove it. I'm not concluding anything from it yet.
+
+**Next check (read-only):** CPU of every frontend MIG server, showing only minutes at or above 50%, from before the first scale-out to now. This shows which server crossed the threshold.
+```bash
+P=pg-ae-n-app-125609
 TOKEN=$(gcloud auth print-access-token)
-curl -s -H "Authorization: Bearer $TOKEN" "https://compute.googleapis.com/compute/v1/projects/$P/regions/me-central2/autoscalers/cn-frontend-mig-regional" | jq '{status,statusDetails,autoscalingPolicy}'
-{
-  "status": "ACTIVE",
-  "statusDetails": null,
-  "autoscalingPolicy": {
-    "minNumReplicas": 1,
-    "maxNumReplicas": 3,
-    "coolDownPeriodSec": 60,
-    "stabilizationPeriodSec": 600,
-    "cpuUtilization": {
-      "utilizationTarget": 0.6,
-      "predictiveMethod": "NONE"
-    },
-    "mode": "ON"
-  }
-}
-nikul_sadhu@cloudshell:~$ for I in "7nz1 2026-10-06T08:45:00Z 2026-10-06T09:15:00Z" "kcc7 2026-10-06T09:20:00Z 2026-10-06T10:05:00Z"; do set -- $I
-echo "== $1"
 curl -s -G -H "Authorization: Bearer $TOKEN" "https://monitoring.googleapis.com/v3/projects/$P/timeSeries" \
- --data-urlencode "filter=metric.type=\"compute.googleapis.com/instance/cpu/utilization\" AND metric.labels.instance_name=\"cn-frontend-mig-regional-$1\"" \
- --data-urlencode "interval.startTime=$2" --data-urlencode "interval.endTime=$3" \
- | jq -r '.timeSeries[].points[] | [.interval.endTime,(.value.doubleValue*100|floor)]|@tsv' | sort
-done
-== 7nz1
-2026-10-06T08:54:00Z    36
-2026-10-06T08:55:00Z    10
-2026-10-06T08:56:00Z    3
-2026-10-06T08:57:00Z    9
-2026-10-06T08:58:00Z    11
-2026-10-06T08:59:00Z    4
-2026-10-06T09:00:00Z    3
-2026-10-06T09:01:00Z    3
-2026-10-06T09:02:00Z    3
-2026-10-06T09:03:00Z    4
-2026-10-06T09:04:00Z    6
-2026-10-06T09:05:00Z    7
-2026-10-06T09:06:00Z    3
-2026-10-06T09:07:00Z    5
-2026-10-06T09:08:00Z    6
-2026-10-06T09:09:00Z    4
-2026-10-06T09:10:00Z    4
-2026-10-06T09:11:00Z    3
-2026-10-06T09:12:00Z    2
-== kcc7
-2026-10-06T09:28:00Z    42
-2026-10-06T09:29:00Z    9
-2026-10-06T09:30:00Z    4
-2026-10-06T09:31:00Z    4
-2026-10-06T09:32:00Z    7
-2026-10-06T09:33:00Z    15
-2026-10-06T09:34:00Z    7
-2026-10-06T09:35:00Z    4
-2026-10-06T09:36:00Z    4
-2026-10-06T09:37:00Z    6
-2026-10-06T09:38:00Z    11
-2026-10-06T09:39:00Z    10
-2026-10-06T09:40:00Z    4
-2026-10-06T09:41:00Z    4
-2026-10-06T09:42:00Z    4
-2026-10-06T09:43:00Z    4
-2026-10-06T09:44:00Z    4
-2026-10-06T09:45:00Z    5
-2026-10-06T09:46:00Z    5
-2026-10-06T09:47:00Z    7
-2026-10-06T09:48:00Z    10
-2026-10-06T09:49:00Z    8
-2026-10-06T09:50:00Z    4
-2026-10-06T09:51:00Z    4
-2026-10-06T09:52:00Z    4
-2026-10-06T09:53:00Z    4
-2026-10-06T09:54:00Z    4
-2026-10-06T09:55:00Z    4
-2026-10-06T09:56:00Z    4
-2026-10-06T09:57:00Z    5
-2026-10-06T09:58:00Z    8
-2026-10-06T09:59:00Z    8
-2026-10-06T10:00:00Z    4
-2026-10-06T10:01:00Z    4
-2026-10-06T10:02:00Z    3
-nikul_sadhu@cloudshell:~$ gcloud logging read 'logName="projects/pg-ae-n-app-125609/logs/syslog" AND labels."compute.googleapis.com/resource_name"=~"cn-frontend-mig-regional-(7nz1|kcc7)" AND textPayload=~"unattended|apt-daily"' --project=$P --freshness=1d --order=asc --limit=30 --format="table(timestamp,labels.\"compute.googleapis.com/resource_name\",textPayload)"
-nikul_sadhu@cloudshell:~$ 
+ --data-urlencode 'filter=metric.type="compute.googleapis.com/instance/cpu/utilization" AND metric.labels.instance_name=starts_with("cn-frontend-mig-regional")' \
+ --data-urlencode "interval.startTime=2026-10-06T06:50:00Z" --data-urlencode "interval.endTime=2026-10-06T10:10:00Z" \
+ | jq -r '.timeSeries[] | .metric.labels.instance_name as $n | .points[] | select(.value.doubleValue>=0.5) | [$n,.interval.endTime,(.value.doubleValue*100|floor)]|@tsv' | sort -k2
+```
+
+Sanity check that syslog filtering works at all (any server, any apt line):
+```bash
+gcloud logging read 'logName="projects/pg-ae-n-app-125609/logs/syslog" AND textPayload=~"apt-daily|unattended"' --project=$P --freshness=1d --order=asc --limit=10 --format="table(timestamp,labels.\"compute.googleapis.com/resource_name\",textPayload)"
+```
+
+Paste both outputs. The first should show who crossed 60% just before 08:52 and 09:26 UTC.
