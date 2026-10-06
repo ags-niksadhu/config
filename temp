@@ -1,10 +1,49 @@
-nikul_sadhu@cloudshell:~$ gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609 --format="value(versions[0].instanceTemplate.basename())"
-cn-backend-template-6532834
-nikul_sadhu@cloudshell:~$ gcloud sql instances list --project=pg-ae-n-app-125609 --format="table(name,region,state,ipAddresses[0].ipAddress,ipAddresses[0].type)"
-NAME: cn-staging-db
-REGION: me-central2
-STATUS: RUNNABLE
-IP_ADDRESS: 10.57.64.3
-TYPE: PRIVATE
-nikul_sadhu@cloudshell:~$ 
+The MIG is unchanged (`cn-backend-template-6532834`), so the failed build was harmless. The instance is `cn-staging-db`, in `me-central2`, `RUNNABLE`, with private IP `10.57.64.3`.
 
+**Likely cause of the 404:** the `Backup Database` step still has the literal `INSTANCE_NAME` placeholder from my draft, so gcloud looked for an instance with that name. I haven't seen your committed step, so confirm by opening it. A permission problem would have returned `403`, not `404`.
+
+**Fix in `cloudbuild.yaml`** (GitHub → `staging` → edit the `Backup Database` step):
+```yaml
+  - id: Backup Database
+    name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        gcloud sql backups create --instance=cn-staging-db --project=pg-ae-n-app-125609 --description="pre-migration-$SHORT_SHA"
+```
+
+**⚠️ Network risk to test before the next full build:** the build runs in your private pool, and the DB is on a private IP. VPC peering is not transitive, so a Cloud Build private pool often can't reach a Cloud SQL private IP through the peering without an extra path, such as an HA VPN. I haven't verified this for your setup. A full build takes about 8 minutes, so test the connection on its own first. From **Cloud Shell**:
+
+```bash
+cat > /tmp/nettest.yaml <<'EOF'
+steps:
+  - id: Test DB Reachability
+    name: 'node:22'
+    entrypoint: node
+    args:
+      - -e
+      - |
+        const s = require('net').connect({ host: '10.57.64.3', port: 5432, timeout: 5000 });
+        s.on('connect', () => { console.log('REACHABLE'); process.exit(0); });
+        s.on('timeout', () => { console.log('TIMEOUT'); process.exit(1); });
+        s.on('error', (e) => { console.log('ERROR', e.code); process.exit(1); });
+options:
+  pool:
+    name: 'projects/pg-ae-n-app-125609/locations/me-central2/workerPools/cn-backend-private-pool'
+  logging: CLOUD_LOGGING_ONLY
+timeout: 300s
+EOF
+gcloud builds submit --no-source --region=me-central2 --project=pg-ae-n-app-125609 --config=/tmp/nettest.yaml
+```
+It only opens a TCP connection and changes nothing.
+
+| Result | Meaning | Next step |
+|---|---|---|
+| `REACHABLE` | Pool can reach the DB | Push the `cloudbuild.yaml` fix |
+| `TIMEOUT` | No network path from the pool | Needs a network fix first. This is the VPN/peering issue above. Paste the result and I'll give options with cost. |
+| `ERROR ECONNREFUSED` | Path exists but the port is closed | Check the instance's connectivity settings |
+
+**About the service account (no action yet):** the build runs as the default compute account, which is over-privileged. Don't change it in the same step as this debugging, because the other steps (Packer, template, rolling update, cleanup) work today and a swap risks breaking them. After the migration step works, we move to a dedicated `sa-cn-build` account as a separate change.
+
+Paste the `nettest` result.
