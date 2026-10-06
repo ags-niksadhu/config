@@ -1,31 +1,83 @@
-**Findings**
-- `cn-staging-ai-staging` was created by your own account (nikul.sadhu@gcp.pwc.com) at 09:57 UTC. ⚠️ It runs as the default compute service account, which breaks the "no default account / no full scope" rule. If it is meant to stay, it needs a dedicated service account and Shielded VM flags. Tell me if you want the change steps.
-- The frontend MIG scaled 1→2 twice, not 1→3 (the earlier pattern). The creators and deleters were all the autoscaler (cloudservices account), not a person or the pipeline.
-  - 7nz1: created 08:52 UTC, deleted 09:11 (about 19 min).
-  - kcc7: created 09:26 UTC, deleted 10:01 (about 34 min). That deletion lines up with the 09:58 UTC rollout replacing it, so it was not a scale-in.
-- The cause of the scale-outs is still unknown. The system_event query returned nothing. Also, `gcloud compute autoscalers` doesn't exist in your gcloud, so use the REST call below.
-
-**Diagnostic commands (read-only)**
-
-1. Autoscaler state and policy:
-```bash
-P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
 TOKEN=$(gcloud auth print-access-token)
 curl -s -H "Authorization: Bearer $TOKEN" "https://compute.googleapis.com/compute/v1/projects/$P/regions/me-central2/autoscalers/cn-frontend-mig-regional" | jq '{status,statusDetails,autoscalingPolicy}'
-```
-2. CPU of the deleted servers around their scale-out (metrics outlive the instances):
-```bash
-for I in "7nz1 2026-10-06T08:45:00Z 2026-10-06T09:15:00Z" "kcc7 2026-10-06T09:20:00Z 2026-10-06T10:05:00Z"; do set -- $I
+{
+  "status": "ACTIVE",
+  "statusDetails": null,
+  "autoscalingPolicy": {
+    "minNumReplicas": 1,
+    "maxNumReplicas": 3,
+    "coolDownPeriodSec": 60,
+    "stabilizationPeriodSec": 600,
+    "cpuUtilization": {
+      "utilizationTarget": 0.6,
+      "predictiveMethod": "NONE"
+    },
+    "mode": "ON"
+  }
+}
+nikul_sadhu@cloudshell:~$ for I in "7nz1 2026-10-06T08:45:00Z 2026-10-06T09:15:00Z" "kcc7 2026-10-06T09:20:00Z 2026-10-06T10:05:00Z"; do set -- $I
 echo "== $1"
 curl -s -G -H "Authorization: Bearer $TOKEN" "https://monitoring.googleapis.com/v3/projects/$P/timeSeries" \
  --data-urlencode "filter=metric.type=\"compute.googleapis.com/instance/cpu/utilization\" AND metric.labels.instance_name=\"cn-frontend-mig-regional-$1\"" \
  --data-urlencode "interval.startTime=$2" --data-urlencode "interval.endTime=$3" \
  | jq -r '.timeSeries[].points[] | [.interval.endTime,(.value.doubleValue*100|floor)]|@tsv' | sort
 done
-```
-3. What the existing server (jzmx) is doing around its boot, and any apt activity on the deleted servers (syslog persists in Cloud Logging):
-```bash
-gcloud logging read 'logName="projects/pg-ae-n-app-125609/logs/syslog" AND labels."compute.googleapis.com/resource_name"=~"cn-frontend-mig-regional-(7nz1|kcc7)" AND textPayload=~"unattended|apt-daily"' --project=$P --freshness=1d --order=asc --limit=30 --format="table(timestamp,labels.\"compute.googleapis.com/resource_name\",textPayload)"
-```
-
-Paste the outputs and I'll work out the cause.
+== 7nz1
+2026-10-06T08:54:00Z    36
+2026-10-06T08:55:00Z    10
+2026-10-06T08:56:00Z    3
+2026-10-06T08:57:00Z    9
+2026-10-06T08:58:00Z    11
+2026-10-06T08:59:00Z    4
+2026-10-06T09:00:00Z    3
+2026-10-06T09:01:00Z    3
+2026-10-06T09:02:00Z    3
+2026-10-06T09:03:00Z    4
+2026-10-06T09:04:00Z    6
+2026-10-06T09:05:00Z    7
+2026-10-06T09:06:00Z    3
+2026-10-06T09:07:00Z    5
+2026-10-06T09:08:00Z    6
+2026-10-06T09:09:00Z    4
+2026-10-06T09:10:00Z    4
+2026-10-06T09:11:00Z    3
+2026-10-06T09:12:00Z    2
+== kcc7
+2026-10-06T09:28:00Z    42
+2026-10-06T09:29:00Z    9
+2026-10-06T09:30:00Z    4
+2026-10-06T09:31:00Z    4
+2026-10-06T09:32:00Z    7
+2026-10-06T09:33:00Z    15
+2026-10-06T09:34:00Z    7
+2026-10-06T09:35:00Z    4
+2026-10-06T09:36:00Z    4
+2026-10-06T09:37:00Z    6
+2026-10-06T09:38:00Z    11
+2026-10-06T09:39:00Z    10
+2026-10-06T09:40:00Z    4
+2026-10-06T09:41:00Z    4
+2026-10-06T09:42:00Z    4
+2026-10-06T09:43:00Z    4
+2026-10-06T09:44:00Z    4
+2026-10-06T09:45:00Z    5
+2026-10-06T09:46:00Z    5
+2026-10-06T09:47:00Z    7
+2026-10-06T09:48:00Z    10
+2026-10-06T09:49:00Z    8
+2026-10-06T09:50:00Z    4
+2026-10-06T09:51:00Z    4
+2026-10-06T09:52:00Z    4
+2026-10-06T09:53:00Z    4
+2026-10-06T09:54:00Z    4
+2026-10-06T09:55:00Z    4
+2026-10-06T09:56:00Z    4
+2026-10-06T09:57:00Z    5
+2026-10-06T09:58:00Z    8
+2026-10-06T09:59:00Z    8
+2026-10-06T10:00:00Z    4
+2026-10-06T10:01:00Z    4
+2026-10-06T10:02:00Z    3
+nikul_sadhu@cloudshell:~$ gcloud logging read 'logName="projects/pg-ae-n-app-125609/logs/syslog" AND labels."compute.googleapis.com/resource_name"=~"cn-frontend-mig-regional-(7nz1|kcc7)" AND textPayload=~"unattended|apt-daily"' --project=$P --freshness=1d --order=asc --limit=30 --format="table(timestamp,labels.\"compute.googleapis.com/resource_name\",textPayload)"
+nikul_sadhu@cloudshell:~$ 
