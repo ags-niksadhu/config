@@ -1,10 +1,23 @@
-nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
-TOKEN=$(gcloud auth print-access-token)
-curl -s -G -H "Authorization: Bearer $TOKEN" "https://monitoring.googleapis.com/v3/projects/$P/timeSeries" \
- --data-urlencode 'filter=metric.type="compute.googleapis.com/instance/cpu/utilization" AND metric.labels.instance_name=starts_with("cn-frontend-mig-regional")' \
- --data-urlencode "interval.startTime=2026-10-06T06:50:00Z" --data-urlencode "interval.endTime=2026-10-06T10:10:00Z" \
- | jq -r '.timeSeries[] | .metric.labels.instance_name as $n | .points[] | select(.value.doubleValue>=0.5) | [$n,.interval.endTime,(.value.doubleValue*100|floor)]|@tsv' | sort -k2
-cn-frontend-mig-regional-f183   2026-10-06T08:53:00Z    55
-cn-frontend-mig-regional-f183   2026-10-06T09:27:00Z    50
-nikul_sadhu@cloudshell:~$ gcloud logging read 'logName="projects/pg-ae-n-app-125609/logs/syslog" AND textPayload=~"apt-daily|unattended"' --project=$P --freshness=1d --order=asc --limit=10 --format="table(timestamp,labels.\"compute.googleapis.com/resource_name\",textPayload)"
-nikul_sadhu@cloudshell:~$ 
+**What this shows**
+- Only one server, `cn-frontend-mig-regional-f183`, ever reached 50% CPU in that window. The readings were 55% at 08:53 UTC and 50% at 09:27 UTC. Those are the minutes right after the two scale-outs (08:52:55 and 09:26:54), and the two spikes are 34 minutes apart.
+- Both readings are below the 60% target as 1-minute averages. The autoscaler works on finer-grained data, so a short peak inside that minute is possible, but I haven't proven it.
+- f183 is not in the audit-log output for 7nz1 or kcc7, so it was probably the original server that jzmx replaced at the 09:58 UTC rollout. That's my inference from the timing, not confirmed.
+- Both syslog queries returned nothing, including the broad one with no server filter. So syslog tells us nothing about apt-daily in either direction. The filter probably doesn't match how the entries are stored, and my earlier "consistent with the apt fix working" comment no longer holds.
+- Not yet established: what ran on f183 at 08:52 and 09:26 UTC.
+
+**Read-only checks**
+
+1. Everything f183 logged around the two spikes (syslog, apache, auth, PM2):
+```bash
+P=pg-ae-n-app-125609
+for W in "2026-10-06T08:49:00Z 2026-10-06T08:54:00Z" "2026-10-06T09:23:00Z 2026-10-06T09:28:00Z"; do set -- $W
+echo "== $1 -> $2"
+gcloud logging read "resource.type=\"gce_instance\" AND labels.\"compute.googleapis.com/resource_name\"=\"cn-frontend-mig-regional-f183\" AND timestamp>=\"$1\" AND timestamp<=\"$2\"" --project=$P --order=asc --limit=80 --format="table(timestamp,logName.basename(),textPayload,jsonPayload.message,httpRequest.requestUrl)"
+done
+```
+2. Request volume per minute at the load balancer over the same period. This shows whether it was traffic, such as a scanner or health probes, or something internal:
+```bash
+gcloud logging read 'resource.type="http_load_balancer" AND httpRequest.requestUrl:"staging.careerdevelopmentnavigator" AND timestamp>="2026-10-06T08:40:00Z" AND timestamp<="2026-10-06T09:35:00Z"' --project=$P --limit=3000 --format="value(timestamp)" | cut -c1-16 | sort | uniq -c
+```
+
+Paste both outputs. If f183's logs are empty because the server is deleted, tell me and I'll switch to the load-balancer log only.
