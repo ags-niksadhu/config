@@ -1,28 +1,43 @@
-Yes, the server works. These diagnostic commands are read-only and safe to run there.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:~$ sudo find / -name package.json -not -path "*/node_modules/*" -not -path "/proc/*" 2>/dev/null | head
+/var/www/careernavigator-backend/package.json
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:~$ cd /var/www/careernavigator-backend
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$ pwd && ls package.json
+/var/www/careernavigator-backend
+package.json
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$ node -e "console.log(require('./package.json').scripts)"
+{
+  build: 'nest build',
+  'build:development': 'cross-env NODE_ENV=development nest build',
+  'build:staging': 'cross-env NODE_ENV=staging nest build',
+  'build:production': 'cross-env NODE_ENV=production nest build',
+  format: 'prettier --write "src/**/*.ts" "test/**/*.ts"',
+  start: 'nest start',
+  'start:development': 'cross-env NODE_ENV=development node dist/main',
+  'start:staging': 'cross-env NODE_ENV=staging node dist/main',
+  'start:production': 'cross-env NODE_ENV=production node dist/main',
+  'start:dev': 'cross-env NODE_ENV=development nest start --watch',
+  'start:debug': 'nest start --debug --watch',
+  'start:prod': 'node dist/main',
+  lint: 'eslint "{src,apps,libs,test}/**/*.ts" --fix',
+  test: 'jest',
+  'test:watch': 'jest --watch',
+  'test:cov': 'jest --coverage',
+  'test:debug': 'node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand',
+  'test:e2e': 'jest --config ./test/jest-e2e.json',
+  'migration:run': 'npx typeorm migration:run -d dist/data-source.js',
+  'migration:generate': 'npx typeorm migration:generate src/migrations/migrations -d dist/data-source.js'
+}
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$ grep -E '"(typeorm|sequelize|sequelize-cli|knex|prisma|@mikro-orm/core|db-migrate)"' package.json
+    "typeorm": "^0.3.20",
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$ npm run migration:run 2>&1 | head -20
 
-**1. Connect**
-- **GUI (GCP):** Compute Engine → VM instances → click **SSH** next to the backend VM.
-- **GUI (AWS):** EC2 → Instances → select the instance → **Connect** → EC2 Instance Connect.
-- **Azure/other:** `ssh <user>@<server-ip>`
+> cpms-api@0.0.1 migration:run
+> npx typeorm migration:run -d dist/data-source.js
 
-**2. Find the backend repo folder**
-```bash
-sudo find / -name package.json -not -path "*/node_modules/*" -not -path "/proc/*" 2>/dev/null | head
-```
-Then:
-```bash
-cd <folder-from-above> && pwd && ls package.json
-```
-
-**3. Run diagnostics in that folder**
-```bash
-node -e "console.log(require('./package.json').scripts)"
-grep -E '"(typeorm|sequelize|sequelize-cli|knex|prisma|@mikro-orm/core|db-migrate)"' package.json
-npm run migration:run 2>&1 | head -20
-```
-
-⚠️ Do **not** run `migration:run` for real until we know why it fails. If it works, it changes the database. Last command above will either error (the script is missing) or run migrations, so if the DB is staging/production, take a snapshot or backup first. If you'd rather avoid any risk, skip that last line and paste only the first two outputs.
-
-⚠️ If the backend runs on autoscaled instances (a MIG or Auto Scaling group), the code on the VM may come from a baked image and be outdated or deleted on scale-in. Use a single instance and don't make changes there.
-
-Tell me which cloud and environment (staging/prod) this server is on, then paste the outputs.
+sh: 1: typeorm: Permission denied
+npm notice
+npm notice New major version of npm available! 10.9.9 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$
