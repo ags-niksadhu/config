@@ -1,26 +1,5 @@
-The step failed at **Backup Database**. The build stopped before `Run DB Migrations` and before the rolling update, so the DB wasn't touched and the old VMs keep serving. The new template `cn-backend-template-8f5b2a1` and its image were created and will be picked up by the cleanup step later.
-
-**Confirm that nothing changed (read-only):**
-```bash
-gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609 --format="value(versions[0].instanceTemplate.basename())"
-```
-Expect `cn-backend-template-6532834`, the previous template.
-
-**Root cause: not confirmed yet.** A `404 Not Found` means the API couldn't find the resource. A missing permission would show `403`. The candidates are:
-- The `INSTANCE_NAME` placeholder was left in `cloudbuild.yaml`, or has a typo.
-- The Cloud SQL instance is not in project `pg-ae-n-app-125609`, or the DB isn't Cloud SQL at all.
-
-I haven't seen the instance name, so I won't guess. Run these and paste the output:
-```bash
-gcloud sql instances list --project=pg-ae-n-app-125609 --format="table(name,region,state,ipAddresses[0].ipAddress,ipAddresses[0].type)"
-```
-Then paste the `Backup Database` step as committed (GitHub → `staging` → `cloudbuild.yaml`). If the instance list is empty, tell me where `DB_HOST` points. Check it in the Console (Secret Manager → `CN_STAGING_DB_HOST`) and tell me only whether it is a private IP, a hostname, or in another project. I don't need the value.
-
-**Problem I'm flagging now: the build runs as the default compute service account.** The log shows `765297732608-compute@developer.gserviceaccount.com`. That account normally has the broad Editor role, which is not least-privilege and not the dedicated-account setup you already apply to the app servers. Once the 404 is fixed, the next failures will be permission errors for the secrets or the backup, and the quick fix would be to grant roles to that default account. Don't do that.
-
-| Option | Cost | Complexity | Downtime |
-|---|---|---|---|
-| A. Quick patch: grant `secretAccessor` and `cloudsql.editor` to the default compute SA | None | Low | None, but widens an already over-privileged account |
-| B. Long-term: create `sa-cn-build`, grant only those two roles, set it on the trigger (Cloud Build → Triggers → the trigger → **Service account**) | None | Medium | None |
-
-**Recommendation:** B, once we have the instance name. The trigger needs the logging and Compute roles that the current steps use (template create, rolling update, cleanup), so I'll list the exact set when we get there.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$ gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609 --format="value(versions[0].instanceTemplate.basename())"
+ERROR: (gcloud.compute.instance-groups.managed.describe) HTTPError 403: Required 'compute.instanceGroupManagers.get' permission for 'projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-backend-mig-regional'. This command is authenticated as sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$ gcloud sql instances list --project=pg-ae-n-app-125609 --format="table(name,region,state,ipAddresses[0].ipAddress,ipAddresses[0].type)"
+ERROR: (gcloud.sql.instances.list) [sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com] does not have permission to access projects instance [pg-ae-n-app-125609] (or it may not exist): The client is not authorized to make this request. This command is authenticated as sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com which is the active account specified by the [core/account] property.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$
