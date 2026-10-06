@@ -1,5 +1,17 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$ gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609 --format="value(versions[0].instanceTemplate.basename())"
-ERROR: (gcloud.compute.instance-groups.managed.describe) HTTPError 403: Required 'compute.instanceGroupManagers.get' permission for 'projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-backend-mig-regional'. This command is authenticated as sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com which is the active account specified by the [core/account] property
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$ gcloud sql instances list --project=pg-ae-n-app-125609 --format="table(name,region,state,ipAddresses[0].ipAddress,ipAddresses[0].type)"
-ERROR: (gcloud.sql.instances.list) [sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com] does not have permission to access projects instance [pg-ae-n-app-125609] (or it may not exist): The client is not authorized to make this request. This command is authenticated as sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com which is the active account specified by the [core/account] property.
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$
+Both 403s are expected. On the MIG VM, `gcloud` runs as `sa-cn-backend`, the least-privilege app account, and it shouldn't be able to read MIG or Cloud SQL data. Those errors don't change anything about the build failure. ⚠️ Don't grant that account more roles to make these commands work. It would widen the account that runs your app.
+
+Run both commands from **Cloud Shell**, which uses your own login. Both are read-only.
+
+```bash
+gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --project=pg-ae-n-app-125609 --format="value(versions[0].instanceTemplate.basename())"
+```
+Expect `cn-backend-template-6532834`. That confirms the failed build didn't touch the MIG.
+
+```bash
+gcloud sql instances list --project=pg-ae-n-app-125609 --format="table(name,region,state,ipAddresses[0].ipAddress,ipAddresses[0].type)"
+```
+This gives the instance name for the backup step. If your account is denied here too, use the Console instead: **SQL** → the instance list. Tell me the instance name, its region, and whether it has a private IP.
+
+If the list is empty, the DB isn't in this project. Then tell me whether `CN_STAGING_DB_HOST` is a private IP, a hostname, or in another project (just the type, not the value).
+
+Also paste the `Backup Database` step as it is committed in `cloudbuild.yaml`. I still need to know whether `INSTANCE_NAME` was replaced.
