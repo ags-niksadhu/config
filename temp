@@ -1,40 +1,57 @@
-Confirmed: the running process has `SECRET_LOCATION=me-central2`, all 18 hashes match, and both MIG instances are on the same template. It is safe to disable.
-
-⚠️ Reversible (Disable, not Destroy). Run in Cloud Shell, or on this server without the `rg` override set:
+**Step 1: Verify (read-only). Paste the outputs.**
 
 ```bash
 P=pg-ae-n-app-125609
-for s in $(gcloud secrets list --project=$P --filter="name~CN_STAGING_" --format="value(name.basename())"); do
-  for v in $(gcloud secrets versions list $s --project=$P --filter="state=ENABLED" --format="value(name.basename())"); do
-    gcloud secrets versions disable $v --secret=$s --project=$P --quiet && echo "disabled $s v$v"
-  done
-done
+
+# 1. Accounts exist and are enabled
+gcloud iam service-accounts list --project $P --filter="email~sa-cn" --format="table(email,disabled)"
+
+# 2. Bucket binding (expect sa-cn-backend with Storage Object User)
+gcloud storage buckets get-iam-policy gs://cn-staging-pg-ae-n-app-125609 --format=json | grep -B3 -A3 sa-cn
+
+# 3. Secret binding on one regional secret (uses your rg helper)
+rg gcloud secrets get-iam-policy CN_STAGING_DB_HOST --location=me-central2 --project $P
+
+# 4. Self token-creator binding (needed for getSignedUrl)
+gcloud iam service-accounts get-iam-policy sa-cn-backend@$P.iam.gserviceaccount.com --project $P
+
+# 5. Cloud Build account can attach them
+gcloud iam service-accounts get-iam-policy sa-cn-frontend@$P.iam.gserviceaccount.com --project $P
 ```
 
-**Verify (all must show 0):**
+Project-level roles (Logs Writer, Monitoring Metric Writer) can't be read with your account. The real proof is the Packer build, because it starts the app on the build VM, which must read the regional secrets and answer `/health`.
 
+**Step 2: Assign (after the outputs look right). Frontend first, since it only needs logging.**
+
+Add to both repos:
+
+- `cloudbuild.yaml`, create-template step. Use `sa-cn-frontend` in the frontend repo:
+```
+--service-account=sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
+```
+- Packer source block. Use `sa-cn-frontend` in the frontend repo:
+```
+service_account_email = "sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com"
+```
+Keep `--scopes=cloud-platform`. IAM roles are the real limit, so the scope doesn't widen anything. Compliance may query the scope separately.
+
+Push frontend to `staging`, verify, then push backend.
+
+**Verify after each deploy:**
 ```bash
-for s in $(gcloud secrets list --project=$P --filter="name~CN_STAGING_" --format="value(name.basename())"); do
-  echo "$s enabled: $(gcloud secrets versions list $s --project=$P --filter='state=ENABLED' --format='value(name.basename())' | wc -l)"
-done
+gcloud compute instances list --project $P --filter="name~cn-backend-mig" --format="table(name,zone.basename(),serviceAccounts[0].email)"
+gcloud compute instance-groups managed list-instances cn-backend-mig-regional --region me-central2 --project $P
+curl -s -o /dev/null -w "%{http_code}\n" https://stagingapi.careerdevelopmentnavigator.mer.pwc.com/health
 ```
+Also check:
+- Logs Explorer: `backend_pm2_out` and `backend_apache_access` still arriving from the new servers.
+- Test one upload/download and one signed-URL feature in the app.
 
-**Prove a fresh instance still works (this is the real test):**
+**Rollback:** ⚠️ If the new servers fail, Console → Compute Engine → Instance groups → `cn-backend-mig-regional` → Rolling update → select the previous template (the one running now, so note its name before pushing). Do not pick older templates, since their images may be deleted.
 
-```bash
-gcloud compute instance-groups managed rolling-action replace cn-backend-mig-regional --region=me-central2 --project=$P --max-surge=1 --max-unavailable=0
-```
+**Step 3: The two stopped standalone VMs (GUI, no downtime since they're stopped):**
+Compute Engine → VM instances → `cn-staging-backapp-vm-01` → Edit → Service account → `sa-cn-backend` → Save. Repeat for `cn-staging-frontapp-vm-01` with `sa-cn-frontend`.
 
-Then confirm the new instances reach `HEALTHY`, since `SECRET_LOCATION` was not found in `ecosystem.config.js` and must be set by another source (template or startup script) that new instances inherit. If the new instances fail to start, run the rollback.
+**Cost:** none new.
 
-**Rollback:**
-
-```bash
-for s in $(gcloud secrets list --project=$P --filter="name~CN_STAGING_" --format="value(name.basename())"); do
-  for v in $(gcloud secrets versions list $s --project=$P --filter="state=DISABLED" --format="value(name.basename())"); do
-    gcloud secrets versions enable $v --secret=$s --project=$P --quiet
-  done
-done
-```
-
-Once stable for a few days, delete the global secrets to remove the residency exception. This applies to the backend only; if the frontend reads any `CN_STAGING_*` secret, tell me before running.
+Send the five outputs and I'll confirm before you push.
