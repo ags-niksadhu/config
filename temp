@@ -1,43 +1,22 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:~$ sudo find / -name package.json -not -path "*/node_modules/*" -not -path "/proc/*" 2>/dev/null | head
-/var/www/careernavigator-backend/package.json
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:~$ cd /var/www/careernavigator-backend
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$ pwd && ls package.json
-/var/www/careernavigator-backend
-package.json
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$ node -e "console.log(require('./package.json').scripts)"
-{
-  build: 'nest build',
-  'build:development': 'cross-env NODE_ENV=development nest build',
-  'build:staging': 'cross-env NODE_ENV=staging nest build',
-  'build:production': 'cross-env NODE_ENV=production nest build',
-  format: 'prettier --write "src/**/*.ts" "test/**/*.ts"',
-  start: 'nest start',
-  'start:development': 'cross-env NODE_ENV=development node dist/main',
-  'start:staging': 'cross-env NODE_ENV=staging node dist/main',
-  'start:production': 'cross-env NODE_ENV=production node dist/main',
-  'start:dev': 'cross-env NODE_ENV=development nest start --watch',
-  'start:debug': 'nest start --debug --watch',
-  'start:prod': 'node dist/main',
-  lint: 'eslint "{src,apps,libs,test}/**/*.ts" --fix',
-  test: 'jest',
-  'test:watch': 'jest --watch',
-  'test:cov': 'jest --coverage',
-  'test:debug': 'node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand',
-  'test:e2e': 'jest --config ./test/jest-e2e.json',
-  'migration:run': 'npx typeorm migration:run -d dist/data-source.js',
-  'migration:generate': 'npx typeorm migration:generate src/migrations/migrations -d dist/data-source.js'
-}
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$ grep -E '"(typeorm|sequelize|sequelize-cli|knex|prisma|@mikro-orm/core|db-migrate)"' package.json
-    "typeorm": "^0.3.20",
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$ npm run migration:run 2>&1 | head -20
+The script exists and the tool is TypeORM. The failure is `typeorm: Permission denied`, which means the shell can't execute the binary. I won't name the cause until we see the permissions.
 
-> cpms-api@0.0.1 migration:run
-> npx typeorm migration:run -d dist/data-source.js
+**Run these (read-only):**
+```bash
+cd /var/www/careernavigator-backend
+whoami
+ls -ld node_modules node_modules/.bin
+ls -l node_modules/.bin/typeorm
+readlink -f node_modules/.bin/typeorm
+ls -l $(readlink -f node_modules/.bin/typeorm)
+mount | grep -E " /var/www | / " | grep -o "noexec" || echo "no noexec mount"
+ls -l dist/data-source.js
+ls -la .env* 2>/dev/null
+```
 
-sh: 1: typeorm: Permission denied
-npm notice
-npm notice New major version of npm available! 10.9.9 -> 12.2.0
-npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
-npm notice To update run: npm install -g npm@12.2.0
-npm notice
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$
+Paste the output. It will show one of these:
+- No `x` bit on the typeorm file: the image build or copy stripped permissions.
+- Owner is another user (e.g. `www-data` or `root`) with no access for `nikul_...`: wrong user.
+- `noexec` on the mount: the filesystem blocks execution.
+- `dist/data-source.js` missing: the build didn't produce it, a separate problem.
+
+⚠️ Don't run `chmod` or `sudo npm run migration:run` yet. This VM is in a MIG, so any fix here is lost on scale-in or recreation. A migration run as root can also leave root-owned files that break the app.
