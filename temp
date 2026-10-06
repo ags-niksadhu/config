@@ -1,66 +1,24 @@
-nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
-gcloud logging read 'logName:"cloudaudit.googleapis.com%2Factivity" AND resource.type="gce_instance" AND protoPayload.resourceName~"cn-frontend-mig-regional-(7nz1|kcc7|jzmx)"' --project=$P --freshness=1d --order=asc --format="table(timestamp,protoPayload.methodName,protoPayload.authenticationInfo.principalEmail,protoPayload.resourceName.basename())"
-ERROR: (gcloud.logging.read) INVALID_ARGUMENT: Unparseable filter: syntax error at line 1, column 110, token '~'
-nikul_sadhu@cloudshell:~$ gcloud compute instance-groups managed describe cn-frontend-mig-regional --region=me-central2 --project=$P --format="yaml(status,currentActions,autoHealingPolicies,updatePolicy)"
-gcloud compute instance-groups managed list-errors cn-frontend-mig-regional --region=me-central2 --project=$P
-autoHealingPolicies:
-- healthCheck: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/healthChecks/frontend-health-check
-  initialDelaySec: 300
-currentActions:
-  abandoning: 0
-  creating: 0
-  creatingWithoutRetries: 0
-  deleting: 0
-  none: 1
-  recreating: 0
-  refreshing: 0
-  restarting: 0
-  resuming: 0
-  starting: 0
-  stopping: 0
-  suspending: 0
-  verifying: 0
-status:
-  allInstancesConfig:
-    effective: true
-  autoscaler: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-frontend-mig-regional
-  isStable: true
-  stateful:
-    hasStatefulConfig: false
-    perInstanceConfigs:
-      allEffective: true
-  versionTarget:
-    isReached: true
-updatePolicy:
-  instanceRedistributionType: NONE
-  maxSurge:
-    calculated: 3
-    fixed: 3
-  maxUnavailable:
-    calculated: 0
-    fixed: 0
-  minimalAction: REPLACE
-  replacementMethod: SUBSTITUTE
-  type: PROACTIVE
-INSTANCE_URL: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-a/instances/cn-frontend-mig-regional-14bt
-ACTION: CREATING
-ERROR_CODE: ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS
-ERROR_MESSAGE: Instance 'cn-frontend-mig-regional-14bt' creation failed: The zone 'projects/pg-ae-n-app-125609/zones/me-central2-a' does not have enough resources available to fulfill the request.  'NULL:0/NULL:0/NULL:0 (state:STOCKOUT, sub-state:STOCKOUT, resource type:compute)'.
-TIMESTAMP: 2026-10-04T20:22:34.024-07:00
-INSTANCE_TEMPLATE: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-13633c6
-VERSION_NAME: 
+**What the new output shows**
+- The frontend MIG is stable with 1 instance and no action in progress, so there is nothing wrong right now.
+- The only errors listed are old ZONE_RESOURCE_POOL_EXHAUSTED stockouts in me-central2-a (Oct 4). They are not the cause of the 7nz1/kcc7 inserts, but they confirm capacity risk in that zone.
+- `cn-staging-ai-staging` is a running VM created 02:58:00, not by our pipeline. It runs as the default compute service account (765297732608-compute@...), and that account previously held Editor. ⚠️ If it is in scope, it breaks the compliance rule against the default account and its full scope. I won't guess who created it; the audit log will show.
+- Root cause of 7nz1/kcc7 is still unknown. My first filter failed because `~` isn't valid there; use `=~`.
 
-INSTANCE_URL: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-a/instances/cn-frontend-mig-regional-620x
-ACTION: CREATING
-ERROR_CODE: ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS
-ERROR_MESSAGE: Instance 'cn-frontend-mig-regional-620x' creation failed: The zone 'projects/pg-ae-n-app-125609/zones/me-central2-a' does not have enough resources available to fulfill the request.  'NULL:0/NULL:0/NULL:0 (state:STOCKOUT, sub-state:STOCKOUT, resource type:compute)'.
-TIMESTAMP: 2026-10-04T13:40:29.385-07:00
-INSTANCE_TEMPLATE: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-13633c6
-VERSION_NAME: 
-nikul_sadhu@cloudshell:~$ gcloud compute instances list --project=$P --filter="name=cn-staging-ai-staging" --format="table(name,zone.basename(),status,creationTimestamp,serviceAccounts[0].email)"
-NAME: cn-staging-ai-staging
-ZONE: me-central2-a
-STATUS: RUNNING
-CREATION_TIMESTAMP: 2026-10-06T02:58:00.163-07:00
-EMAIL: 765297732608-compute@developer.gserviceaccount.com
-nikul_sadhu@cloudshell:~$ 
+**Commands (read-only)**
+
+1. Who created `cn-staging-ai-staging`, plus the frontend inserts and deletes:
+```bash
+P=pg-ae-n-app-125609
+gcloud logging read 'logName:"cloudaudit.googleapis.com%2Factivity" AND resource.type="gce_instance" AND protoPayload.resourceName=~"(cn-staging-ai-staging|cn-frontend-mig-regional-(7nz1|kcc7))"' --project=$P --freshness=1d --order=asc --format="table(timestamp,protoPayload.methodName,protoPayload.authenticationInfo.principalEmail,protoPayload.resourceName.basename())"
+```
+2. Autoscaler decisions and what triggered the scale-outs:
+```bash
+gcloud compute instance-groups managed describe cn-frontend-mig-regional --region=me-central2 --project=$P --format="yaml(targetSize,status.autoscaler)"
+gcloud compute autoscalers describe cn-frontend-mig-regional --region=me-central2 --project=$P --format="yaml(status,statusDetails,autoscalingPolicy)"
+```
+3. Instance lifetime and CPU around the inserts. 7nz1 and kcc7 are probably already deleted, so this lists the MIG events:
+```bash
+gcloud logging read 'logName:"cloudaudit.googleapis.com%2Fsystem_event" AND resource.type="gce_instance_group_manager" AND protoPayload.resourceName:"cn-frontend-mig-regional"' --project=$P --freshness=1d --order=asc --format="table(timestamp,protoPayload.methodName,protoPayload.response.status.message)"
+```
+
+Paste the outputs and I'll work out the cause.
