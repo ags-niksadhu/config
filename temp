@@ -1,30 +1,42 @@
-The fix worked. On the new VM (`...-s76v`, built from commit `6532834`), the non-executable binary count in `node_modules/.bin` is `0`, and the build and rollout finished stable.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$ NODE_ENV=staging ./node_modules/.bin/typeorm migration:show -d dist/data-source.js
+****************************
+staging
+****************************
+Error during migration show:
+Error: connect ECONNREFUSED 127.0.0.1:5432
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 5432
+}
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$ sed -E 's/(password|secret|key)[^,;]*/\1: ***/Ig' dist/data-source.js
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AppDataSource = void 0;
+const typeorm_1 = require("typeorm");
+const dotenv = require("dotenv");
+const envFilePath = process.env.NODE_ENV == "production" ? ".env" : `.env.${process.env.NODE_ENV || "development"}`;
+dotenv.config({ path: envFilePath });
+console.log("****************************");
+console.log(process.env.NODE_ENV);
+console.log("****************************");
+exports.AppDataSource = new typeorm_1.DataSource({
+    type: "postgres",
+    host: process.env.DB_HOST,
+    port: 5432,
+    username: process.env.DB_USERNAME,
+    password: ***,
+    database: process.env.DB_DATABASE,
+    entities: ["dist/entities/*{.ts,.js}"],
+    migrations: ["dist/migrations/*{.ts,.js}"],
+    synchronize: false,
+    migrationsTableName: "migrations_TypeORM",
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
+//# sourceMappingURL=data-source.js.mapnikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$
 
-**My mistake:** I told you to run `npm run migration:show`, but your `package.json` only defines `migration:run` and `migration:generate`. Use the binary directly. I didn't check `dist/data-source.js`, so I don't yet know where the DB config comes from. These are read-only and safe:
 
-```bash
-cd /var/www/careernavigator-backend
-NODE_ENV=staging ./node_modules/.bin/typeorm migration:show -d dist/data-source.js
-```
-`[X]` means a migration is applied. `[ ]` means it is pending. Paste the full output. If it fails to connect, also paste:
-```bash
-sed -E 's/(password|secret|key)[^,;]*/\1: ***/Ig' dist/data-source.js
-```
-
-**Then, only if pending migrations are listed:**
-
-1. ⚠️ Take a backup first. This is irreversible without one. GUI: Console → SQL → select the staging instance → **Backups** → **Create backup**. Wait until it shows **Successful**.
-2. Run it on this one VM only:
-```bash
-NODE_ENV=staging ./node_modules/.bin/typeorm migration:run -d dist/data-source.js
-```
-Don't run it on several MIG VMs at once, because concurrent runs can apply the same migration twice.
-3. Verify with the `migration:show` command above. All entries should show `[X]`.
-
-**Rollback:** `migration:revert` undoes the last migration only. If more than one ran, restore the backup: Console → SQL → instance → Backups → **Restore**. ⚠️ Restoring overwrites the current DB.
-
-**Optional fix:** add `"migration:show": "typeorm migration:show -d dist/data-source.js"` to the scripts so the command works as expected.
-
-**Separate item, no action needed now:** your cleanup step is still `DRY_RUN=1`. It matched 13 templates and listed 8 as candidates, all pipeline-created and none in use. Before switching to `DRY_RUN=0`, confirm none of those 8 is your rollback target. The delete command uses `--region=me-central2`, and that hasn't been proven for regional templates yet.
-
-**Long-term:** running migrations by hand on a MIG VM is fragile, because it depends on one VM being up and on someone's SSH session. A Cloud Build step before the rolling update is safer, but it needs private-pool access to the DB and an approval gate. Tell me if you want me to design that.
