@@ -1,32 +1,801 @@
-## #4 Templates: safe to delete
+STORAGE_LOCATIONS: europe-southwest1,northamerica-northeast1,me-central2,asia-east1,me-central1,europe-north2,eu,asia-southeast3,europe-west2,us-east5,australia-southeast1,northamerica-south1,us-west2,us-west4,asia-south2,us-central2,europe-west4,europe-west1,us-east1,africa-south1,europe-west12,us-west3,us-central1,europe-west15,southamerica-east1,europe-north1,us-west8,europe-central2,southamerica-west1,asia-east2,asia,northamerica-northeast2,asia-southeast1,us-west1,europe-west3,us-east7,us-south1,asia-northeast1,asia-northeast2,europe-west9,europe-west8,me-west1,australia-southeast2,europe-west10,asia-southeast2,asia-south1,us-east4,us,europe-west6,asia-northeast3
+CREATION_TIMESTAMP: 2026-09-10T21:02:01
 
-The backend MIG uses `cn-backend-template-36689c0` and the frontend MIG uses `cn-frontend-template-a81eb16`. Neither is in the default-account list, so none of the 18 is in use. This is the delete list:
-- **Frontend (9):** b0ad954, 7696009, 13633c6, 0ae7410, 70499c9, 13bcacb, 3255267, 809b228, ee22731
-- **Backend (7):** 054eefc, 53262df, ffc8a89, bd3b2bb, 6a5ff7e, b5141a9, 3aaffe9
-- **Manual (2):** clean-ubuntu-26092026, cnstagingbackend-instance-template-22-sept-2026-v2
+NAME: sql-2025-enterprise-windows-2019-dc-v20260910
+DISK_SIZE_GB: 50
+STORAGE_LOCATIONS: northamerica-northeast1,northamerica-northeast2,europe-west6,europe-west3,asia-south1,me-central1,us-central2,me-west1,us-west1,europe-west4,us-west4,asia-southeast3,africa-south1,us-east4,asia-northeast1,asia-northeast2,eu,us-west8,us-south1,asia,us-west2,europe-west12,asia-northeast3,europe-west1,europe-west8,europe-southwest1,southamerica-east1,us-east7,australia-southeast1,europe-west10,europe-west15,europe-central2,us,asia-south2,us-east5,me-central2,us-west3,europe-west9,us-east1,australia-southeast2,europe-north2,europe-west2,us-central1,europe-north1,southamerica-west1,northamerica-south1,asia-southeast2,asia-east1,asia-southeast1,asia-east2
+CREATION_TIMESTAMP: 2026-09-10T21:02:01
 
-⚠️ Irreversible, and the frontend is left with one rollback target (a81eb16). Console: Compute Engine → Instance templates → tick the 18 → **Delete**. If GCP refuses one, it is in use, so leave it and tell me.
+NAME: sql-2017-web-windows-2022-dc-v20260910
+DISK_SIZE_GB: 50
+STORAGE_LOCATIONS: us-west8,australia-southeast2,us-central2,us-east7,us-west1,asia,me-central1,us-south1,europe-north2,us-west2,europe-west2,us-west4,us-east1,us-west3,europe-west9,eu,europe-west4,northamerica-south1,asia-southeast1,europe-west1,southamerica-west1,me-west1,europe-west10,europe-west3,us-east4,europe-west15,australia-southeast1,southamerica-east1,northamerica-northeast2,asia-northeast1,asia-northeast2,asia-east2,europe-west6,asia-east1,asia-northeast3,europe-west12,us-central1,europe-west8,northamerica-northeast1,us-east5,europe-southwest1,europe-north1,asia-southeast2,africa-south1,europe-central2,asia-south1,me-central2,asia-south2,asia-southeast3,us
+CREATION_TIMESTAMP: 2026-09-10T21:02:02
 
-The images those templates pointed at also cost storage. Check them after:
-```bash
-gcloud compute images list --project=$P --format="table(name,diskSizeGb,storageLocations.list(),creationTimestamp.date())" --sort-by=creationTimestamp
-```
+NAME: rocky-linux-10-optimized-gcp-oot-gve-v20260911
+DISK_SIZE_GB: 20
+STORAGE_LOCATIONS: asia-southeast3,europe-west6,eu,me-west1,northamerica-northeast2,europe-west8,africa-south1,asia-east1,us-east1,europe-north2,me-central2,us-central1,australia-southeast1,europe-west10,asia-northeast1,us,me-central1,us-west4,southamerica-east1,asia-east2,asia-southeast2,europe-west4,us-west1,us-east4,us-east5,us-east7,asia-southeast1,europe-west9,europe-west1,europe-west12,europe-west3,us-south1,us-central2,us-west8,asia-northeast3,northamerica-northeast1,asia-northeast2,asia-south1,europe-southwest1,asia-south2,northamerica-south1,australia-southeast2,europe-north1,europe-central2,asia,europe-west2,us-west2,europe-west15,us-west3,southamerica-west1
+CREATION_TIMESTAMP: 2026-09-11T12:08:16
 
-## 5e Request-body logging: urgent for the dev team
+NAME: fedora-coreos-44-20260912-20-1-gcp-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west8,asia-northeast1,us-south1,europe-southwest1,us-east7,australia-southeast1,asia-east1,us-west4,northamerica-northeast2,europe-north1,us-west1,europe-west3,us-east5,asia,us,me-central2,us-central1,asia-northeast3,europe-west4,europe-west6,southamerica-west1,northamerica-south1,asia-northeast2,eu,me-central1,europe-north2,europe-central2,asia-south1,asia-southeast1,asia-southeast2,us-west2,northamerica-northeast1,europe-west2,us-west3,asia-south2,europe-west12,asia-east2,europe-west15,africa-south1,us-west8,southamerica-east1,australia-southeast2,europe-west9,europe-west1,us-central2,europe-west10,us-east4,me-west1,asia-southeast3,us-east1
+CREATION_TIMESTAMP: 2026-09-12T00:28:19
 
-Last 24h, lines containing the word: **password 26, email 34, token 1, otp 0**. I can't tell yet whether the values are real or masked. This command prints only the lengths of the password values, nothing readable:
-```bash
-gcloud logging read 'logName:"backend_pm2_out" AND jsonPayload.message:"Body :" AND jsonPayload.message:"password"' --project=$P --freshness=1d --limit=1000 --format="value(jsonPayload.message)" | grep -oiP "password['\"]?\s*[:=]\s*['\"]?\K[^'\",} ]*" | awk '{print length($0)}' | sort -n | uniq -c
-```
-Varied lengths (for example 8-20) mean real passwords are in the logs. All the same length (3 or 4) means masked.
+NAME: fedora-coreos-45-20260915-10-1-gcp-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west3,us-west4,northamerica-northeast2,southamerica-east1,asia-northeast2,us-west3,australia-southeast1,europe-west8,asia-south1,us-west8,me-central1,us-east5,us-south1,asia-northeast3,asia-southeast2,us-central2,us-east4,europe-west10,me-central2,asia-east2,us-east7,europe-west15,us,europe-west9,northamerica-northeast1,us-east1,northamerica-south1,europe-west1,asia,asia-east1,europe-southwest1,europe-west4,asia-southeast3,europe-west2,eu,europe-central2,southamerica-west1,us-central1,europe-west6,africa-south1,asia-south2,europe-north2,us-west1,me-west1,asia-northeast1,australia-southeast2,us-west2,europe-west12,europe-north1,asia-southeast1
+CREATION_TIMESTAMP: 2026-09-15T03:05:49
 
-Send it to the dev team now either way, because emails are personal data, in the logs for 180 days. The ask is to remove the body logging, or redact password, token, otp and email.
+NAME: fedora-coreos-44-20260915-20-1-gcp-aarch64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west12,asia-northeast2,asia-south2,europe-north2,asia-east2,europe-central2,us-west2,northamerica-south1,us,europe-west3,europe-west8,europe-west10,asia,australia-southeast1,europe-west15,us-south1,us-east1,us-west4,us-east7,us-east5,southamerica-west1,us-west8,asia-southeast3,us-west1,asia-northeast3,eu,us-central1,africa-south1,southamerica-east1,me-central2,europe-west6,asia-east1,europe-southwest1,europe-west9,asia-south1,us-central2,northamerica-northeast1,me-central1,us-east4,asia-northeast1,asia-southeast1,europe-west1,europe-west4,northamerica-northeast2,australia-southeast2,asia-southeast2,europe-west2,me-west1,europe-north1,us-west3
+CREATION_TIMESTAMP: 2026-09-15T03:07:03
 
-| Option | Cost | Complexity | Downtime |
-|---|---|---|---|
-| A. Dev team removes or redacts in code, then rebuild | None | Code change | None (rolling update) |
-| B. Add a Log Router exclusion for `"Body :"` on `_Default` first | None | Admin needed | None |
+NAME: fedora-coreos-44-20260916-20-1-gcp-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: me-west1,us-east4,europe-west10,europe-west6,asia-southeast1,northamerica-northeast2,us-west8,eu,us-east7,us,us-west4,asia,asia-southeast3,southamerica-west1,us-central2,northamerica-south1,asia-south2,asia-northeast1,asia-northeast2,australia-southeast2,asia-southeast2,northamerica-northeast1,me-central2,europe-west1,asia-east1,europe-central2,us-east1,europe-west12,southamerica-east1,europe-north1,europe-southwest1,asia-northeast3,europe-west8,africa-south1,asia-south1,me-central1,europe-west3,us-west1,europe-north2,europe-west2,us-east5,asia-east2,europe-west15,us-central1,us-west3,australia-southeast1,europe-west4,europe-west9,us-west2,us-south1
+CREATION_TIMESTAMP: 2026-09-16T11:30:36
 
-**Recommendation:** A, with B as a stopgap only if it takes days. B drops those lines permanently, which affects debugging, and you earlier chose not to add exclusions. Entries already written stay for 180 days. Purging them means deleting the whole `backend_pm2_out` log, which conflicts with the 6-month retention rule and needs PwC security to decide, so don't do it yourself.
+NAME: fedora-coreos-44-20260917-20-1-gcp-aarch64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-west4,europe-west15,us-west2,europe-north1,europe-west6,us-east7,europe-west8,asia-south1,us-east4,australia-southeast2,europe-west12,europe-west9,europe-north2,us-west8,asia-southeast2,us-central1,me-west1,asia-southeast3,eu,southamerica-east1,me-central1,asia-east2,europe-central2,australia-southeast1,us-south1,asia-south2,northamerica-northeast2,asia-northeast2,us-west1,europe-west4,southamerica-west1,asia,us-east5,europe-west10,us,northamerica-northeast1,europe-west3,us-central2,asia-northeast3,asia-northeast1,europe-west1,northamerica-south1,us-east1,me-central2,asia-southeast1,europe-west2,us-west3,africa-south1,asia-east1,europe-southwest1
+CREATION_TIMESTAMP: 2026-09-17T01:45:26
 
-Paste the lengths output and I'll tell you whether this is severe.
+NAME: fedora-coreos-46-20260917-91-1-gcp-aarch64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-east7,africa-south1,europe-west12,me-central2,europe-west10,southamerica-east1,us-west3,northamerica-northeast2,europe-west6,northamerica-northeast1,europe-central2,asia,asia-east2,europe-west8,asia-northeast2,me-west1,asia-southeast1,southamerica-west1,us-south1,asia-northeast3,europe-southwest1,us-west8,us-east1,asia-northeast1,us-west1,asia-south2,us-west2,us,europe-west4,me-central1,asia-southeast3,europe-west9,asia-east1,europe-west2,asia-southeast2,europe-west1,asia-south1,australia-southeast1,europe-north1,northamerica-south1,us-east5,eu,us-east4,us-central1,us-central2,us-west4,europe-west3,europe-north2,australia-southeast2,europe-west15
+CREATION_TIMESTAMP: 2026-09-17T04:03:09
+
+NAME: sles-sap-16-0-v20260917-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: southamerica-east1,asia-east1,northamerica-south1,northamerica-northeast2,europe-southwest1,us-central1,asia-south2,us,europe-north1,us-west1,asia-southeast3,us-central2,us-east4,us-east7,asia,europe-west15,asia-southeast1,us-west4,us-west3,europe-north2,asia-east2,europe-west4,australia-southeast2,asia-southeast2,europe-west2,asia-northeast3,europe-central2,us-west8,us-east1,asia-south1,africa-south1,europe-west10,europe-west9,us-west2,europe-west3,eu,europe-west12,australia-southeast1,asia-northeast1,me-central1,southamerica-west1,us-south1,northamerica-northeast1,asia-northeast2,europe-west1,me-west1,us-east5,me-central2,europe-west8,europe-west6
+CREATION_TIMESTAMP: 2026-09-17T08:47:28
+
+NAME: fedora-coreos-45-20260917-1-1-gcp-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-central2,asia-northeast1,us-east1,europe-north1,us-east5,europe-west1,asia-south1,australia-southeast1,me-central2,europe-west9,asia-east2,europe-west8,asia-northeast3,us-east4,us-west3,europe-southwest1,asia-southeast2,us-central1,europe-west2,us-west4,asia,europe-west6,europe-west4,northamerica-northeast2,australia-southeast2,asia-east1,europe-west10,asia-northeast2,eu,africa-south1,asia-southeast3,us-west1,europe-north2,us-south1,asia-south2,me-central1,us-west8,me-west1,europe-west15,europe-west3,us-east7,us-central2,asia-southeast1,northamerica-northeast1,europe-west12,southamerica-east1,southamerica-west1,us,northamerica-south1,us-west2
+CREATION_TIMESTAMP: 2026-09-17T18:14:04
+
+NAME: sles-15-sp5-v20260918-arm64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-southeast2,us,us-west4,us-south1,asia-east2,europe-southwest1,europe-west15,us-east1,asia-southeast3,northamerica-south1,europe-west12,europe-west9,me-central1,northamerica-northeast2,europe-west1,asia-northeast3,australia-southeast1,asia,us-east7,europe-north1,us-west1,asia-south1,us-east5,us-east4,africa-south1,us-west2,southamerica-west1,australia-southeast2,europe-west4,asia-northeast2,me-west1,us-west8,me-central2,eu,asia-east1,us-west3,europe-west3,europe-west2,europe-west8,southamerica-east1,europe-central2,northamerica-northeast1,us-central1,asia-south2,asia-northeast1,europe-west6,europe-west10,asia-southeast1,us-central2,europe-north2
+CREATION_TIMESTAMP: 2026-09-18T02:12:33
+
+NAME: ubuntu-minimal-2604-resolute-amd64-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: me-central2,europe-west4,europe-southwest1,us-central1,southamerica-east1,northamerica-northeast2,europe-west2,us-central2,europe-west9,europe-west1,me-west1,asia-east1,asia-southeast1,us-south1,us-west8,us-west3,europe-west12,us-west2,europe-central2,us-east4,europe-west3,southamerica-west1,asia-southeast3,northamerica-south1,asia-south2,us-east7,asia-east2,europe-north2,europe-west8,eu,asia,asia-southeast2,australia-southeast2,us,europe-west6,me-central1,asia-northeast1,europe-west15,northamerica-northeast1,us-east1,europe-north1,asia-northeast3,africa-south1,australia-southeast1,us-east5,asia-south1,asia-northeast2,us-west4,us-west1,europe-west10
+CREATION_TIMESTAMP: 2026-09-18T02:29:06
+
+NAME: ubuntu-minimal-2604-resolute-arm64-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: northamerica-south1,me-west1,eu,asia-southeast1,us-east4,asia,us-central2,europe-west6,australia-southeast1,europe-north2,asia-northeast1,europe-west4,us-south1,europe-southwest1,us-east7,us-west3,asia-northeast2,australia-southeast2,asia-east2,europe-west15,asia-northeast3,europe-north1,us-west4,europe-west2,europe-west1,southamerica-east1,europe-west9,europe-west12,us-central1,asia-south2,northamerica-northeast2,africa-south1,us-west8,northamerica-northeast1,us-east1,asia-south1,me-central2,europe-west8,us-west1,southamerica-west1,asia-southeast2,europe-central2,asia-southeast3,europe-west3,us-west2,me-central1,us-east5,europe-west10,us,asia-east1
+CREATION_TIMESTAMP: 2026-09-18T02:29:14
+
+NAME: fedora-coreos-44-20260918-20-1-gcp-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-southeast1,southamerica-east1,me-west1,europe-southwest1,asia-south2,europe-central2,us-west3,europe-north2,me-central2,africa-south1,us,asia-northeast2,asia-northeast1,me-central1,northamerica-northeast1,asia-south1,europe-north1,us-east5,us-west4,europe-west3,us-central2,europe-west12,northamerica-south1,us-central1,asia-northeast3,us-west8,southamerica-west1,asia-southeast3,us-west1,europe-west8,australia-southeast2,us-east7,europe-west1,asia-southeast2,northamerica-northeast2,europe-west9,europe-west10,europe-west4,asia-east1,europe-west15,europe-west6,asia-east2,us-east1,us-east4,us-west2,eu,europe-west2,australia-southeast1,us-south1,asia
+CREATION_TIMESTAMP: 2026-09-18T02:38:54
+
+NAME: ubuntu-pro-2604-resolute-amd64-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: me-west1,us,us-central1,europe-west4,northamerica-northeast1,asia-southeast3,northamerica-south1,us-south1,southamerica-east1,us-west2,australia-southeast2,us-central2,southamerica-west1,europe-west15,us-east5,asia-northeast3,asia-northeast1,me-central2,europe-west10,asia-south1,us-west8,us-east7,europe-west2,us-east1,asia-northeast2,asia-south2,europe-west8,us-west3,asia-east1,europe-west3,europe-west9,europe-west12,asia-east2,northamerica-northeast2,europe-southwest1,eu,us-west4,asia-southeast1,me-central1,africa-south1,europe-west1,australia-southeast1,asia,asia-southeast2,europe-west6,us-west1,europe-central2,europe-north1,europe-north2,us-east4
+CREATION_TIMESTAMP: 2026-09-18T04:37:43
+
+NAME: ubuntu-pro-fips-updates-2204-jammy-arm64-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west6,asia-northeast1,asia-southeast1,eu,europe-southwest1,asia-south2,us-central1,europe-west12,me-west1,europe-west9,us-west4,australia-southeast2,us-south1,us-east1,us-east7,asia-northeast2,asia-east1,northamerica-northeast2,asia-south1,northamerica-northeast1,us-west2,southamerica-west1,asia-southeast2,southamerica-east1,us-west8,europe-west15,europe-west3,africa-south1,europe-west1,us-west1,us-east4,asia,europe-west8,europe-west2,asia-east2,me-central1,asia-northeast3,europe-north1,asia-southeast3,us-central2,me-central2,europe-central2,europe-west4,us,europe-west10,australia-southeast1,europe-north2,us-east5,us-west3,northamerica-south1
+CREATION_TIMESTAMP: 2026-09-18T04:37:44
+
+NAME: ubuntu-pro-2604-resolute-arm64-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-southeast3,asia-southeast1,europe-west8,us-east7,southamerica-east1,europe-west4,europe-west12,europe-west6,europe-north2,us-central2,europe-west3,us-west8,europe-north1,us-east1,asia-northeast1,northamerica-northeast1,me-west1,europe-west10,asia-northeast3,me-central2,asia-southeast2,asia-south1,us,europe-southwest1,asia-northeast2,northamerica-south1,asia-south2,us-west1,europe-west1,us-west3,us-central1,australia-southeast2,northamerica-northeast2,asia,europe-west2,australia-southeast1,asia-east1,us-east5,asia-east2,europe-west15,us-east4,southamerica-west1,europe-west9,africa-south1,us-west4,europe-central2,us-south1,eu,me-central1,us-west2
+CREATION_TIMESTAMP: 2026-09-18T04:37:46
+
+NAME: ubuntu-pro-fips-updates-2204-jammy-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west8,me-central1,europe-west3,europe-west10,us-central2,europe-west2,northamerica-south1,asia-northeast3,asia-northeast1,europe-west15,asia-south1,me-west1,northamerica-northeast2,asia-northeast2,europe-west6,europe-west12,us,us-east7,europe-southwest1,europe-central2,asia-southeast1,australia-southeast1,us-central1,us-south1,us-west2,asia-east1,eu,southamerica-west1,us-east1,asia-east2,me-central2,africa-south1,europe-west4,us-west1,us-west4,us-east5,us-west8,us-west3,europe-west9,us-east4,australia-southeast2,asia,asia-southeast2,asia-south2,southamerica-east1,northamerica-northeast1,europe-north2,europe-north1,europe-west1,asia-southeast3
+CREATION_TIMESTAMP: 2026-09-18T04:37:50
+
+NAME: ubuntu-2604-resolute-arm64-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: me-central1,us-east5,us-east1,europe-north1,europe-west12,europe-west10,europe-north2,asia-east2,northamerica-northeast2,europe-west4,us-west2,asia-northeast3,me-west1,asia-east1,southamerica-west1,us-south1,us,europe-southwest1,asia,us-central2,asia-south2,europe-west6,australia-southeast2,europe-west1,australia-southeast1,me-central2,europe-west2,europe-central2,europe-west9,eu,us-east7,us-west4,northamerica-northeast1,asia-southeast3,us-west8,asia-southeast1,asia-south1,europe-west3,africa-south1,asia-southeast2,us-west1,europe-west8,us-east4,northamerica-south1,southamerica-east1,asia-northeast1,europe-west15,us-west3,asia-northeast2,us-central1
+CREATION_TIMESTAMP: 2026-09-18T04:38:08
+
+NAME: ubuntu-2604-resolute-amd64-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-central1,australia-southeast2,us-west1,asia-south1,asia-east1,us-east1,asia-southeast1,us-west8,europe-southwest1,europe-west3,northamerica-northeast2,europe-central2,asia-southeast2,southamerica-east1,asia-south2,europe-north1,us-west4,europe-west4,australia-southeast1,northamerica-south1,me-central1,us,asia-east2,asia-northeast1,us-west2,asia-northeast3,europe-north2,me-central2,europe-west15,us-central2,us-east7,northamerica-northeast1,eu,us-east5,europe-west8,us-east4,asia-northeast2,asia-southeast3,europe-west10,europe-west12,europe-west2,us-west3,europe-west6,me-west1,southamerica-west1,europe-west1,europe-west9,us-south1,africa-south1,asia
+CREATION_TIMESTAMP: 2026-09-18T04:38:09
+
+NAME: ubuntu-2404-noble-amd64-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: africa-south1,us-east7,northamerica-northeast2,europe-west15,northamerica-south1,europe-west10,us-west8,us-east5,asia-northeast1,asia,europe-southwest1,asia-east1,asia-south2,us-east1,europe-central2,europe-west9,southamerica-east1,us-east4,us-central2,europe-west4,europe-west8,asia-southeast2,me-central2,europe-north1,me-central1,asia-southeast3,asia-southeast1,northamerica-northeast1,us-west3,asia-east2,southamerica-west1,australia-southeast2,asia-south1,europe-north2,us,europe-west3,asia-northeast2,eu,me-west1,europe-west2,us-central1,us-south1,us-west4,us-west2,asia-northeast3,us-west1,europe-west6,europe-west12,europe-west1,australia-southeast1
+CREATION_TIMESTAMP: 2026-09-18T04:41:24
+
+NAME: ubuntu-2404-noble-arm64-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-east2,us-east5,europe-west8,us-east4,me-central1,northamerica-northeast2,asia,europe-west15,us-central2,asia-northeast3,asia-southeast1,europe-west3,australia-southeast2,europe-west12,us-central1,africa-south1,europe-west1,us-west8,asia-southeast2,us-west2,eu,europe-north1,europe-north2,us-west4,us-east1,southamerica-west1,asia-southeast3,europe-west2,europe-southwest1,me-west1,us,europe-west10,europe-central2,us-west1,us-east7,southamerica-east1,europe-west9,us-south1,asia-northeast2,us-west3,northamerica-northeast1,asia-east1,asia-northeast1,australia-southeast1,me-central2,europe-west6,europe-west4,asia-south2,northamerica-south1,asia-south1
+CREATION_TIMESTAMP: 2026-09-18T04:41:31
+
+NAME: ubuntu-minimal-pro-2404-noble-amd64-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-east7,southamerica-west1,southamerica-east1,asia-northeast3,europe-west3,us-east4,europe-north2,europe-north1,us-south1,europe-west8,us-east1,europe-southwest1,asia-east1,europe-west4,me-central2,me-central1,eu,europe-west12,asia-southeast2,me-west1,europe-west1,australia-southeast1,us-central1,europe-west15,us,europe-west6,asia-southeast1,asia-south2,northamerica-south1,us-west4,us-west3,us-west8,us-west2,europe-west10,northamerica-northeast2,northamerica-northeast1,australia-southeast2,asia-southeast3,europe-west9,us-west1,asia-northeast2,asia-south1,africa-south1,asia-east2,us-east5,asia-northeast1,us-central2,europe-west2,europe-central2,asia
+CREATION_TIMESTAMP: 2026-09-18T04:56:34
+
+NAME: ubuntu-minimal-pro-2404-noble-arm64-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-east5,us-central1,europe-west15,africa-south1,eu,australia-southeast2,asia-northeast2,us,asia-southeast2,europe-west3,europe-north1,me-central2,us-west4,asia-northeast3,europe-west2,me-west1,europe-north2,us-east4,europe-west12,us-west1,asia-northeast1,europe-west6,us-south1,us-west2,us-east1,northamerica-northeast2,europe-southwest1,northamerica-northeast1,europe-west8,us-west8,southamerica-west1,asia-southeast3,asia-east2,us-central2,europe-west9,us-east7,northamerica-south1,europe-west4,europe-central2,europe-west10,asia-east1,asia,asia-south1,southamerica-east1,us-west3,australia-southeast1,asia-southeast1,asia-south2,me-central1,europe-west1
+CREATION_TIMESTAMP: 2026-09-18T04:56:46
+
+NAME: ubuntu-minimal-2404-noble-arm64-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-west4,asia-southeast3,asia-northeast1,asia-south2,europe-west15,asia-northeast3,asia-east1,asia,europe-west10,us-central2,northamerica-northeast2,us-central1,europe-west8,europe-west2,us-south1,us-east1,europe-west9,europe-west4,northamerica-northeast1,asia-south1,me-central1,us-east7,asia-southeast2,us-west2,europe-central2,europe-west3,europe-north1,me-central2,me-west1,us-west8,us-west1,africa-south1,northamerica-south1,europe-west6,europe-north2,europe-southwest1,asia-east2,us-east4,europe-west12,us-east5,us-west3,eu,asia-northeast2,asia-southeast1,australia-southeast2,southamerica-west1,europe-west1,us,australia-southeast1,southamerica-east1
+CREATION_TIMESTAMP: 2026-09-18T04:59:56
+
+NAME: ubuntu-minimal-2404-noble-amd64-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west12,asia,asia-south1,us-central2,australia-southeast1,asia-east1,asia-northeast2,europe-north1,northamerica-northeast1,southamerica-east1,asia-northeast1,us-east5,us-central1,europe-west10,us-west8,europe-west4,me-central1,us-west2,europe-west9,southamerica-west1,northamerica-northeast2,eu,asia-southeast2,asia-southeast3,northamerica-south1,europe-west3,us-west4,europe-southwest1,us,me-west1,asia-northeast3,asia-east2,australia-southeast2,europe-west2,europe-central2,europe-west8,asia-southeast1,europe-west1,us-east4,me-central2,us-south1,europe-west6,europe-north2,us-east7,europe-west15,africa-south1,us-west3,us-west1,asia-south2,us-east1
+CREATION_TIMESTAMP: 2026-09-18T04:59:57
+
+NAME: sles-15-sp7-v20260918-arm64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west9,europe-west4,europe-north1,asia-east2,europe-west15,southamerica-east1,asia-northeast2,northamerica-northeast1,northamerica-south1,asia,asia-east1,asia-southeast1,me-west1,us-east5,us-central1,asia-northeast1,asia-southeast3,us-central2,europe-west1,europe-southwest1,us-east1,europe-north2,asia-southeast2,us-west4,africa-south1,us-west1,us,australia-southeast1,australia-southeast2,us-west3,europe-central2,us-south1,asia-south1,me-central2,asia-south2,eu,us-east7,europe-west3,europe-west12,me-central1,us-east4,us-west8,us-west2,northamerica-northeast2,europe-west6,europe-west8,europe-west2,southamerica-west1,asia-northeast3,europe-west10
+CREATION_TIMESTAMP: 2026-09-18T05:09:21
+
+NAME: sles-15-sp7-v20260918-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-south1,europe-southwest1,asia-southeast2,asia-southeast3,us-east7,europe-west4,us-south1,us-west2,southamerica-west1,us-central2,us-east5,europe-west1,us-central1,us,northamerica-northeast2,australia-southeast2,asia-northeast3,europe-west12,us-west1,europe-west2,eu,europe-west9,us-east4,asia-east2,europe-north1,europe-north2,europe-west15,me-west1,asia-northeast1,africa-south1,asia-southeast1,southamerica-east1,us-east1,asia-south2,europe-west10,asia,northamerica-south1,me-central2,us-west4,me-central1,europe-west3,europe-west8,northamerica-northeast1,europe-central2,asia-east1,us-west8,australia-southeast1,us-west3,asia-northeast2,europe-west6
+CREATION_TIMESTAMP: 2026-09-18T05:21:07
+
+NAME: sles-15-sp5-v20260918-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-east5,europe-west15,asia,asia-east2,northamerica-northeast2,us-west1,asia-south1,us-east1,us-west8,europe-west1,southamerica-east1,us-east7,australia-southeast1,us-south1,asia-south2,us,australia-southeast2,europe-north2,eu,asia-east1,me-central1,europe-west2,asia-northeast3,europe-west12,us-central1,europe-west6,europe-west10,us-east4,europe-southwest1,us-west4,asia-southeast3,northamerica-south1,northamerica-northeast1,europe-west3,asia-northeast2,us-west2,europe-north1,us-west3,europe-central2,europe-west8,asia-southeast1,africa-south1,europe-west9,asia-southeast2,me-central2,europe-west4,me-west1,us-central2,asia-northeast1,southamerica-west1
+CREATION_TIMESTAMP: 2026-09-18T05:31:13
+
+NAME: ubuntu-pro-2404-noble-amd64-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-west8,northamerica-northeast2,us-central2,asia-northeast1,asia-southeast3,me-central1,us-south1,asia-south2,asia-southeast1,southamerica-east1,europe-west12,australia-southeast1,europe-north1,me-west1,asia-northeast2,us-east1,asia-southeast2,europe-west10,me-central2,us-west3,asia-east1,europe-west2,australia-southeast2,europe-north2,us-central1,asia-northeast3,europe-west4,us-west2,asia-south1,europe-central2,asia,us-west4,europe-southwest1,europe-west15,southamerica-west1,us-east5,europe-west6,eu,europe-west9,europe-west8,us,northamerica-northeast1,northamerica-south1,asia-east2,europe-west1,us-east7,us-east4,africa-south1,us-west1,europe-west3
+CREATION_TIMESTAMP: 2026-09-18T05:44:43
+
+NAME: ubuntu-pro-2404-noble-arm64-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-central2,europe-west12,us,asia,europe-southwest1,europe-west9,me-central2,us-west1,asia-southeast1,asia-southeast3,us-south1,asia-east1,southamerica-west1,northamerica-south1,europe-west3,us-central2,europe-west10,asia-northeast2,australia-southeast1,europe-west6,southamerica-east1,asia-south2,me-west1,us-east5,northamerica-northeast2,europe-west4,us-west3,asia-northeast1,asia-east2,us-west4,australia-southeast2,us-west8,asia-south1,europe-west2,northamerica-northeast1,us-west2,eu,us-east1,europe-north1,us-central1,europe-west8,asia-southeast2,europe-west15,me-central1,us-east4,europe-north2,asia-northeast3,europe-west1,us-east7,africa-south1
+CREATION_TIMESTAMP: 2026-09-18T05:44:46
+
+NAME: fedora-coreos-44-20260919-20-1-gcp-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: eu,asia-southeast1,northamerica-northeast2,us-south1,northamerica-northeast1,asia-south2,australia-southeast1,asia-south1,europe-west10,europe-north1,us-west1,asia-southeast3,us-west2,europe-west8,me-central2,us-west4,asia-southeast2,us-central1,europe-west15,southamerica-east1,europe-west6,asia-east2,us-east5,me-west1,us-east4,europe-west9,us-central2,asia-east1,us-west8,europe-west12,europe-north2,europe-central2,asia-northeast2,asia-northeast1,us-west3,me-central1,europe-west1,africa-south1,northamerica-south1,europe-west4,europe-west2,asia-northeast3,us,asia,us-east7,australia-southeast2,us-east1,europe-southwest1,southamerica-west1,europe-west3
+CREATION_TIMESTAMP: 2026-09-19T01:25:05
+
+NAME: fedora-coreos-46-20260919-91-1-gcp-aarch64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west1,asia-southeast2,europe-central2,us-west1,europe-west6,us-south1,europe-west4,northamerica-northeast2,me-west1,asia-east1,europe-west12,australia-southeast1,europe-southwest1,eu,southamerica-east1,europe-west8,us-east5,us-central1,europe-north1,asia,asia-east2,europe-west3,us-east7,us-east4,us-west8,europe-west15,europe-west2,asia-southeast3,asia-northeast1,europe-west9,us-central2,asia-southeast1,europe-west10,australia-southeast2,asia-northeast2,us-west2,southamerica-west1,asia-south2,northamerica-northeast1,me-central2,us-west3,us-west4,asia-south1,us,us-east1,africa-south1,asia-northeast3,me-central1,europe-north2,northamerica-south1
+CREATION_TIMESTAMP: 2026-09-19T04:09:07
+
+NAME: fedora-coreos-44-20260920-20-1-gcp-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-southeast1,asia-southeast3,us-south1,europe-west10,southamerica-east1,me-central1,us-east7,europe-west12,me-west1,europe-west1,asia-east2,asia,us-west8,europe-central2,asia-south2,us-east4,northamerica-northeast2,northamerica-south1,us-east1,asia-south1,us-west3,us,me-central2,us-central1,europe-west15,europe-west4,eu,africa-south1,asia-northeast1,australia-southeast1,us-east5,asia-northeast3,us-west2,europe-north2,us-west4,us-west1,northamerica-northeast1,asia-east1,europe-west2,europe-southwest1,europe-west9,australia-southeast2,us-central2,europe-west6,europe-west3,europe-west8,asia-northeast2,southamerica-west1,asia-southeast2,europe-north1
+CREATION_TIMESTAMP: 2026-09-19T23:59:33
+
+NAME: sles-sap-15-sp7-v20260921-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west8,us-central1,australia-southeast2,europe-west6,europe-west12,europe-west3,us-west3,us-west1,asia-southeast1,europe-central2,europe-north2,me-central2,asia-northeast3,africa-south1,asia-east2,me-central1,europe-west10,asia,us-west2,asia-east1,us,northamerica-south1,us-east4,europe-west1,asia-south1,europe-west2,asia-northeast1,eu,asia-southeast3,us-central2,us-west8,us-east5,us-east7,asia-south2,me-west1,asia-northeast2,europe-west4,northamerica-northeast2,northamerica-northeast1,us-east1,europe-west15,southamerica-west1,southamerica-east1,europe-southwest1,europe-west9,us-south1,asia-southeast2,us-west4,europe-north1,australia-southeast1
+CREATION_TIMESTAMP: 2026-09-21T07:09:06
+
+NAME: ubuntu-pro-accel-2604-amd64-nvidia-580-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west4,europe-west2,europe-north2,us-east7,europe-west10,europe-central2,europe-southwest1,us-west8,europe-west15,asia-northeast1,me-central1,asia-south2,us-central1,asia-northeast3,asia-southeast2,australia-southeast2,asia-southeast3,europe-north1,europe-west3,europe-west12,me-central2,northamerica-northeast2,asia-east2,northamerica-south1,australia-southeast1,us-east4,us-west1,us-west3,asia,asia-northeast2,us-central2,southamerica-east1,us-west4,us-east1,asia-south1,southamerica-west1,asia-southeast1,eu,europe-west9,us-east5,asia-east1,africa-south1,europe-west6,us-west2,us-south1,europe-west8,northamerica-northeast1,europe-west1,us,me-west1
+CREATION_TIMESTAMP: 2026-09-21T08:47:21
+
+NAME: ubuntu-pro-accel-2604-arm64-nvidia-595-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-west1,europe-west1,us-west2,australia-southeast2,northamerica-south1,me-west1,us-central1,asia-southeast1,africa-south1,europe-southwest1,asia-east1,asia,northamerica-northeast2,asia-east2,us-west3,us-south1,asia-southeast2,europe-north2,asia-northeast1,asia-south1,europe-west4,asia-southeast3,us-west4,us-east7,northamerica-northeast1,australia-southeast1,europe-central2,europe-west15,asia-northeast3,us-west8,asia-northeast2,europe-west8,us-east1,europe-west3,me-central2,me-central1,europe-west9,us,europe-north1,europe-west10,europe-west12,us-east5,asia-south2,us-central2,eu,europe-west6,us-east4,southamerica-east1,southamerica-west1,europe-west2
+CREATION_TIMESTAMP: 2026-09-21T08:47:21
+
+NAME: ubuntu-pro-accel-2604-amd64-nvidia-595-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west1,europe-west2,asia-northeast2,us-west1,northamerica-south1,me-central2,asia-south1,africa-south1,us-east4,europe-west3,us-east1,us-east7,europe-west6,us-east5,us-west3,asia-southeast2,asia-east2,europe-north1,asia-northeast1,us-central2,europe-west8,europe-west9,europe-central2,northamerica-northeast1,us-west8,europe-west10,asia-south2,europe-west4,us,northamerica-northeast2,australia-southeast1,asia-southeast1,me-west1,europe-north2,asia-east1,us-central1,us-west4,me-central1,europe-southwest1,asia-southeast3,southamerica-east1,us-west2,asia-northeast3,europe-west15,us-south1,asia,southamerica-west1,europe-west12,eu,australia-southeast2
+CREATION_TIMESTAMP: 2026-09-21T08:47:23
+
+NAME: ubuntu-pro-accel-2604-arm64-nvidia-580-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-east5,us-east7,me-central1,eu,asia-east2,asia-southeast2,southamerica-west1,us-west2,us-west3,asia-southeast3,northamerica-northeast2,europe-west2,asia-east1,northamerica-south1,australia-southeast2,europe-southwest1,europe-west12,us-west8,us-east4,asia,southamerica-east1,us-central2,us-central1,me-west1,us-east1,europe-west4,europe-central2,europe-west9,us-west1,asia-northeast1,asia-northeast3,europe-west6,us,europe-west8,us-west4,asia-southeast1,europe-west15,northamerica-northeast1,me-central2,us-south1,asia-south2,europe-north1,europe-west10,africa-south1,asia-south1,europe-west3,asia-northeast2,europe-west1,australia-southeast1,europe-north2
+CREATION_TIMESTAMP: 2026-09-21T08:47:23
+
+NAME: debian-12-bookworm-arm64-v20260921
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-northeast3,africa-south1,us-east7,eu,europe-west6,northamerica-northeast2,asia-southeast1,us-west2,me-central2,europe-north1,europe-central2,us-south1,europe-west12,us-east5,australia-southeast2,europe-west2,us-central2,asia-east2,asia,us-east1,me-west1,northamerica-south1,asia-south2,asia-northeast1,europe-west3,us,europe-west4,us-west1,me-central1,europe-west10,europe-west9,southamerica-east1,asia-southeast2,europe-west15,us-east4,asia-southeast3,us-central1,southamerica-west1,us-west4,us-west3,asia-east1,australia-southeast1,us-west8,europe-west8,asia-northeast2,northamerica-northeast1,europe-southwest1,europe-north2,asia-south1,europe-west1
+CREATION_TIMESTAMP: 2026-09-21T09:53:36
+
+NAME: debian-12-bookworm-v20260921
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west10,northamerica-south1,us-central2,europe-west8,us-west8,us-east1,southamerica-west1,eu,us-east4,us-west2,asia-northeast1,europe-west1,us,us-south1,us-west4,us-west3,northamerica-northeast2,europe-west15,europe-west6,europe-southwest1,europe-west3,europe-west9,northamerica-northeast1,asia-east1,europe-north1,southamerica-east1,us-east7,me-central2,us-east5,asia-northeast2,africa-south1,asia,me-central1,europe-west12,europe-west4,australia-southeast2,europe-west2,australia-southeast1,asia-east2,europe-central2,asia-south2,asia-southeast1,asia-southeast2,asia-northeast3,europe-north2,us-central1,asia-south1,me-west1,asia-southeast3,us-west1
+CREATION_TIMESTAMP: 2026-09-21T09:53:36
+
+NAME: debian-13-trixie-arm64-v20260921
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-east4,asia-east2,us-east5,us-west4,eu,northamerica-northeast2,asia-northeast3,asia,asia-east1,us-west1,europe-southwest1,europe-west12,me-west1,africa-south1,us,asia-south1,us-west2,us-central1,me-central1,europe-west8,northamerica-south1,us-west8,southamerica-west1,me-central2,asia-northeast2,europe-west3,asia-northeast1,europe-west10,europe-north1,europe-west6,europe-north2,us-east7,us-east1,europe-west1,europe-west15,asia-southeast2,europe-west9,australia-southeast2,europe-central2,asia-south2,us-south1,asia-southeast1,northamerica-northeast1,europe-west4,southamerica-east1,asia-southeast3,europe-west2,australia-southeast1,us-west3,us-central2
+CREATION_TIMESTAMP: 2026-09-21T09:53:36
+
+NAME: debian-13-trixie-v20260921
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: africa-south1,europe-west12,us-central2,me-west1,asia-south2,europe-central2,europe-north2,us-central1,us-west1,europe-west15,me-central1,northamerica-northeast2,asia-east1,us-east1,australia-southeast2,us-east7,australia-southeast1,asia-southeast3,northamerica-northeast1,asia-northeast1,eu,asia-northeast2,europe-west10,asia-south1,europe-west1,us-west2,us-west4,europe-north1,europe-west2,europe-west9,asia,europe-west4,southamerica-west1,asia-southeast1,northamerica-south1,us-east5,southamerica-east1,europe-west3,us-east4,me-central2,europe-southwest1,asia-east2,us,europe-west6,asia-northeast3,europe-west8,us-south1,us-west3,us-west8,asia-southeast2
+CREATION_TIMESTAMP: 2026-09-21T09:53:36
+
+NAME: ubuntu-pro-accel-2404-amd64-nvidia-595-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west9,asia-northeast1,us-west4,europe-west2,us-east1,southamerica-west1,us-west2,me-central1,australia-southeast1,southamerica-east1,europe-west15,asia-southeast2,me-central2,asia-east2,asia-northeast2,europe-north2,europe-southwest1,australia-southeast2,europe-west10,us-west1,europe-west4,asia-south1,asia,me-west1,asia-southeast1,us-central2,europe-west1,us-east4,europe-west8,europe-west6,us-south1,asia-east1,europe-north1,eu,asia-southeast3,northamerica-northeast2,us-west3,us-west8,asia-northeast3,us-east7,europe-west12,us-central1,europe-west3,us,asia-south2,northamerica-northeast1,europe-central2,northamerica-south1,us-east5,africa-south1
+CREATION_TIMESTAMP: 2026-09-21T11:17:04
+
+NAME: ubuntu-pro-accel-2404-arm64-nvidia-595-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia,us-south1,us-west3,asia-northeast1,asia-south2,europe-west15,us-east7,us-west2,me-west1,europe-central2,europe-west10,asia-southeast3,asia-northeast3,us-central1,europe-west1,northamerica-south1,australia-southeast2,africa-south1,europe-west6,asia-east1,asia-south1,asia-east2,us-west4,europe-west12,europe-north1,asia-southeast2,asia-southeast1,us-east5,southamerica-west1,northamerica-northeast2,eu,europe-west3,us-east4,us-west8,europe-west8,us-east1,us-west1,northamerica-northeast1,europe-southwest1,me-central1,southamerica-east1,asia-northeast2,australia-southeast1,me-central2,us,europe-west9,europe-west4,us-central2,europe-west2,europe-north2
+CREATION_TIMESTAMP: 2026-09-21T11:17:25
+
+NAME: ubuntu-pro-accel-2404-arm64-nvidia-580-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-central1,us-west2,asia-northeast3,europe-central2,asia-south2,northamerica-south1,us,us-west4,asia-east1,us-west8,europe-west3,europe-west9,me-central2,us-east1,europe-west10,asia-southeast3,asia-southeast2,europe-west15,europe-southwest1,northamerica-northeast2,southamerica-west1,us-west3,europe-north2,europe-west12,africa-south1,northamerica-northeast1,europe-west4,asia-northeast1,asia-northeast2,eu,us-south1,southamerica-east1,me-central1,asia-east2,us-central2,australia-southeast2,asia-southeast1,asia-south1,europe-west8,us-east5,europe-west2,asia,australia-southeast1,europe-west1,us-west1,me-west1,us-east7,europe-north1,europe-west6,us-east4
+CREATION_TIMESTAMP: 2026-09-21T11:17:30
+
+NAME: ubuntu-pro-accel-2404-amd64-nvidia-580-v20260918
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: eu,europe-central2,europe-west15,europe-west6,asia-east2,asia-northeast3,us-west1,me-west1,us-east1,europe-west10,asia-northeast1,europe-west4,us-central2,asia-south1,northamerica-south1,europe-west1,europe-north2,us-west2,asia-southeast1,us-west8,southamerica-east1,us-east7,europe-west3,europe-west9,us-west4,europe-west12,europe-west2,us-central1,northamerica-northeast1,asia,asia-southeast3,europe-west8,northamerica-northeast2,us,asia-south2,me-central1,us-south1,australia-southeast1,europe-north1,asia-east1,africa-south1,southamerica-west1,us-east5,australia-southeast2,us-east4,asia-northeast2,me-central2,europe-southwest1,asia-southeast2,us-west3
+CREATION_TIMESTAMP: 2026-09-21T11:18:06
+
+NAME: cn-backend-os-image-v1
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-09-22T01:43:55
+
+NAME: fedora-coreos-44-20260922-20-1-gcp-aarch64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-east1,europe-west4,asia-south2,europe-central2,europe-west12,europe-north2,us-central2,us-west3,asia-northeast3,me-central1,europe-southwest1,northamerica-south1,europe-west3,us-west1,us-east4,asia-southeast2,asia-northeast2,me-central2,australia-southeast2,us,us-west2,europe-west8,us-south1,asia-southeast1,us-east7,europe-west1,me-west1,us-west8,europe-west15,northamerica-northeast2,europe-west9,southamerica-east1,australia-southeast1,asia-east1,asia-east2,asia-northeast1,us-central1,us-east5,asia-southeast3,europe-north1,us-west4,southamerica-west1,northamerica-northeast1,europe-west2,europe-west6,asia,asia-south1,africa-south1,eu,europe-west10
+CREATION_TIMESTAMP: 2026-09-22T04:49:07
+
+NAME: ubuntu-minimal-pro-2604-resolute-amd64-v20260922
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-southeast2,us,asia-south1,europe-north1,us-east7,me-central1,europe-west15,northamerica-south1,me-west1,europe-west9,asia-south2,australia-southeast2,europe-west3,europe-west1,northamerica-northeast1,europe-west6,asia-northeast1,us-south1,europe-west4,europe-central2,europe-west12,us-central2,europe-southwest1,africa-south1,europe-west8,northamerica-northeast2,southamerica-west1,asia-east1,asia,eu,asia-southeast3,asia-southeast1,us-east4,us-west4,us-west1,us-central1,us-west2,europe-west10,asia-east2,australia-southeast1,us-east5,southamerica-east1,asia-northeast3,europe-north2,us-west8,me-central2,us-east1,europe-west2,asia-northeast2,us-west3
+CREATION_TIMESTAMP: 2026-09-22T05:37:40
+
+NAME: ubuntu-minimal-pro-2604-resolute-arm64-v20260922
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-northeast3,us-south1,us-east5,asia-south1,europe-west9,us-central2,australia-southeast1,europe-west1,europe-west3,asia-southeast3,us-east7,me-central2,asia-east1,europe-west2,northamerica-northeast2,me-west1,us-west1,eu,southamerica-east1,asia-northeast1,us-west3,europe-west6,europe-central2,asia-east2,southamerica-west1,us-west4,us-west2,us-east4,northamerica-northeast1,us-central1,us-east1,northamerica-south1,us,asia,asia-southeast1,europe-west12,me-central1,europe-west8,europe-west15,europe-west4,asia-south2,asia-southeast2,europe-west10,africa-south1,europe-north1,europe-southwest1,us-west8,australia-southeast2,europe-north2,asia-northeast2
+CREATION_TIMESTAMP: 2026-09-22T05:37:43
+
+NAME: fedora-coreos-46-20260922-91-1-gcp-aarch64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-west3,europe-west2,us,northamerica-south1,southamerica-east1,europe-west9,asia,us-central2,europe-west15,australia-southeast2,asia-southeast3,me-central2,europe-west1,europe-west4,asia-south1,asia-east2,us-west8,us-south1,northamerica-northeast2,europe-west10,europe-southwest1,southamerica-west1,eu,us-central1,us-west2,africa-south1,europe-north2,northamerica-northeast1,asia-northeast1,europe-north1,me-west1,us-west4,asia-south2,asia-northeast2,asia-southeast1,australia-southeast1,us-east7,us-east1,asia-southeast2,asia-east1,us-east5,us-east4,us-west1,europe-central2,asia-northeast3,me-central1,europe-west3,europe-west12,europe-west8,europe-west6
+CREATION_TIMESTAMP: 2026-09-22T10:05:08
+
+NAME: sles-15-sp6-v20260922-arm64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-east1,australia-southeast2,us-east1,asia,northamerica-northeast1,us-west8,europe-west6,asia-south1,us-central1,europe-west4,asia-northeast2,us,asia-southeast3,eu,me-central2,asia-northeast3,me-central1,europe-north2,us-west3,europe-west2,us-east4,europe-north1,us-west1,europe-west10,asia-south2,southamerica-west1,europe-west9,asia-southeast2,asia-southeast1,us-west4,asia-northeast1,us-central2,us-west2,europe-west12,me-west1,europe-west8,europe-west1,europe-central2,southamerica-east1,africa-south1,us-south1,australia-southeast1,northamerica-northeast2,asia-east2,us-east5,europe-west3,northamerica-south1,us-east7,europe-southwest1,europe-west15
+CREATION_TIMESTAMP: 2026-09-22T16:11:17
+
+NAME: sles-15-sp6-v20260922-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: southamerica-west1,europe-west1,europe-west8,northamerica-northeast2,europe-southwest1,us-east5,europe-west6,europe-west15,asia-northeast1,australia-southeast1,europe-west4,australia-southeast2,asia-southeast1,asia,asia-southeast3,us-central1,us-east7,europe-west12,europe-west10,northamerica-northeast1,us-east1,asia-south1,europe-west9,us-west4,europe-central2,me-central2,us-west3,us-south1,europe-west3,me-central1,europe-north2,us-west1,europe-west2,us-central2,us-east4,africa-south1,us-west2,eu,asia-southeast2,asia-east1,us,us-west8,southamerica-east1,northamerica-south1,me-west1,asia-south2,europe-north1,asia-northeast3,asia-northeast2,asia-east2
+CREATION_TIMESTAMP: 2026-09-22T16:11:18
+
+NAME: ubuntu-minimal-pro-1804-bionic-arm64-v20260923
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: northamerica-south1,europe-west2,europe-west1,us-west2,us-central2,us-east5,asia-southeast2,europe-west10,us-west3,us-east1,us-west8,australia-southeast2,us-east7,europe-west3,asia-east2,europe-west6,me-central2,europe-west4,asia-southeast3,europe-north2,europe-west9,southamerica-west1,europe-west8,europe-west12,europe-central2,southamerica-east1,me-central1,us-east4,europe-west15,us-west1,asia-northeast1,me-west1,europe-southwest1,asia-southeast1,asia-northeast2,us-west4,europe-north1,asia-south1,asia-east1,asia-south2,us-central1,asia,us,africa-south1,northamerica-northeast1,eu,asia-northeast3,northamerica-northeast2,us-south1,australia-southeast1
+CREATION_TIMESTAMP: 2026-09-22T21:18:42
+
+NAME: ubuntu-minimal-pro-1804-bionic-v20260923
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west2,europe-west4,europe-north2,northamerica-south1,australia-southeast1,europe-west9,europe-west3,us-west1,northamerica-northeast2,us-west3,europe-southwest1,australia-southeast2,us-west4,southamerica-west1,asia-southeast2,me-west1,europe-west10,europe-west6,europe-west8,us-east4,europe-west1,asia-east1,asia-northeast1,asia,us-central2,africa-south1,asia-south1,northamerica-northeast1,us-east7,us-east5,asia-southeast1,europe-west15,me-central2,us,us-east1,me-central1,europe-central2,eu,us-west8,asia-south2,asia-northeast2,southamerica-east1,europe-north1,asia-east2,us-central1,us-west2,europe-west12,asia-southeast3,asia-northeast3,us-south1
+CREATION_TIMESTAMP: 2026-09-22T21:18:43
+
+NAME: ubuntu-minimal-pro-2004-focal-v20260923
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-east1,europe-west2,africa-south1,northamerica-northeast1,eu,europe-north1,europe-central2,me-central2,us-west4,asia-south2,northamerica-northeast2,asia-east2,europe-west12,asia-northeast3,us-east4,us-east7,australia-southeast2,europe-west10,europe-west3,asia-northeast2,us-west8,us-south1,northamerica-south1,southamerica-west1,me-central1,us-west1,us-west3,us-east5,asia-southeast2,us-west2,asia-south1,us-central1,europe-west15,europe-west9,us,us-central2,europe-west8,europe-west1,europe-west4,me-west1,asia-southeast3,europe-west6,asia-southeast1,europe-north2,asia-east1,asia,asia-northeast1,australia-southeast1,europe-southwest1,southamerica-east1
+CREATION_TIMESTAMP: 2026-09-22T23:18:18
+
+NAME: ubuntu-minimal-pro-2004-focal-arm64-v20260923
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: africa-south1,europe-west2,us-west2,europe-west4,europe-north2,europe-west1,us-east1,asia-northeast3,me-west1,southamerica-east1,northamerica-south1,europe-west10,us-east7,australia-southeast2,northamerica-northeast1,asia-southeast1,asia-northeast2,us-central1,asia,asia-south1,me-central1,eu,europe-west3,us,europe-central2,europe-west12,asia-east2,southamerica-west1,asia-northeast1,us-central2,europe-west9,us-west1,asia-south2,us-south1,us-west3,asia-southeast3,europe-north1,us-east5,us-east4,northamerica-northeast2,us-west8,europe-west15,us-west4,europe-west8,europe-west6,asia-southeast2,asia-east1,australia-southeast1,me-central2,europe-southwest1
+CREATION_TIMESTAMP: 2026-09-22T23:18:22
+
+NAME: sles-sap-15-sp6-v20260922-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: australia-southeast2,southamerica-west1,me-central2,asia-northeast2,northamerica-northeast2,us-east5,africa-south1,asia-northeast3,europe-west15,europe-west1,asia-northeast1,asia-southeast3,southamerica-east1,asia-southeast2,northamerica-south1,us-south1,us-east4,europe-west6,europe-north2,asia-southeast1,asia-east1,us-west4,us-west3,us-west2,asia-south1,asia-east2,europe-west2,us-central1,us-east1,europe-west10,asia-south2,us-west1,europe-central2,northamerica-northeast1,europe-north1,us,asia,us-west8,me-west1,australia-southeast1,europe-west8,europe-west9,europe-southwest1,eu,us-central2,europe-west12,me-central1,europe-west4,us-east7,europe-west3
+CREATION_TIMESTAMP: 2026-09-23T00:51:11
+
+NAME: ubuntu-minimal-2204-jammy-v20260923
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west4,us-east1,us-west8,europe-north1,us-west3,southamerica-east1,asia-southeast1,asia-east2,me-west1,asia-south2,eu,us-west2,us-west1,europe-west6,asia-southeast2,asia-northeast2,australia-southeast1,us-east5,europe-west15,asia-northeast1,us-south1,northamerica-northeast1,australia-southeast2,northamerica-south1,asia,europe-west9,asia-northeast3,europe-west1,asia-southeast3,southamerica-west1,us-central2,me-central2,northamerica-northeast2,europe-central2,us-west4,us-east7,europe-west3,us,me-central1,us-east4,asia-east1,europe-north2,europe-west2,asia-south1,europe-west12,africa-south1,europe-west8,europe-southwest1,us-central1,europe-west10
+CREATION_TIMESTAMP: 2026-09-23T02:28:35
+
+NAME: ubuntu-minimal-2204-jammy-arm64-v20260923
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: me-central1,asia-south1,asia-northeast3,northamerica-northeast2,europe-west9,europe-west15,europe-west6,me-west1,northamerica-northeast1,asia-northeast1,us-south1,europe-west4,asia-east1,us-east4,us-east1,europe-west12,me-central2,europe-central2,us-west4,asia-southeast2,asia-east2,us-west2,europe-west8,australia-southeast1,us-west1,europe-southwest1,europe-north2,asia,us-central1,us-east5,europe-west2,eu,us-central2,southamerica-west1,europe-west3,northamerica-south1,asia-south2,asia-southeast1,europe-north1,us-west8,africa-south1,europe-west1,asia-southeast3,europe-west10,us,us-west3,southamerica-east1,asia-northeast2,us-east7,australia-southeast2
+CREATION_TIMESTAMP: 2026-09-23T02:28:36
+
+NAME: sles-sap-15-sp5-v20260920-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: africa-south1,us-central1,asia,europe-west4,us-west2,asia-northeast3,us-central2,europe-southwest1,europe-west9,us-south1,asia-northeast2,me-central2,asia-east1,europe-north1,us,europe-west1,europe-west3,asia-east2,asia-southeast2,europe-west15,asia-south2,asia-south1,europe-west6,northamerica-northeast1,europe-west10,europe-central2,europe-west12,asia-southeast3,us-east1,me-west1,europe-west2,europe-north2,us-east5,us-east7,eu,northamerica-south1,australia-southeast2,us-west8,us-west3,europe-west8,us-west1,me-central1,asia-southeast1,us-east4,southamerica-east1,southamerica-west1,northamerica-northeast2,us-west4,asia-northeast1,australia-southeast1
+CREATION_TIMESTAMP: 2026-09-23T02:47:59
+
+NAME: ubuntu-pro-2204-jammy-arm64-v20260923
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: eu,northamerica-northeast1,europe-west6,europe-west4,me-central2,asia-southeast2,asia-east2,us-west2,australia-southeast2,us-west8,us-central1,us-central2,us-south1,europe-west15,southamerica-east1,northamerica-south1,asia-northeast1,europe-west10,europe-west2,me-west1,asia-east1,europe-west3,me-central1,europe-north1,asia-southeast1,europe-west1,africa-south1,us-west3,northamerica-northeast2,us-east4,europe-west9,us-west4,southamerica-west1,us-east7,europe-west12,asia-northeast2,europe-central2,asia-south2,asia-northeast3,us-east5,us-east1,us-west1,europe-southwest1,europe-north2,us,asia-south1,asia-southeast3,asia,australia-southeast1,europe-west8
+CREATION_TIMESTAMP: 2026-09-23T03:59:36
+
+NAME: ubuntu-pro-2204-jammy-v20260923
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia,us-east5,southamerica-west1,us-west8,europe-west12,me-central1,us,us-east1,asia-south1,asia-east1,asia-southeast3,us-south1,northamerica-south1,northamerica-northeast1,europe-west4,asia-northeast1,us-west4,europe-west2,me-west1,us-east4,us-central2,europe-west1,europe-west9,europe-west8,asia-southeast2,us-east7,europe-north2,us-central1,asia-northeast2,southamerica-east1,australia-southeast2,australia-southeast1,europe-west3,asia-northeast3,us-west3,northamerica-northeast2,asia-southeast1,asia-south2,europe-north1,asia-east2,eu,europe-west6,africa-south1,europe-west10,us-west1,europe-central2,us-west2,europe-southwest1,me-central2,europe-west15
+CREATION_TIMESTAMP: 2026-09-23T03:59:38
+
+NAME: ubuntu-pro-1804-bionic-arm64-v20260923
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: southamerica-east1,us-west8,europe-west15,us-east7,me-central2,europe-southwest1,us-west1,europe-west1,europe-west10,asia-southeast1,europe-north2,me-central1,us-east5,us-central1,asia-south1,northamerica-northeast2,asia-east2,northamerica-south1,europe-west6,us,us-south1,us-east4,us-west4,asia,europe-central2,asia-south2,europe-west8,asia-east1,europe-west4,asia-northeast1,europe-north1,australia-southeast2,us-west2,southamerica-west1,asia-northeast2,us-west3,northamerica-northeast1,asia-southeast3,asia-northeast3,eu,us-east1,europe-west9,europe-west2,europe-west12,me-west1,australia-southeast1,asia-southeast2,europe-west3,africa-south1,us-central2
+CREATION_TIMESTAMP: 2026-09-23T04:16:58
+
+NAME: ubuntu-pro-1804-bionic-v20260923
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west9,southamerica-west1,africa-south1,europe-west1,europe-west15,asia-south1,us-east5,europe-west2,europe-west12,europe-north2,asia-east2,europe-west10,australia-southeast2,asia-south2,us-east1,asia,us-central1,asia-east1,eu,northamerica-northeast2,asia-southeast1,me-west1,australia-southeast1,us-west4,us,europe-southwest1,us-west1,europe-north1,northamerica-northeast1,asia-southeast2,asia-northeast1,southamerica-east1,me-central1,us-east4,europe-west4,us-west3,us-east7,us-west8,us-central2,europe-central2,us-west2,asia-southeast3,asia-northeast3,northamerica-south1,me-central2,europe-west8,us-south1,asia-northeast2,europe-west6,europe-west3
+CREATION_TIMESTAMP: 2026-09-23T04:17:01
+
+NAME: ubuntu-2204-jammy-arm64-v20260923
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: australia-southeast2,asia-northeast3,asia-southeast2,southamerica-east1,me-central1,eu,asia-east1,asia-southeast3,australia-southeast1,europe-west2,asia-southeast1,me-central2,europe-west10,northamerica-northeast1,northamerica-south1,europe-west15,asia,europe-west9,us-west2,africa-south1,europe-west6,southamerica-west1,asia-east2,europe-central2,asia-northeast1,europe-west8,us,us-east1,us-east7,europe-southwest1,us-south1,europe-north1,europe-west12,us-central1,europe-west1,us-west4,us-west3,us-east4,europe-west3,europe-west4,asia-northeast2,europe-north2,us-east5,me-west1,us-west1,northamerica-northeast2,asia-south1,us-west8,us-central2,asia-south2
+CREATION_TIMESTAMP: 2026-09-23T04:22:38
+
+NAME: ubuntu-2204-jammy-v20260923
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-west2,us-west4,asia-northeast1,us-west1,eu,asia-northeast2,asia-east2,asia-southeast2,me-central1,europe-west1,asia,northamerica-northeast2,australia-southeast2,europe-west8,europe-central2,us-west8,africa-south1,us,europe-north1,me-central2,us-east7,europe-west9,europe-west10,southamerica-east1,northamerica-northeast1,us-central2,us-east5,europe-west6,us-central1,europe-west15,europe-west2,us-east4,us-south1,europe-north2,northamerica-south1,europe-west12,asia-south1,asia-northeast3,us-east1,asia-south2,europe-west4,asia-east1,europe-southwest1,southamerica-west1,australia-southeast1,us-west3,asia-southeast3,europe-west3,me-west1,asia-southeast1
+CREATION_TIMESTAMP: 2026-09-23T04:22:41
+
+NAME: ubuntu-accelerator-2204-amd64-with-nvidia-580-v20260923
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-west4,europe-southwest1,europe-west8,europe-west4,southamerica-east1,northamerica-northeast2,northamerica-northeast1,australia-southeast2,europe-west12,asia-east1,northamerica-south1,me-central2,us-west8,asia-southeast2,australia-southeast1,us-central1,asia-northeast3,us-east7,us-east4,asia-east2,europe-west2,asia-northeast2,asia-southeast1,southamerica-west1,europe-west3,eu,us-east5,africa-south1,europe-west10,asia-south1,europe-west6,europe-north1,me-west1,europe-west1,asia-south2,asia-northeast1,europe-west9,us-central2,europe-north2,asia,us-west3,us,us-east1,us-west1,europe-central2,us-south1,me-central1,us-west2,asia-southeast3,europe-west15
+CREATION_TIMESTAMP: 2026-09-23T05:44:39
+
+NAME: ubuntu-accelerator-2204-arm64-with-nvidia-595-v20260923
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-south2,europe-north1,us-west1,asia-east1,australia-southeast1,europe-west4,us-east7,europe-southwest1,us-east4,asia-south1,us-west8,me-central1,europe-west1,us-west3,us,eu,europe-west3,asia-southeast2,europe-west10,africa-south1,europe-central2,northamerica-south1,asia-northeast1,us-central1,us-east5,europe-west6,asia,us-central2,us-south1,europe-west9,me-west1,northamerica-northeast1,northamerica-northeast2,asia-northeast3,me-central2,asia-southeast3,asia-northeast2,asia-east2,us-east1,southamerica-west1,southamerica-east1,europe-west12,asia-southeast1,europe-west2,europe-west15,europe-west8,us-west2,europe-north2,us-west4,australia-southeast2
+CREATION_TIMESTAMP: 2026-09-23T05:44:40
+
+NAME: ubuntu-accelerator-2204-amd64-with-nvidia-595-v20260923
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west10,us-east1,me-central1,us-central1,us,asia-east2,asia-southeast1,asia-south1,europe-west3,asia-northeast2,northamerica-northeast1,europe-west15,us-west3,us-south1,europe-west9,asia-northeast3,asia-east1,europe-west2,us-west4,europe-north2,asia-southeast2,eu,us-west1,europe-central2,us-east5,southamerica-east1,us-east4,europe-west6,us-west8,asia-south2,southamerica-west1,europe-west4,us-east7,me-central2,africa-south1,europe-west1,europe-southwest1,australia-southeast1,us-west2,us-central2,me-west1,asia-northeast1,asia,asia-southeast3,australia-southeast2,europe-north1,northamerica-northeast2,europe-west8,europe-west12,northamerica-south1
+CREATION_TIMESTAMP: 2026-09-23T05:44:40
+
+NAME: ubuntu-accelerator-2204-arm64-with-nvidia-580-v20260923
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: me-west1,europe-west3,europe-central2,asia-south2,asia-northeast1,europe-west1,europe-west9,us-west2,australia-southeast2,asia-southeast3,us-west8,asia-east1,southamerica-east1,us,europe-west2,me-central2,australia-southeast1,europe-west4,asia-northeast2,northamerica-northeast1,us-south1,europe-west15,europe-north2,europe-west6,me-central1,europe-west12,us-west3,asia-southeast2,asia-south1,europe-southwest1,us-central2,africa-south1,asia-northeast3,us-west4,europe-north1,asia-east2,us-east1,southamerica-west1,eu,us-central1,europe-west10,asia-southeast1,northamerica-northeast2,europe-west8,us-east5,us-west1,us-east7,northamerica-south1,us-east4,asia
+CREATION_TIMESTAMP: 2026-09-23T05:44:41
+
+NAME: fedora-coreos-46-20260924-91-1-gcp-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: southamerica-west1,us-west8,asia-southeast2,us-west2,asia-northeast2,southamerica-east1,asia-east1,europe-west15,asia-south2,us-central1,asia-east2,europe-north2,northamerica-northeast1,asia-northeast3,us-central2,us-west1,europe-west10,europe-west12,europe-central2,australia-southeast1,africa-south1,us-east5,asia-southeast3,europe-west4,us,us-south1,asia-northeast1,me-central1,europe-north1,europe-southwest1,asia,asia-south1,europe-west3,europe-west8,australia-southeast2,me-central2,eu,europe-west2,europe-west9,europe-west1,us-east4,us-west4,europe-west6,northamerica-northeast2,me-west1,us-west3,asia-southeast1,northamerica-south1,us-east1,us-east7
+CREATION_TIMESTAMP: 2026-09-24T00:47:58
+
+NAME: ubuntu-minimal-pro-2204-jammy-arm64-v20260924
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west9,europe-west15,australia-southeast2,europe-west2,europe-west12,me-central2,eu,europe-west8,asia-northeast2,us-east4,europe-west3,northamerica-south1,southamerica-east1,us-central2,us-west4,northamerica-northeast2,me-central1,asia-northeast1,us-south1,us-west8,us-west1,europe-central2,asia-south1,asia-southeast3,us-east7,europe-southwest1,us-east5,us,asia-east1,asia,us-central1,asia-southeast1,us-west2,europe-west10,southamerica-west1,asia-northeast3,us-west3,europe-north2,europe-west4,asia-south2,me-west1,asia-southeast2,us-east1,northamerica-northeast1,europe-north1,europe-west6,europe-west1,australia-southeast1,asia-east2,africa-south1
+CREATION_TIMESTAMP: 2026-09-24T03:17:14
+
+NAME: ubuntu-minimal-pro-2204-jammy-v20260924
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-central1,asia-southeast1,asia-northeast2,africa-south1,us-east5,asia-east1,europe-central2,me-central1,us-central2,us-west2,asia-northeast3,europe-west9,us-west8,us-east1,europe-west10,southamerica-west1,us-west3,northamerica-northeast1,europe-north2,australia-southeast1,asia-east2,australia-southeast2,us-west1,asia-southeast3,asia-south2,europe-west12,europe-west15,europe-north1,us-east4,me-west1,us-south1,europe-west1,eu,northamerica-south1,us,europe-west3,europe-west6,us-west4,asia-southeast2,southamerica-east1,europe-west8,asia-south1,me-central2,northamerica-northeast2,europe-southwest1,asia,europe-west2,europe-west4,us-east7,asia-northeast1
+CREATION_TIMESTAMP: 2026-09-24T03:17:14
+
+NAME: ubuntu-pro-2004-focal-arm64-v20260924
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: me-west1,europe-west1,us-west4,africa-south1,us-east1,europe-west9,europe-southwest1,us-central2,asia-south1,eu,us-west1,us-west8,asia,asia-southeast2,northamerica-south1,europe-north1,asia-east2,asia-southeast1,asia-south2,europe-west8,me-central1,asia-northeast3,asia-east1,us-central1,europe-central2,northamerica-northeast2,us-east7,us-west2,europe-west12,us-east5,asia-northeast2,australia-southeast2,europe-west2,asia-southeast3,us,europe-west15,europe-north2,europe-west10,northamerica-northeast1,southamerica-west1,europe-west4,southamerica-east1,us-south1,me-central2,europe-west3,us-west3,asia-northeast1,us-east4,australia-southeast1,europe-west6
+CREATION_TIMESTAMP: 2026-09-24T05:38:51
+
+NAME: ubuntu-pro-2004-focal-v20260924
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-west2,europe-north2,europe-west9,asia-northeast2,asia-southeast3,northamerica-south1,europe-southwest1,us-central1,europe-north1,europe-west8,europe-west4,us-west3,us-central2,asia-southeast1,europe-west12,europe-west15,southamerica-east1,australia-southeast2,europe-west10,europe-west2,asia-south1,europe-west3,us-west4,asia-northeast3,us-east7,eu,asia-northeast1,us,asia-southeast2,us-east4,us-west8,africa-south1,us-east5,australia-southeast1,asia-east1,europe-west6,northamerica-northeast2,me-central1,me-central2,asia-south2,asia,southamerica-west1,europe-west1,europe-central2,northamerica-northeast1,us-east1,us-south1,us-west1,asia-east2,me-west1
+CREATION_TIMESTAMP: 2026-09-24T05:38:56
+
+NAME: fedora-coreos-45-20260924-10-1-gcp-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west3,us-east4,us-west8,northamerica-northeast2,asia-southeast3,us-central2,europe-west4,europe-west15,us-east5,northamerica-south1,us-west1,australia-southeast1,asia,us,europe-north1,me-central1,eu,asia-south2,us-west2,australia-southeast2,me-west1,africa-south1,europe-west9,asia-east1,us-west4,southamerica-east1,southamerica-west1,europe-west6,europe-southwest1,asia-southeast1,asia-northeast3,europe-west12,asia-northeast2,europe-north2,asia-northeast1,europe-west2,asia-southeast2,asia-south1,us-east1,europe-west10,asia-east2,europe-west8,us-east7,us-south1,europe-central2,northamerica-northeast1,europe-west1,us-central1,us-west3,me-central2
+CREATION_TIMESTAMP: 2026-09-24T09:22:54
+
+NAME: fedora-coreos-45-20260925-10-1-gcp-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-west2,me-central1,us-central2,me-west1,asia-east2,us-east4,southamerica-west1,asia,europe-west15,me-central2,asia-northeast1,europe-central2,europe-west2,us-south1,us-east7,asia-southeast1,europe-west1,europe-southwest1,europe-north2,asia-southeast2,northamerica-northeast2,europe-west9,europe-west8,northamerica-south1,us-central1,us-west4,us-east5,asia-northeast2,australia-southeast1,us-west1,africa-south1,southamerica-east1,europe-west6,asia-northeast3,europe-west4,asia-southeast3,europe-west10,eu,us-east1,us-west3,asia-south1,europe-north1,asia-south2,australia-southeast2,us,asia-east1,northamerica-northeast1,europe-west12,us-west8,europe-west3
+CREATION_TIMESTAMP: 2026-09-25T01:55:06
+
+NAME: fedora-coreos-44-20260925-20-1-gcp-aarch64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-central1,asia-northeast2,us-west8,us-central2,us-east5,southamerica-west1,africa-south1,asia-northeast3,asia-southeast3,europe-west2,europe-central2,europe-west1,me-central1,europe-west3,us-east4,europe-north1,europe-west4,asia-east1,europe-west8,asia-south1,europe-southwest1,us,northamerica-northeast1,us-west4,australia-southeast1,europe-west6,asia-northeast1,europe-west12,me-central2,australia-southeast2,northamerica-northeast2,us-west3,us-east7,asia-southeast1,southamerica-east1,eu,us-west2,europe-west10,asia,europe-north2,us-south1,asia-east2,us-east1,europe-west15,asia-south2,europe-west9,asia-southeast2,me-west1,us-west1,northamerica-south1
+CREATION_TIMESTAMP: 2026-09-25T05:06:29
+
+NAME: ubuntu-accelerator-2404-arm64-with-nvidia-595-v20260925
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-east5,asia-south2,me-west1,northamerica-northeast1,asia-northeast1,me-central2,europe-west15,us-west4,europe-west9,northamerica-northeast2,us-west8,us-west2,europe-west4,australia-southeast2,asia-northeast2,eu,asia-southeast2,asia-northeast3,asia,europe-west1,us,asia-east1,africa-south1,southamerica-east1,me-central1,europe-north1,europe-west2,asia-southeast3,europe-north2,europe-west3,northamerica-south1,us-east7,europe-west10,us-east4,europe-southwest1,us-central1,australia-southeast1,europe-west12,europe-west8,europe-west6,us-west1,europe-central2,us-south1,asia-east2,us-east1,us-central2,us-west3,asia-south1,southamerica-west1,asia-southeast1
+CREATION_TIMESTAMP: 2026-09-25T05:16:52
+
+NAME: ubuntu-accelerator-2404-arm64-with-nvidia-580-v20260925
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-central1,northamerica-northeast1,europe-west6,us-west2,asia-south1,southamerica-east1,europe-west8,me-west1,asia-northeast2,europe-west2,me-central1,europe-west9,australia-southeast1,europe-west4,europe-north1,asia-northeast3,europe-north2,asia-northeast1,me-central2,us-east7,europe-west1,europe-west12,us-west1,africa-south1,us-east1,europe-west15,europe-central2,southamerica-west1,us,us-west3,asia-southeast3,northamerica-south1,asia-southeast1,asia-south2,us-west8,europe-west3,australia-southeast2,europe-southwest1,northamerica-northeast2,us-west4,us-east4,europe-west10,us-south1,eu,asia-east2,asia-east1,asia-southeast2,us-east5,us-central2,asia
+CREATION_TIMESTAMP: 2026-09-25T05:16:53
+
+NAME: ubuntu-accelerator-2404-amd64-with-nvidia-595-v20260925
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west6,me-central2,africa-south1,europe-west4,us-west2,asia-northeast3,northamerica-northeast1,us-west8,asia-east2,europe-west3,us,eu,southamerica-west1,europe-southwest1,europe-west9,northamerica-northeast2,asia,asia-northeast2,asia-southeast2,us-east7,europe-west15,us-east5,us-central2,northamerica-south1,asia-east1,us-west1,australia-southeast2,us-south1,asia-south1,us-central1,asia-northeast1,europe-west8,us-west4,europe-west12,me-central1,us-west3,europe-west10,europe-north2,asia-south2,europe-west1,australia-southeast1,europe-west2,europe-central2,us-east1,asia-southeast1,us-east4,me-west1,southamerica-east1,asia-southeast3,europe-north1
+CREATION_TIMESTAMP: 2026-09-25T05:16:54
+
+NAME: ubuntu-accelerator-2404-amd64-with-nvidia-580-v20260925
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west10,me-west1,asia-southeast3,asia-northeast3,europe-west9,northamerica-northeast1,europe-central2,asia-east1,northamerica-northeast2,us-east7,australia-southeast2,northamerica-south1,europe-southwest1,europe-north1,me-central2,asia-southeast2,africa-south1,europe-west3,asia-northeast1,us-west3,us-west2,us-east1,us-central2,asia-southeast1,asia-northeast2,us,us-west1,asia-east2,us-east5,southamerica-west1,europe-west12,us-east4,australia-southeast1,us-west4,southamerica-east1,europe-north2,asia-south1,europe-west8,asia,europe-west2,europe-west15,asia-south2,us-west8,us-central1,me-central1,europe-west4,europe-west6,eu,us-south1,europe-west1
+CREATION_TIMESTAMP: 2026-09-25T05:16:56
+
+NAME: ubuntu-accelerator-2604-arm64-with-nvidia-595-v20260926
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-north2,me-west1,us-east7,southamerica-east1,asia-southeast1,eu,us,europe-west6,us-central2,europe-north1,europe-central2,southamerica-west1,us-east1,europe-west10,us-west3,australia-southeast1,europe-west1,us-west4,asia-northeast1,asia-northeast2,us-west1,europe-west8,us-south1,europe-west3,europe-southwest1,europe-west15,asia-south2,us-east5,us-central1,us-west2,asia-northeast3,us-west8,europe-west12,northamerica-south1,asia,africa-south1,asia-east1,asia-southeast2,europe-west4,asia-southeast3,europe-west2,northamerica-northeast1,us-east4,asia-south1,northamerica-northeast2,australia-southeast2,me-central2,europe-west9,asia-east2,me-central1
+CREATION_TIMESTAMP: 2026-09-26T02:05:28
+
+NAME: ubuntu-accelerator-2604-amd64-with-nvidia-595-v20260926
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-south1,europe-west2,europe-north1,asia-southeast1,asia-southeast3,europe-west10,europe-north2,europe-southwest1,europe-west1,asia-southeast2,europe-west3,southamerica-east1,us-central1,europe-west6,northamerica-south1,eu,australia-southeast1,asia-northeast3,asia-northeast1,europe-west9,asia-south2,europe-west8,us-central2,us-east7,me-central1,us-west2,us-east1,us,northamerica-northeast1,europe-central2,us-east5,me-central2,australia-southeast2,us-west4,europe-west12,me-west1,us-east4,asia-south1,africa-south1,us-west1,northamerica-northeast2,southamerica-west1,europe-west4,europe-west15,asia-east2,us-west3,asia-east1,asia-northeast2,us-west8,asia
+CREATION_TIMESTAMP: 2026-09-26T02:05:28
+
+NAME: ubuntu-accelerator-2604-arm64-with-nvidia-580-v20260926
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-southwest1,europe-north1,europe-west8,us-east5,us-east1,europe-central2,asia-southeast2,europe-west15,southamerica-west1,northamerica-northeast2,europe-west1,us-east7,us-west3,europe-north2,asia-southeast1,eu,us-central2,europe-west10,us-west8,southamerica-east1,me-west1,australia-southeast2,europe-west6,africa-south1,asia-northeast2,us-west4,europe-west4,asia-south1,us-west2,asia-northeast1,asia-southeast3,australia-southeast1,europe-west2,us-south1,europe-west3,us,asia-south2,asia,europe-west9,asia-east1,us-central1,asia-east2,me-central1,asia-northeast3,europe-west12,northamerica-south1,us-east4,us-west1,northamerica-northeast1,me-central2
+CREATION_TIMESTAMP: 2026-09-26T02:05:30
+
+NAME: ubuntu-accelerator-2604-amd64-with-nvidia-580-v20260926
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: eu,northamerica-northeast2,asia-east1,europe-north2,africa-south1,europe-west8,us-west1,us-west4,asia-east2,europe-west15,europe-southwest1,us-central2,northamerica-south1,me-central1,northamerica-northeast1,europe-west6,southamerica-east1,us-east4,australia-southeast1,europe-west3,us-east5,us-west8,us-central1,us-west3,us-south1,europe-central2,asia-south1,me-central2,europe-west2,europe-west9,asia-northeast2,us-east1,us,asia-southeast1,us-east7,australia-southeast2,europe-north1,europe-west10,southamerica-west1,asia-south2,europe-west4,asia-northeast3,asia-northeast1,europe-west1,asia-southeast3,asia,me-west1,asia-southeast2,us-west2,europe-west12
+CREATION_TIMESTAMP: 2026-09-26T02:05:31
+
+NAME: sles-sap-12-sp5-v20260928-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west4,us-west4,europe-west8,australia-southeast1,asia-northeast1,us-east1,europe-central2,asia-northeast3,us-east4,me-central2,us-west3,us-west2,europe-west9,asia-southeast3,asia-east1,us-central2,australia-southeast2,europe-north2,me-west1,me-central1,europe-west15,asia-south1,europe-west3,us-east5,us,us-south1,asia-southeast2,southamerica-east1,asia-southeast1,southamerica-west1,europe-west12,europe-west2,asia-south2,europe-southwest1,eu,asia,asia-northeast2,us-east7,us-west1,us-west8,northamerica-northeast1,us-central1,europe-north1,europe-west1,asia-east2,europe-west10,europe-west6,northamerica-south1,northamerica-northeast2,africa-south1
+CREATION_TIMESTAMP: 2026-09-28T03:06:30
+
+NAME: fedora-coreos-44-20260928-20-1-gcp-aarch64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-northeast1,us-south1,us,us-east1,asia-southeast2,asia-northeast2,europe-west12,us-west4,europe-west3,us-east5,me-central2,us-central2,europe-north2,northamerica-south1,europe-west2,northamerica-northeast1,australia-southeast1,northamerica-northeast2,us-west3,europe-west9,asia-southeast1,europe-central2,australia-southeast2,asia-east2,asia,asia-northeast3,europe-west1,asia-southeast3,europe-west10,us-central1,europe-west4,europe-west6,southamerica-east1,asia-east1,us-west8,europe-north1,me-central1,asia-south1,me-west1,us-east7,southamerica-west1,asia-south2,us-west2,us-west1,eu,europe-west15,europe-southwest1,africa-south1,europe-west8,us-east4
+CREATION_TIMESTAMP: 2026-09-28T06:10:32
+
+NAME: fedora-coreos-44-20260913-3-1-gcp-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-west2,southamerica-east1,asia-northeast3,europe-west8,northamerica-south1,us-west4,us,asia-southeast3,europe-west3,europe-west2,us-east1,asia-east2,us-south1,asia,me-central2,asia-east1,us-west3,us-east5,europe-west12,europe-west6,europe-west10,asia-northeast1,europe-west15,australia-southeast1,us-central1,africa-south1,us-west1,eu,europe-west4,northamerica-northeast1,asia-northeast2,europe-west9,asia-southeast2,northamerica-northeast2,asia-south1,us-east4,australia-southeast2,asia-southeast1,europe-southwest1,me-west1,europe-central2,me-central1,us-central2,europe-north2,europe-west1,southamerica-west1,us-east7,asia-south2,europe-north1,us-west8
+CREATION_TIMESTAMP: 2026-09-28T11:45:05
+
+NAME: fedora-coreos-44-20260913-3-1-gcp-aarch64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-west8,europe-north2,asia-southeast2,asia-northeast2,northamerica-south1,eu,europe-west3,us-east7,me-central1,us-west2,asia-southeast1,europe-west15,us-west3,me-central2,asia-southeast3,us-south1,us-east4,australia-southeast1,europe-west12,europe-central2,us-central2,europe-west1,europe-west8,asia,northamerica-northeast2,northamerica-northeast1,us,us-east5,asia-northeast3,asia-northeast1,asia-south1,europe-north1,europe-west10,europe-southwest1,europe-west9,us-west4,us-central1,asia-east2,southamerica-east1,asia-south2,us-east1,us-west1,africa-south1,asia-east1,europe-west2,southamerica-west1,australia-southeast2,europe-west4,europe-west6,me-west1
+CREATION_TIMESTAMP: 2026-09-28T12:58:54
+
+NAME: cos-arm64-lm-125-19216-700-7
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us,eu,northamerica-south1,northamerica-northeast2,europe-central2,us-west3,europe-west15,us-east5,europe-north1,europe-west4,us-central2,us-west1,us-east1,europe-southwest1,asia-east1,me-central1,asia-southeast1,asia-northeast3,us-central1,africa-south1,asia-southeast2,asia-east2,australia-southeast2,europe-west3,asia-northeast2,australia-southeast1,me-west1,us-west2,us-east7,asia,southamerica-west1,europe-north2,europe-west9,us-west4,europe-west6,northamerica-northeast1,europe-west10,southamerica-east1,europe-west2,asia-northeast1,asia-southeast3,europe-west8,me-central2,europe-west12,us-east4,asia-south1,us-south1,europe-west1,asia-south2,us-west8
+CREATION_TIMESTAMP: 2026-09-28T15:49:38
+
+NAME: cos-arm64-lm-133-19999-44-85
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-central2,me-central2,australia-southeast2,europe-west2,asia-south2,us-east7,asia-southeast1,me-west1,southamerica-west1,us,asia-east1,africa-south1,asia,asia-northeast2,northamerica-northeast2,us-central2,europe-southwest1,asia-east2,southamerica-east1,us-east1,me-central1,us-east4,europe-west3,asia-northeast1,asia-south1,us-central1,europe-west8,europe-west6,asia-southeast2,asia-southeast3,europe-west1,europe-west10,australia-southeast1,asia-northeast3,us-west2,europe-west9,europe-north1,europe-north2,us-west8,us-south1,us-west4,europe-west4,us-west3,us-east5,europe-west12,europe-west15,northamerica-northeast1,us-west1,northamerica-south1,eu
+CREATION_TIMESTAMP: 2026-09-28T15:49:41
+
+NAME: cos-arm64-lm-beta-133-19999-44-85
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west2,me-west1,europe-west4,europe-north1,europe-west9,asia,asia-southeast3,asia-northeast3,asia-northeast2,us,me-central2,northamerica-south1,southamerica-west1,asia-southeast2,us-west8,northamerica-northeast1,asia-east2,europe-west8,northamerica-northeast2,asia-southeast1,europe-central2,europe-west3,me-central1,asia-east1,europe-west15,us-east4,us-central1,europe-west10,us-west4,asia-south2,us-west3,europe-southwest1,us-west2,africa-south1,us-east5,australia-southeast2,us-west1,us-south1,europe-west12,southamerica-east1,us-central2,europe-west6,us-east1,us-east7,eu,asia-south1,europe-north2,asia-northeast1,europe-west1,australia-southeast1
+CREATION_TIMESTAMP: 2026-09-28T15:49:41
+
+NAME: cos-arm64-129-19506-505-8
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-east2,europe-north1,africa-south1,northamerica-northeast2,asia-southeast3,asia-northeast3,me-central2,asia-east1,southamerica-west1,europe-central2,asia-south1,us-east4,us-west8,asia-northeast1,us-west3,us-central2,us-east5,us-east1,europe-southwest1,asia-northeast2,europe-west12,europe-west8,australia-southeast2,europe-west3,us,europe-west9,europe-west15,northamerica-northeast1,asia-south2,europe-north2,asia,eu,us-south1,europe-west10,europe-west4,asia-southeast2,europe-west1,me-central1,australia-southeast1,northamerica-south1,us-west1,us-east7,us-west2,us-west4,me-west1,southamerica-east1,europe-west6,europe-west2,us-central1,asia-southeast1
+CREATION_TIMESTAMP: 2026-09-28T15:49:42
+
+NAME: cos-arm64-lm-121-18867-624-2
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: me-west1,asia-southeast1,asia-northeast1,europe-west12,us-east7,us-south1,asia-southeast2,australia-southeast1,us-central2,europe-southwest1,southamerica-east1,eu,europe-north1,europe-west3,northamerica-northeast2,europe-west8,europe-west15,asia-south2,asia-east2,europe-central2,us,southamerica-west1,us-west2,asia-southeast3,us-west8,northamerica-northeast1,africa-south1,europe-west4,us-east4,us-east5,us-east1,asia-east1,europe-west10,europe-west6,us-central1,asia-northeast2,asia-northeast3,northamerica-south1,europe-west9,europe-west2,us-west4,australia-southeast2,europe-north2,me-central2,us-west3,asia,us-west1,asia-south1,europe-west1,me-central1
+CREATION_TIMESTAMP: 2026-09-28T15:49:46
+
+NAME: cos-arm64-lm-stable-121-18867-624-2
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-central2,europe-north2,europe-west12,us-south1,us-east5,northamerica-northeast2,europe-west3,asia-south1,eu,asia-east1,asia-northeast2,us-east1,us-central1,europe-west1,europe-west9,australia-southeast1,asia-southeast2,asia-south2,europe-west10,us,asia-northeast1,europe-central2,europe-west6,europe-southwest1,europe-north1,asia-southeast3,us-east7,europe-west2,australia-southeast2,us-west1,asia-east2,asia-southeast1,asia-northeast3,southamerica-west1,northamerica-northeast1,europe-west8,us-west3,us-west8,europe-west4,me-central2,africa-south1,me-west1,me-central1,us-west2,us-west4,northamerica-south1,southamerica-east1,asia,us-east4,europe-west15
+CREATION_TIMESTAMP: 2026-09-28T15:49:46
+
+NAME: cos-121-18867-624-2
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-southwest1,australia-southeast2,us-west8,us-central2,europe-west10,europe-west9,europe-west1,asia-south1,us-east5,us-central1,us-east4,me-west1,us-west3,europe-west15,europe-west2,asia-southeast1,australia-southeast1,europe-north1,us-west4,asia-northeast2,asia-northeast3,europe-west8,us-south1,europe-west4,europe-north2,europe-west6,asia-east1,eu,asia-east2,asia-northeast1,northamerica-northeast1,us,us-west2,asia-southeast3,asia-southeast2,europe-central2,me-central2,us-east7,europe-west12,asia-south2,me-central1,asia,southamerica-west1,northamerica-northeast2,us-east1,europe-west3,us-west1,southamerica-east1,africa-south1,northamerica-south1
+CREATION_TIMESTAMP: 2026-09-28T15:49:51
+
+NAME: cos-stable-121-18867-624-2
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us,us-east4,us-central2,europe-west2,asia-southeast3,asia,asia-east1,australia-southeast2,us-central1,asia-east2,southamerica-west1,europe-southwest1,europe-west8,northamerica-northeast2,eu,me-west1,asia-southeast2,europe-north1,asia-south1,europe-west1,us-west3,europe-north2,asia-south2,europe-central2,northamerica-northeast1,us-west2,europe-west3,europe-west10,us-east7,northamerica-south1,europe-west12,us-south1,us-east1,me-central1,southamerica-east1,me-central2,europe-west15,europe-west9,europe-west6,europe-west4,asia-northeast2,asia-southeast1,asia-northeast1,africa-south1,asia-northeast3,us-east5,us-west8,us-west1,us-west4,australia-southeast1
+CREATION_TIMESTAMP: 2026-09-28T15:49:51
+
+NAME: cos-125-19216-700-7
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-south1,me-central2,us-east5,europe-west9,europe-west1,europe-west6,europe-west2,europe-west4,us-central1,northamerica-northeast1,us-east7,southamerica-west1,asia-southeast3,us-west8,europe-west8,asia-south2,us-central2,eu,asia-northeast3,europe-west3,us-south1,me-west1,me-central1,europe-west10,us-west4,asia-east2,europe-north1,northamerica-northeast2,asia-northeast1,europe-central2,australia-southeast2,us-east1,southamerica-east1,africa-south1,asia-east1,australia-southeast1,europe-west15,asia-southeast2,europe-southwest1,us-east4,us-west3,europe-west12,northamerica-south1,us-west1,asia,asia-northeast2,europe-north2,us,us-west2,asia-southeast1
+CREATION_TIMESTAMP: 2026-09-28T15:50:00
+
+NAME: cos-arm64-133-19999-44-85
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-southwest1,us,northamerica-northeast1,europe-west1,australia-southeast2,us-east5,europe-west2,asia-southeast2,asia-southeast3,us-east4,southamerica-west1,europe-west12,me-west1,us-west4,us-west1,asia-south1,africa-south1,europe-west9,us-west3,me-central2,us-south1,europe-north1,southamerica-east1,europe-west3,europe-west15,asia,europe-west8,asia-northeast3,europe-west10,europe-central2,northamerica-south1,us-west8,asia-east1,asia-southeast1,europe-west6,us-west2,us-central1,us-east1,australia-southeast1,eu,us-east7,northamerica-northeast2,me-central1,europe-west4,asia-south2,asia-northeast1,asia-northeast2,asia-east2,europe-north2,us-central2
+CREATION_TIMESTAMP: 2026-09-28T15:50:00
+
+NAME: cos-arm64-beta-133-19999-44-85
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-east4,us,northamerica-northeast2,us-central2,asia-northeast1,africa-south1,us-east1,europe-west1,us-west2,australia-southeast1,me-central1,europe-west6,us-west3,asia,us-east5,europe-west12,us-central1,asia-southeast1,asia-south1,us-west4,asia-east1,southamerica-west1,northamerica-south1,europe-west4,europe-west3,asia-south2,europe-west9,us-west8,europe-west10,asia-northeast2,asia-southeast2,us-west1,me-west1,southamerica-east1,me-central2,asia-southeast3,europe-southwest1,us-east7,europe-west15,asia-east2,europe-west2,europe-north2,us-south1,eu,europe-central2,europe-west8,northamerica-northeast1,australia-southeast2,asia-northeast3,europe-north1
+CREATION_TIMESTAMP: 2026-09-28T15:50:00
+
+NAME: cos-arm64-lm-dev-138-20162-0-0
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-southeast3,asia-south1,europe-west10,europe-west6,us-central2,asia,us-south1,europe-west2,asia-southeast2,africa-south1,us-east4,europe-north2,europe-north1,southamerica-west1,us-west4,us,us-west3,asia-southeast1,us-east5,europe-west15,us-west1,northamerica-northeast1,australia-southeast2,australia-southeast1,europe-west3,europe-west12,us-east7,asia-northeast1,asia-northeast3,europe-southwest1,asia-east1,europe-central2,me-west1,us-west2,northamerica-northeast2,eu,me-central1,us-central1,asia-east2,europe-west1,europe-west9,northamerica-south1,me-central2,europe-west4,europe-west8,southamerica-east1,us-west8,asia-south2,us-east1,asia-northeast2
+CREATION_TIMESTAMP: 2026-09-28T15:50:01
+
+NAME: cos-133-19999-44-85
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-west2,asia-southeast2,europe-west8,asia-southeast1,asia,europe-west15,northamerica-northeast2,europe-north2,asia-south1,me-west1,eu,asia-northeast1,us-east4,asia-northeast2,asia-south2,asia-east2,us-central2,europe-west1,europe-west4,us-east5,us-east7,europe-north1,southamerica-west1,us,europe-west9,europe-west6,me-central2,us-west8,europe-west2,us-south1,northamerica-south1,us-west4,us-west1,southamerica-east1,europe-west3,asia-east1,northamerica-northeast1,europe-southwest1,europe-west10,europe-central2,asia-southeast3,europe-west12,me-central1,australia-southeast1,us-east1,us-west3,australia-southeast2,asia-northeast3,africa-south1,us-central1
+CREATION_TIMESTAMP: 2026-09-28T15:50:01
+
+NAME: cos-beta-133-19999-44-85
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west4,us-east1,asia-southeast1,europe-west8,europe-west10,eu,europe-west3,asia-east2,us-west1,us-east7,us-west4,northamerica-northeast1,europe-central2,northamerica-south1,me-central2,europe-west1,asia-southeast2,us-east5,us-east4,southamerica-west1,asia-east1,me-west1,asia-northeast1,asia-south2,us-west8,us-west3,asia-northeast2,asia-northeast3,us-central2,asia-south1,europe-north1,europe-southwest1,asia,us-central1,northamerica-northeast2,southamerica-east1,australia-southeast1,asia-southeast3,australia-southeast2,us-west2,europe-west2,us-south1,europe-west9,us,europe-west15,europe-north2,me-central1,africa-south1,europe-west6,europe-west12
+CREATION_TIMESTAMP: 2026-09-28T15:50:07
+
+NAME: cos-129-19506-505-8
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: australia-southeast1,asia-southeast3,asia-southeast1,us-west1,europe-west12,me-central2,europe-west2,europe-west3,us-west4,me-central1,asia-east1,australia-southeast2,asia-south2,northamerica-northeast1,europe-west15,asia-south1,europe-north2,us-central2,southamerica-west1,europe-southwest1,europe-north1,europe-central2,africa-south1,us-east7,us-west8,europe-west1,us-central1,asia-northeast2,europe-west9,northamerica-northeast2,us-south1,us,northamerica-south1,me-west1,europe-west6,asia-east2,asia-northeast1,us-east4,eu,europe-west4,europe-west10,us-east1,europe-west8,asia-northeast3,us-east5,us-west2,us-west3,asia-southeast2,asia,southamerica-east1
+CREATION_TIMESTAMP: 2026-09-28T15:50:10
+
+NAME: cos-arm64-125-19216-700-7
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-southeast3,us-west3,northamerica-northeast2,europe-southwest1,me-west1,us-west4,us-south1,us-east7,us-east4,us,us-west8,europe-west9,southamerica-west1,asia-south1,australia-southeast1,us-west1,eu,asia-southeast1,northamerica-south1,asia,europe-west8,asia-northeast1,me-central2,me-central1,europe-west10,us-east5,us-central1,europe-west1,asia-northeast2,europe-north1,asia-southeast2,europe-west12,europe-west3,asia-northeast3,africa-south1,europe-west4,southamerica-east1,europe-central2,us-central2,australia-southeast2,europe-west15,us-west2,us-east1,asia-east2,europe-west6,asia-south2,europe-west2,europe-north2,asia-east1,northamerica-northeast1
+CREATION_TIMESTAMP: 2026-09-28T15:50:12
+
+NAME: cos-dev-138-20162-0-0
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-southeast2,us-east4,us-central2,asia-northeast1,africa-south1,us-east1,us-central1,us-west4,australia-southeast1,asia-east1,asia,europe-west8,europe-west12,europe-west3,us-west1,europe-southwest1,europe-west2,me-central1,asia-northeast3,europe-central2,us-south1,asia-south2,australia-southeast2,us,europe-north2,asia-east2,europe-west10,me-west1,europe-west9,northamerica-south1,southamerica-west1,me-central2,us-west8,us-east5,asia-northeast2,europe-north1,us-west2,europe-west6,europe-west4,asia-southeast1,europe-west1,us-east7,northamerica-northeast1,northamerica-northeast2,southamerica-east1,europe-west15,asia-southeast3,asia-south1,us-west3,eu
+CREATION_TIMESTAMP: 2026-09-28T15:50:14
+
+NAME: cos-arm64-121-18867-624-2
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: me-central2,africa-south1,europe-west6,asia-northeast2,europe-southwest1,asia-southeast2,me-west1,us-south1,northamerica-northeast2,southamerica-west1,asia-east2,europe-west8,europe-central2,europe-west4,northamerica-south1,us-west1,europe-west3,us-central1,europe-west9,us-east5,me-central1,us,asia-south1,australia-southeast1,us-west3,us-west2,europe-west15,europe-west2,us-central2,europe-north1,europe-west10,eu,us-west8,us-west4,southamerica-east1,australia-southeast2,europe-west12,asia-east1,asia-southeast3,europe-north2,us-east1,asia-southeast1,us-east4,asia-northeast3,northamerica-northeast1,asia-south2,asia-northeast1,europe-west1,asia,us-east7
+CREATION_TIMESTAMP: 2026-09-28T15:50:15
+
+NAME: cos-arm64-stable-121-18867-624-2
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-northeast1,eu,europe-west15,europe-west3,asia-northeast3,asia-northeast2,asia-south1,asia-south2,europe-north1,us-east4,us-east1,europe-southwest1,asia-southeast2,africa-south1,europe-north2,us-south1,me-west1,asia-east1,europe-central2,asia-east2,us-east7,me-central1,asia-southeast1,europe-west12,us-west8,northamerica-northeast2,us-central2,us-west2,asia-southeast3,europe-west10,us-west1,europe-west8,us-west4,us,europe-west6,australia-southeast2,northamerica-northeast1,europe-west4,asia,us-east5,australia-southeast1,europe-west1,northamerica-south1,europe-west2,europe-west9,southamerica-west1,me-central2,southamerica-east1,us-west3,us-central1
+CREATION_TIMESTAMP: 2026-09-28T15:50:15
+
+NAME: cos-arm64-lm-129-19506-505-8
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-northeast3,europe-west15,southamerica-west1,europe-southwest1,eu,europe-west6,europe-west2,asia-southeast2,northamerica-northeast2,asia-northeast1,us-west2,asia-southeast3,us-south1,asia-east2,europe-north2,us-east7,europe-central2,europe-north1,southamerica-east1,us-west1,asia-south2,asia-southeast1,us-west8,me-central1,us-east4,australia-southeast1,africa-south1,us-central1,northamerica-northeast1,us-central2,europe-west9,northamerica-south1,us-east1,australia-southeast2,europe-west3,asia-east1,asia,europe-west8,us-east5,europe-west10,europe-west12,europe-west1,asia-northeast2,europe-west4,me-central2,us-west4,asia-south1,me-west1,us-west3,us
+CREATION_TIMESTAMP: 2026-09-28T15:50:17
+
+NAME: cos-arm64-dev-138-20162-0-0
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-southeast1,northamerica-northeast1,us,us-west3,asia,asia-northeast1,asia-east2,europe-west8,africa-south1,asia-south2,europe-north2,asia-southeast3,europe-west15,northamerica-south1,europe-west12,europe-west2,europe-west1,asia-east1,us-south1,northamerica-northeast2,us-central1,us-west4,southamerica-east1,australia-southeast1,australia-southeast2,europe-west9,us-central2,us-east5,us-west8,me-west1,europe-central2,europe-west3,europe-north1,asia-northeast3,us-west2,us-east4,asia-northeast2,europe-southwest1,us-west1,us-east7,me-central1,europe-west4,europe-west6,us-east1,asia-southeast2,southamerica-west1,me-central2,eu,europe-west10,asia-south1
+CREATION_TIMESTAMP: 2026-09-28T15:50:43
+
+NAME: fedora-coreos-44-20260928-2-1-gcp-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: northamerica-south1,northamerica-northeast1,us,us-west1,us-east7,southamerica-west1,us-central1,us-west8,asia-east2,europe-north2,asia-east1,europe-west4,asia-northeast2,asia-south2,us-west2,asia-southeast2,asia-south1,us-east4,europe-west8,europe-west15,europe-central2,us-west3,europe-north1,africa-south1,eu,me-central2,europe-southwest1,europe-west9,me-west1,europe-west3,us-south1,asia-northeast1,us-east1,us-central2,europe-west6,europe-west1,me-central1,asia-northeast3,australia-southeast2,us-west4,asia-southeast3,europe-west2,us-east5,europe-west12,asia,asia-southeast1,southamerica-east1,northamerica-northeast2,europe-west10,australia-southeast1
+CREATION_TIMESTAMP: 2026-09-28T20:27:58
+
+NAME: fedora-coreos-44-20260913-3-2-gcp-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-central2,asia-northeast3,australia-southeast1,europe-west6,us-central2,europe-west10,me-central1,southamerica-east1,asia,asia-southeast1,asia-east2,europe-west9,asia-south2,africa-south1,asia-southeast2,northamerica-northeast1,us-east1,europe-west1,eu,europe-west12,europe-north1,europe-north2,europe-west15,northamerica-northeast2,asia-northeast2,us-west8,europe-west4,asia-southeast3,europe-west2,us,me-central2,us-west1,europe-southwest1,us-east7,me-west1,us-south1,europe-west3,asia-east1,us-east4,us-west3,us-east5,southamerica-west1,asia-south1,australia-southeast2,us-central1,us-west4,asia-northeast1,us-west2,europe-west8,northamerica-south1
+CREATION_TIMESTAMP: 2026-09-28T21:45:16
+
+NAME: fedora-coreos-44-20260928-2-2-gcp-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-central2,asia-south1,me-west1,australia-southeast1,us-central2,us-south1,eu,europe-west3,us-east1,europe-north1,europe-north2,southamerica-west1,europe-west12,asia-east2,us-east4,europe-west6,northamerica-northeast1,europe-southwest1,asia-southeast3,us,us-west4,asia,europe-west9,europe-west1,europe-west15,europe-west8,us-central1,europe-west4,us-east7,asia-southeast2,southamerica-east1,us-west1,me-central2,asia-northeast3,us-east5,me-central1,asia-southeast1,australia-southeast2,us-west2,europe-west2,northamerica-south1,us-west3,africa-south1,northamerica-northeast2,europe-west10,asia-northeast2,us-west8,asia-northeast1,asia-east1,asia-south2
+CREATION_TIMESTAMP: 2026-09-28T22:06:35
+
+NAME: fedora-coreos-44-20260928-2-2-gcp-aarch64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-west2,me-west1,africa-south1,europe-southwest1,europe-west12,us-south1,us-east5,us-east1,me-central1,europe-west10,asia-northeast1,us-west3,northamerica-northeast1,asia-south2,europe-west8,asia-northeast3,asia-southeast2,us-west4,us-east4,europe-west4,australia-southeast2,europe-west3,australia-southeast1,europe-west1,us-west1,us-central1,southamerica-west1,northamerica-northeast2,northamerica-south1,me-central2,europe-north1,us,asia-south1,us-east7,us-central2,asia-east2,eu,europe-central2,asia,asia-southeast1,us-west8,asia-northeast2,europe-west6,europe-west2,europe-west9,europe-west15,southamerica-east1,europe-north2,asia-southeast3,asia-east1
+CREATION_TIMESTAMP: 2026-09-28T23:40:55
+
+NAME: fedora-coreos-44-20260913-3-2-gcp-aarch64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: me-central1,europe-southwest1,us-west1,europe-west9,northamerica-northeast1,asia-northeast3,us-west2,us-east4,australia-southeast1,australia-southeast2,asia-northeast1,us-west3,me-central2,asia-southeast1,asia-east2,europe-west12,asia-northeast2,us-west8,us-east7,us-south1,southamerica-east1,us-west4,us-east1,asia-southeast3,northamerica-northeast2,us-central1,eu,us-central2,asia-south1,europe-west1,me-west1,europe-west15,europe-north2,europe-north1,southamerica-west1,northamerica-south1,us,europe-west3,europe-central2,europe-west4,asia-east1,us-east5,europe-west10,asia-southeast2,asia-south2,europe-west2,europe-west6,europe-west8,africa-south1,asia
+CREATION_TIMESTAMP: 2026-09-29T06:20:59
+
+NAME: opensuse-leap-16-0-v20260930-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: eu,europe-west1,europe-west15,europe-west6,europe-west9,us,southamerica-east1,asia-northeast1,europe-west8,europe-west12,us-east5,europe-southwest1,asia-south1,asia-northeast2,us-west8,asia-east1,me-west1,asia-northeast3,us-west4,southamerica-west1,northamerica-northeast2,europe-north1,australia-southeast2,europe-west10,us-west1,asia-east2,us-east4,europe-west4,asia-southeast1,northamerica-south1,us-west2,us-east7,asia-southeast2,us-central2,africa-south1,us-east1,asia-south2,asia-southeast3,northamerica-northeast1,europe-north2,europe-west2,us-west3,us-central1,asia,australia-southeast1,me-central2,us-south1,europe-central2,europe-west3,me-central1
+CREATION_TIMESTAMP: 2026-09-30T01:07:28
+
+NAME: opensuse-leap-16-0-v20260930-arm64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: us-west2,us-east7,northamerica-northeast2,europe-southwest1,us-west3,northamerica-northeast1,europe-west4,africa-south1,me-central2,us-east4,asia,asia-south1,europe-west12,europe-west6,europe-north1,europe-west9,asia-southeast2,us-central1,europe-central2,us-west4,eu,europe-west1,europe-west2,us-east1,asia-northeast2,europe-west8,europe-north2,australia-southeast2,me-west1,asia-northeast1,northamerica-south1,europe-west10,asia-east2,asia-southeast1,europe-west3,us-east5,southamerica-west1,us,europe-west15,us-west8,australia-southeast1,me-central1,asia-southeast3,us-west1,us-south1,us-central2,asia-south2,southamerica-east1,asia-east1,asia-northeast3
+CREATION_TIMESTAMP: 2026-09-30T01:08:20
+
+NAME: fedora-coreos-45-20260928-1-2-gcp-x86-64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-southeast3,asia-southeast2,southamerica-west1,us-west8,us-west2,asia-south1,us-west4,eu,europe-west6,europe-north1,europe-west1,europe-west15,asia-south2,asia-northeast1,us-east5,europe-north2,australia-southeast2,asia,africa-south1,us-east7,me-west1,us,europe-west9,europe-west12,europe-central2,europe-west10,europe-west3,us-east1,northamerica-northeast2,asia-northeast3,us-west3,us-south1,europe-west2,asia-east1,asia-northeast2,europe-southwest1,us-east4,northamerica-south1,southamerica-east1,us-west1,me-central1,us-central2,asia-east2,us-central1,europe-west4,northamerica-northeast1,europe-west8,asia-southeast1,australia-southeast1,me-central2
+CREATION_TIMESTAMP: 2026-09-30T12:33:56
+
+NAME: ubuntu-accel-2404-amd64-tpu-tpu7x-v20260930
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: australia-southeast1,australia-southeast2,us-west2,europe-southwest1,us-east7,asia-southeast2,asia-southeast1,europe-west9,me-central2,us-west4,asia-northeast2,us,southamerica-east1,us-west3,us-east5,asia-east1,us-central2,northamerica-northeast2,europe-west12,us-west1,us-central1,europe-west8,europe-north1,asia-east2,asia-northeast3,us-west8,europe-west4,asia-south2,europe-central2,northamerica-northeast1,me-west1,eu,me-central1,europe-west2,europe-west6,asia,asia-northeast1,southamerica-west1,us-east1,northamerica-south1,europe-west15,us-east4,africa-south1,asia-southeast3,europe-north2,asia-south1,europe-west1,europe-west3,europe-west10,us-south1
+CREATION_TIMESTAMP: 2026-09-30T13:43:57
+
+NAME: fedora-coreos-45-20260928-1-2-gcp-aarch64
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-northeast1,us-west8,me-central1,asia-northeast2,asia-south1,asia-east1,us,us-east5,us-west4,asia-southeast1,northamerica-south1,europe-west9,asia-south2,australia-southeast1,southamerica-west1,us-central2,asia-northeast3,us-east7,europe-west8,europe-west10,asia,europe-central2,europe-west3,europe-west12,africa-south1,us-east1,europe-north1,me-central2,europe-southwest1,me-west1,us-central1,us-east4,eu,europe-west15,europe-north2,asia-southeast2,australia-southeast2,europe-west4,asia-east2,northamerica-northeast1,southamerica-east1,europe-west6,northamerica-northeast2,us-south1,asia-southeast3,us-west1,us-west2,europe-west1,europe-west2,us-west3
+CREATION_TIMESTAMP: 2026-09-30T20:08:42
+
+NAME: ubuntu-accel-2204-amd64-tpu-v5e-v5p-v6e-v20261002
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: europe-west3,europe-west6,asia-northeast1,us-south1,europe-west2,northamerica-south1,europe-central2,us-west1,us-east4,us-west4,europe-west12,asia-northeast3,me-central2,europe-southwest1,europe-west4,us-west8,us-central2,africa-south1,us,asia-east2,asia-east1,us-central1,asia-south2,us-east1,asia-south1,asia-southeast1,asia-northeast2,europe-north1,asia-southeast2,me-west1,australia-southeast2,southamerica-east1,europe-west15,europe-west8,asia,me-central1,us-west3,europe-west1,eu,asia-southeast3,us-east5,us-east7,us-west2,australia-southeast1,europe-west9,europe-west10,northamerica-northeast1,southamerica-west1,europe-north2,northamerica-northeast2
+CREATION_TIMESTAMP: 2026-10-02T02:16:21
+
+NAME: ubuntu-pro-fips-2004-focal-v20261003
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia-south2,us-east7,us-west2,asia-southeast2,australia-southeast2,europe-west8,asia-northeast3,asia-southeast3,europe-southwest1,europe-central2,europe-west12,us-central1,asia-southeast1,europe-west15,us-east1,eu,europe-west9,europe-west10,me-central1,me-west1,us-west4,australia-southeast1,us-west1,us,southamerica-east1,us-west8,northamerica-northeast2,asia-south1,us-south1,europe-west6,europe-north2,europe-west3,us-east5,us-east4,me-central2,asia-east1,asia-northeast1,southamerica-west1,northamerica-northeast1,asia,asia-east2,asia-northeast2,europe-north1,africa-south1,europe-west2,northamerica-south1,europe-west1,us-west3,us-central2,europe-west4
+CREATION_TIMESTAMP: 2026-10-02T23:34:38
+
+NAME: clean-ubuntu-26092026-img-v2
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-04T10:52:45
+
+NAME: cn-frontend-image-d3dff86
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-04T11:25:47
+
+NAME: cn-backend-image-41f3935
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-04T11:27:13
+
+NAME: cn-frontend-image-b0ad954
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-04T11:57:35
+
+NAME: cn-frontend-image-7696009
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-04T12:12:38
+
+NAME: cn-backend-image-054eefc
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-04T12:28:39
+
+NAME: cn-backend-image-53262df
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-04T13:30:33
+
+NAME: cn-frontend-image-13633c6
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-04T13:38:29
+
+NAME: cn-frontend-image-0ae7410
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-04T13:38:31
+
+NAME: cn-frontend-image-70499c9
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-04T22:50:29
+
+NAME: cn-backend-image-ffc8a89
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-04T22:51:42
+
+NAME: cn-frontend-image-13bcacb
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-04T23:36:42
+
+NAME: cn-backend-image-bd3b2bb
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-04T23:38:15
+
+NAME: cn-frontend-image-3255267
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-05T00:33:00
+
+NAME: cn-frontend-image-809b228
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-05T02:37:35
+
+NAME: cn-backend-image-6a5ff7e
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-05T02:39:13
+
+NAME: cn-frontend-image-ee22731
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-05T03:29:43
+
+NAME: cn-backend-image-b5141a9
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-05T03:31:01
+
+NAME: cn-backend-image-3aaffe9
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-05T03:51:28
+
+NAME: almalinux-10-v20261005
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: eu,us,asia
+CREATION_TIMESTAMP: 2026-10-05T15:20:25
+
+NAME: almalinux-10-arm64-v20261005
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: asia,us,eu
+CREATION_TIMESTAMP: 2026-10-05T15:23:41
+
+NAME: almalinux-9-v20261005
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: eu,us,asia
+CREATION_TIMESTAMP: 2026-10-05T16:39:51
+
+NAME: almalinux-9-arm64-v20261005
+DISK_SIZE_GB: 10
+STORAGE_LOCATIONS: eu,us,asia
+CREATION_TIMESTAMP: 2026-10-05T16:44:56
+
+NAME: cn-backend-image-98b9081
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-05T23:42:03
+
+NAME: cn-backend-image-a62c29d
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-06T02:39:21
+
+NAME: cn-frontend-image-a81eb16
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-06T02:57:04
+
+NAME: cn-backend-image-9bf4fed
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-06T04:31:13
+
+NAME: cn-backend-image-b0288db
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-06T04:31:40
+
+NAME: cn-backend-image-4dbdd20
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-06T04:47:20
+
+NAME: cn-backend-image-6532834
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-06T05:23:51
+
+NAME: cn-backend-image-8f5b2a1
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-06T06:16:10
+
+NAME: cn-backend-image-36689c0
+DISK_SIZE_GB: 100
+STORAGE_LOCATIONS: me-central2
+CREATION_TIMESTAMP: 2026-10-06T06:39:58
+nikul_sadhu@cloudshell:~$ gcloud logging read 'logName:"backend_pm2_out" AND jsonPayload.message:"Body :" AND jsonPayload.message:"password"' --project=$P --freshness=1d --limit=1000 --format="value(jsonPayload.message)" | grep -oiP "password['\"]?\s*[:=]\s*['\"]?\K[^'\",} ]*" | awk '{print length($0)}' | sort -n | uniq -c
+      1 1
+      1 4
+      1 5
+     12 8
+      2 9
+      2 27
+      4 32
+nikul_sadhu@cloudshell:~$ 
