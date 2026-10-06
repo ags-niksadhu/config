@@ -1,25 +1,66 @@
-**What this shows (times are PDT, UTC-7)**
-
-- Backend: the only insert in the last ~3h is the 02:40 rollout (image → template → l5n6). Nothing unplanned since 23:49. The three inserts at 23:43–23:49 are the last growth burst.
-- Frontend: 7nz1 (01:52) and kcc7 (02:26) are single inserts, ~34 min apart, with no packer/image/template before either. This is not the earlier 1→3 pattern (two servers ~30s apart), and I can't tell the cause from inserts alone.
-- `cn-staging-ai-staging` was inserted at 02:58:00 and is not one of our pipeline resources. Do you know what it is and who created it?
-- The 15-row limit stopped at 23:43, so this isn't yet a 24h view.
-
-**Diagnostic commands (read-only)**
-
-1. Who created and deleted the frontend servers, and why:
-```bash
-P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
 gcloud logging read 'logName:"cloudaudit.googleapis.com%2Factivity" AND resource.type="gce_instance" AND protoPayload.resourceName~"cn-frontend-mig-regional-(7nz1|kcc7|jzmx)"' --project=$P --freshness=1d --order=asc --format="table(timestamp,protoPayload.methodName,protoPayload.authenticationInfo.principalEmail,protoPayload.resourceName.basename())"
-```
-2. MIG state, autohealing and errors:
-```bash
-gcloud compute instance-groups managed describe cn-frontend-mig-regional --region=me-central2 --project=$P --format="yaml(status,currentActions,autoHealingPolicies,updatePolicy)"
+ERROR: (gcloud.logging.read) INVALID_ARGUMENT: Unparseable filter: syntax error at line 1, column 110, token '~'
+nikul_sadhu@cloudshell:~$ gcloud compute instance-groups managed describe cn-frontend-mig-regional --region=me-central2 --project=$P --format="yaml(status,currentActions,autoHealingPolicies,updatePolicy)"
 gcloud compute instance-groups managed list-errors cn-frontend-mig-regional --region=me-central2 --project=$P
-```
-3. What `cn-staging-ai-staging` is:
-```bash
-gcloud compute instances list --project=$P --filter="name=cn-staging-ai-staging" --format="table(name,zone.basename(),status,creationTimestamp,serviceAccounts[0].email)"
-```
+autoHealingPolicies:
+- healthCheck: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/healthChecks/frontend-health-check
+  initialDelaySec: 300
+currentActions:
+  abandoning: 0
+  creating: 0
+  creatingWithoutRetries: 0
+  deleting: 0
+  none: 1
+  recreating: 0
+  refreshing: 0
+  restarting: 0
+  resuming: 0
+  starting: 0
+  stopping: 0
+  suspending: 0
+  verifying: 0
+status:
+  allInstancesConfig:
+    effective: true
+  autoscaler: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-frontend-mig-regional
+  isStable: true
+  stateful:
+    hasStatefulConfig: false
+    perInstanceConfigs:
+      allEffective: true
+  versionTarget:
+    isReached: true
+updatePolicy:
+  instanceRedistributionType: NONE
+  maxSurge:
+    calculated: 3
+    fixed: 3
+  maxUnavailable:
+    calculated: 0
+    fixed: 0
+  minimalAction: REPLACE
+  replacementMethod: SUBSTITUTE
+  type: PROACTIVE
+INSTANCE_URL: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-a/instances/cn-frontend-mig-regional-14bt
+ACTION: CREATING
+ERROR_CODE: ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS
+ERROR_MESSAGE: Instance 'cn-frontend-mig-regional-14bt' creation failed: The zone 'projects/pg-ae-n-app-125609/zones/me-central2-a' does not have enough resources available to fulfill the request.  'NULL:0/NULL:0/NULL:0 (state:STOCKOUT, sub-state:STOCKOUT, resource type:compute)'.
+TIMESTAMP: 2026-10-04T20:22:34.024-07:00
+INSTANCE_TEMPLATE: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-13633c6
+VERSION_NAME: 
 
-Paste the outputs and I'll work out the cause from them.
+INSTANCE_URL: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-a/instances/cn-frontend-mig-regional-620x
+ACTION: CREATING
+ERROR_CODE: ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS
+ERROR_MESSAGE: Instance 'cn-frontend-mig-regional-620x' creation failed: The zone 'projects/pg-ae-n-app-125609/zones/me-central2-a' does not have enough resources available to fulfill the request.  'NULL:0/NULL:0/NULL:0 (state:STOCKOUT, sub-state:STOCKOUT, resource type:compute)'.
+TIMESTAMP: 2026-10-04T13:40:29.385-07:00
+INSTANCE_TEMPLATE: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceTemplates/cn-frontend-template-13633c6
+VERSION_NAME: 
+nikul_sadhu@cloudshell:~$ gcloud compute instances list --project=$P --filter="name=cn-staging-ai-staging" --format="table(name,zone.basename(),status,creationTimestamp,serviceAccounts[0].email)"
+NAME: cn-staging-ai-staging
+ZONE: me-central2-a
+STATUS: RUNNING
+CREATION_TIMESTAMP: 2026-10-06T02:58:00.163-07:00
+EMAIL: 765297732608-compute@developer.gserviceaccount.com
+nikul_sadhu@cloudshell:~$ 
