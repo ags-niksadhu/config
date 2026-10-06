@@ -1,1 +1,61 @@
-gcloud compute operations list --project=pg-ae-n-app-125609 --filter="operationType=compute.instanceGroupManagers.resize OR operationType~insert" --sort-by=~insertTime --limit=15 --format="table(insertTime,operationType,targetLink.basename())"
+nikul_sadhu@cloudshell:~$ gcloud compute operations list --project=pg-ae-n-app-125609 --filter="operationType=compute.instanceGroupManagers.resize OR operationType~insert" --sort-by=~insertTime --limit=15 --format="table(insertTime,operationType,targetLink.basename())"
+TIMESTAMP: 2026-10-06T02:58:37.282-07:00
+TYPE: insert
+TARGET: cn-frontend-mig-regional-jzmx
+
+TIMESTAMP: 2026-10-06T02:58:23.341-07:00
+TYPE: compute.instanceTemplates.insert
+TARGET: cn-frontend-template-a81eb16
+
+TIMESTAMP: 2026-10-06T02:58:00.315-07:00
+TYPE: insert
+TARGET: cn-staging-ai-staging
+
+TIMESTAMP: 2026-10-06T02:57:04.966-07:00
+TYPE: insert
+TARGET: cn-frontend-image-a81eb16
+
+TIMESTAMP: 2026-10-06T02:52:26.629-07:00
+TYPE: insert
+TARGET: packer-6ac4c4d2-77e6-a0ca-d089-bf9cbacc3496
+
+TIMESTAMP: 2026-10-06T02:40:59.112-07:00
+TYPE: insert
+TARGET: cn-backend-mig-regional-l5n6
+
+TIMESTAMP: 2026-10-06T02:40:45.084-07:00
+TYPE: compute.instanceTemplates.insert
+TARGET: cn-backend-template-a62c29d
+
+TIMESTAMP: 2026-10-06T02:39:21.959-07:00
+TYPE: insert
+TARGET: cn-backend-image-a62c29d
+
+TIMESTAMP: 2026-10-06T02:34:28.757-07:00
+TYPE: insert
+TARGET: packer-6ac4c09d-f408-e929-281d-c149691c3aaf
+
+TIMESTAMP: 2026-10-06T02:26:58.407-07:00
+TYPE: insert
+TARGET: cn-frontend-mig-regional-kcc7
+
+TIMESTAMP: 2026-10-06T01:52:57.453-07:00
+TYPE: insert
+TARGET: cn-frontend-mig-regional-7nz1
+
+TIMESTAMP: 2026-10-06T00:01:56.701-07:00
+TYPE: insert
+TARGET: packer-6ac49cdc-e487-dada-e1f9-4d5a804f60f1
+
+TIMESTAMP: 2026-10-05T23:48:59.331-07:00
+TYPE: insert
+TARGET: cn-backend-mig-regional-2lxv
+
+TIMESTAMP: 2026-10-05T23:46:00.914-07:00
+TYPE: insert
+TARGET: cn-backend-mig-regional-wrkm
+
+TIMESTAMP: 2026-10-05T23:43:43.284-07:00
+TYPE: insert
+TARGET: cn-backend-mig-regional-6s14
+nikul_sadhu@cloudshell:~$ 
