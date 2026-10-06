@@ -1,21 +1,10 @@
-**Findings**
-- **Autoscaler config:** ACTIVE, min 1, max 3, CPU target 60%, no predictive scaling. Nothing unusual.
-- **7nz1 and kcc7 were not the trigger.** Each peaked at 36% and 42% in its first minute (boot), then sat at 2-15%. Neither came near 60%. The autoscaler averages CPU across the group, so something else pushed that average over 60%. The most likely source is the existing server, but I haven't seen its CPU, so this is not yet confirmed.
-- **The syslog query returned nothing.** That means either no apt-daily/unattended entries exist on those two servers, or my filter didn't match. It's consistent with the Packer apt-daily-upgrade fix working, but it doesn't prove it. I'm not concluding anything from it yet.
-
-**Next check (read-only):** CPU of every frontend MIG server, showing only minutes at or above 50%, from before the first scale-out to now. This shows which server crossed the threshold.
-```bash
-P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
 TOKEN=$(gcloud auth print-access-token)
 curl -s -G -H "Authorization: Bearer $TOKEN" "https://monitoring.googleapis.com/v3/projects/$P/timeSeries" \
  --data-urlencode 'filter=metric.type="compute.googleapis.com/instance/cpu/utilization" AND metric.labels.instance_name=starts_with("cn-frontend-mig-regional")' \
  --data-urlencode "interval.startTime=2026-10-06T06:50:00Z" --data-urlencode "interval.endTime=2026-10-06T10:10:00Z" \
  | jq -r '.timeSeries[] | .metric.labels.instance_name as $n | .points[] | select(.value.doubleValue>=0.5) | [$n,.interval.endTime,(.value.doubleValue*100|floor)]|@tsv' | sort -k2
-```
-
-Sanity check that syslog filtering works at all (any server, any apt line):
-```bash
-gcloud logging read 'logName="projects/pg-ae-n-app-125609/logs/syslog" AND textPayload=~"apt-daily|unattended"' --project=$P --freshness=1d --order=asc --limit=10 --format="table(timestamp,labels.\"compute.googleapis.com/resource_name\",textPayload)"
-```
-
-Paste both outputs. The first should show who crossed 60% just before 08:52 and 09:26 UTC.
+cn-frontend-mig-regional-f183   2026-10-06T08:53:00Z    55
+cn-frontend-mig-regional-f183   2026-10-06T09:27:00Z    50
+nikul_sadhu@cloudshell:~$ gcloud logging read 'logName="projects/pg-ae-n-app-125609/logs/syslog" AND textPayload=~"apt-daily|unattended"' --project=$P --freshness=1d --order=asc --limit=10 --format="table(timestamp,labels.\"compute.googleapis.com/resource_name\",textPayload)"
+nikul_sadhu@cloudshell:~$ 
