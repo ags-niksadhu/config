@@ -1,160 +1,31 @@
-nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
-gcloud logging read 'logName:"cloudaudit.googleapis.com%2Factivity" AND resource.type="gce_instance" AND protoPayload.resourceName=~"(cn-staging-ai-staging|cn-frontend-mig-regional-(7nz1|kcc7))"' --project=$P --freshness=1d --order=asc --format="table(timestamp,protoPayload.methodName,protoPayload.authenticationInfo.principalEmail,protoPayload.resourceName.basename())"
-TIMESTAMP: 2026-10-06T08:52:55.185735Z
-METHOD_NAME: v1.compute.instances.insert
-PRINCIPAL_EMAIL: 765297732608@cloudservices.gserviceaccount.com
-RESOURCE_NAME: cn-frontend-mig-regional-7nz1
+**Findings**
+- `cn-staging-ai-staging` was created by your own account (nikul.sadhu@gcp.pwc.com) at 09:57 UTC. ⚠️ It runs as the default compute service account, which breaks the "no default account / no full scope" rule. If it is meant to stay, it needs a dedicated service account and Shielded VM flags. Tell me if you want the change steps.
+- The frontend MIG scaled 1→2 twice, not 1→3 (the earlier pattern). The creators and deleters were all the autoscaler (cloudservices account), not a person or the pipeline.
+  - 7nz1: created 08:52 UTC, deleted 09:11 (about 19 min).
+  - kcc7: created 09:26 UTC, deleted 10:01 (about 34 min). That deletion lines up with the 09:58 UTC rollout replacing it, so it was not a scale-in.
+- The cause of the scale-outs is still unknown. The system_event query returned nothing. Also, `gcloud compute autoscalers` doesn't exist in your gcloud, so use the REST call below.
 
-TIMESTAMP: 2026-10-06T08:53:06.927397Z
-METHOD_NAME: v1.compute.instances.insert
-PRINCIPAL_EMAIL: 765297732608@cloudservices.gserviceaccount.com
-RESOURCE_NAME: cn-frontend-mig-regional-7nz1
+**Diagnostic commands (read-only)**
 
-TIMESTAMP: 2026-10-06T09:11:42.956164Z
-METHOD_NAME: v1.compute.instances.delete
-PRINCIPAL_EMAIL: 765297732608@cloudservices.gserviceaccount.com
-RESOURCE_NAME: cn-frontend-mig-regional-7nz1
+1. Autoscaler state and policy:
+```bash
+P=pg-ae-n-app-125609
+TOKEN=$(gcloud auth print-access-token)
+curl -s -H "Authorization: Bearer $TOKEN" "https://compute.googleapis.com/compute/v1/projects/$P/regions/me-central2/autoscalers/cn-frontend-mig-regional" | jq '{status,statusDetails,autoscalingPolicy}'
+```
+2. CPU of the deleted servers around their scale-out (metrics outlive the instances):
+```bash
+for I in "7nz1 2026-10-06T08:45:00Z 2026-10-06T09:15:00Z" "kcc7 2026-10-06T09:20:00Z 2026-10-06T10:05:00Z"; do set -- $I
+echo "== $1"
+curl -s -G -H "Authorization: Bearer $TOKEN" "https://monitoring.googleapis.com/v3/projects/$P/timeSeries" \
+ --data-urlencode "filter=metric.type=\"compute.googleapis.com/instance/cpu/utilization\" AND metric.labels.instance_name=\"cn-frontend-mig-regional-$1\"" \
+ --data-urlencode "interval.startTime=$2" --data-urlencode "interval.endTime=$3" \
+ | jq -r '.timeSeries[].points[] | [.interval.endTime,(.value.doubleValue*100|floor)]|@tsv' | sort
+done
+```
+3. What the existing server (jzmx) is doing around its boot, and any apt activity on the deleted servers (syslog persists in Cloud Logging):
+```bash
+gcloud logging read 'logName="projects/pg-ae-n-app-125609/logs/syslog" AND labels."compute.googleapis.com/resource_name"=~"cn-frontend-mig-regional-(7nz1|kcc7)" AND textPayload=~"unattended|apt-daily"' --project=$P --freshness=1d --order=asc --limit=30 --format="table(timestamp,labels.\"compute.googleapis.com/resource_name\",textPayload)"
+```
 
-TIMESTAMP: 2026-10-06T09:12:32.911768Z
-METHOD_NAME: v1.compute.instances.delete
-PRINCIPAL_EMAIL: 765297732608@cloudservices.gserviceaccount.com
-RESOURCE_NAME: cn-frontend-mig-regional-7nz1
-
-TIMESTAMP: 2026-10-06T09:26:54.740769Z
-METHOD_NAME: v1.compute.instances.insert
-PRINCIPAL_EMAIL: 765297732608@cloudservices.gserviceaccount.com
-RESOURCE_NAME: cn-frontend-mig-regional-kcc7
-
-TIMESTAMP: 2026-10-06T09:27:07.573241Z
-METHOD_NAME: v1.compute.instances.insert
-PRINCIPAL_EMAIL: 765297732608@cloudservices.gserviceaccount.com
-RESOURCE_NAME: cn-frontend-mig-regional-kcc7
-
-TIMESTAMP: 2026-10-06T09:57:57.820736Z
-METHOD_NAME: beta.compute.instances.insert
-PRINCIPAL_EMAIL: nikul.sadhu@gcp.pwc.com
-RESOURCE_NAME: cn-staging-ai-staging
-
-TIMESTAMP: 2026-10-06T09:58:09.156621Z
-METHOD_NAME: beta.compute.instances.insert
-PRINCIPAL_EMAIL: nikul.sadhu@gcp.pwc.com
-RESOURCE_NAME: cn-staging-ai-staging
-
-TIMESTAMP: 2026-10-06T10:01:17.994523Z
-METHOD_NAME: v1.compute.instances.delete
-PRINCIPAL_EMAIL: 765297732608@cloudservices.gserviceaccount.com
-RESOURCE_NAME: cn-frontend-mig-regional-kcc7
-
-TIMESTAMP: 2026-10-06T10:02:08.337711Z
-METHOD_NAME: v1.compute.instances.delete
-PRINCIPAL_EMAIL: 765297732608@cloudservices.gserviceaccount.com
-RESOURCE_NAME: cn-frontend-mig-regional-kcc7
-nikul_sadhu@cloudshell:~$ gcloud compute instance-groups managed describe cn-frontend-mig-regional --region=me-central2 --project=$P --format="yaml(targetSize,status.autoscaler)"
-gcloud compute autoscalers describe cn-frontend-mig-regional --region=me-central2 --project=$P --format="yaml(status,statusDetails,autoscalingPolicy)"
-status:
-  autoscaler: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-frontend-mig-regional
-targetSize: 1
-ERROR: (gcloud.compute) Invalid choice: 'autoscalers'.
-Maybe you meant:
-  gcloud app describe
-  gcloud compute instances describe
-  gcloud compute instances get-guest-attributes
-  gcloud compute instances get-iam-policy
-  gcloud compute instances get-screenshot
-  gcloud compute instances get-serial-port-output
-  gcloud compute instances get-shielded-identity
-  gcloud compute backend-services describe
-  gcloud compute instance-groups managed describe
-  gcloud compute backend-services get-health
-  gcloud compute accelerator-types
-  gcloud compute addresses
-  gcloud compute advice
-  gcloud compute backend-buckets
-  gcloud compute commitments
-  gcloud compute composite-health-checks
-  gcloud compute config-ssh
-  gcloud compute connect-to-serial-port
-  gcloud compute copy-files
-  gcloud compute diagnose
-  gcloud compute disk-types
-  gcloud compute disks
-  gcloud compute external-vpn-gateways
-  gcloud compute firewall-policies
-  gcloud compute firewall-rules
-  gcloud compute forwarding-rules
-  gcloud compute future-reservations
-  gcloud compute global-vm-extension-policies
-  gcloud compute health-aggregation-policies
-  gcloud compute health-checks
-  gcloud compute health-sources
-  gcloud compute hosts
-  gcloud compute http-health-checks
-  gcloud compute https-health-checks
-  gcloud compute image-views
-  gcloud compute images
-  gcloud compute instance-templates
-  gcloud compute instant-snapshot-groups
-  gcloud compute instant-snapshots
-  gcloud compute interconnects
-  gcloud compute machine-images
-  gcloud compute machine-types
-  gcloud compute managed-rulesets
-  gcloud compute migration
-  gcloud compute network-attachments
-  gcloud compute network-edge-security-services
-  gcloud compute network-endpoint-groups
-  gcloud compute network-firewall-policies
-  gcloud compute network-profiles
-  gcloud compute networks
-  gcloud compute operations
-  gcloud compute org-security-policies
-  gcloud compute os-config
-  gcloud compute os-login
-  gcloud compute packet-mirrorings
-  gcloud compute preview-features
-  gcloud compute project-info
-  gcloud compute project-views
-  gcloud compute project-zonal-metadata
-  gcloud compute public-advertised-prefixes
-  gcloud compute public-delegated-prefixes
-  gcloud compute regions
-  gcloud compute reservations
-  gcloud compute reset-windows-password
-  gcloud compute resource-policies
-  gcloud compute rollout-plans
-  gcloud compute rollouts
-  gcloud compute routers
-  gcloud compute routes
-  gcloud compute scp
-  gcloud compute security-policies
-  gcloud compute service-attachments
-  gcloud compute shared-vpc
-  gcloud compute sign-url
-  gcloud compute snapshot-settings
-  gcloud compute snapshots
-  gcloud compute sole-tenancy
-  gcloud compute ssh
-  gcloud compute ssl-certificates
-  gcloud compute ssl-policies
-  gcloud compute start-iap-tunnel
-  gcloud compute storage-pool-types
-  gcloud compute storage-pools
-  gcloud compute target-grpc-proxies
-  gcloud compute target-http-proxies
-  gcloud compute target-https-proxies
-  gcloud compute target-instances
-  gcloud compute target-pools
-  gcloud compute target-ssl-proxies
-  gcloud compute target-tcp-proxies
-  gcloud compute target-vpn-gateways
-  gcloud compute tpus
-  gcloud compute url-maps
-  gcloud compute vpn-gateways
-  gcloud compute vpn-tunnels
-  gcloud compute zone-vm-extension-policies
-  gcloud compute zones
-
-To search the help text of gcloud commands, run:
-  gcloud help -- SEARCH_TERMS
-nikul_sadhu@cloudshell:~$ gcloud logging read 'logName:"cloudaudit.googleapis.com%2Fsystem_event" AND resource.type="gce_instance_group_manager" AND protoPayload.resourceName:"cn-frontend-mig-regional"' --project=$P --freshness=1d --order=asc --format="table(timestamp,protoPayload.methodName,protoPayload.response.status.message)"
-nikul_sadhu@cloudshell:~$ 
+Paste the outputs and I'll work out the cause.
