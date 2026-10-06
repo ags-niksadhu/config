@@ -1,48 +1,47 @@
-nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
+**Result so far**
+- ✅ Both accounts exist and are enabled.
+- ✅ Bucket binding is correct: `sa-cn-backend` has `roles/storage.objectUser`.
+- ❓ Secret binding is not checked yet. `rg` isn't defined in this Cloud Shell session.
+- ❌ Token Creator and Service Account User can't be read with your account (`getIamPolicy` denied). The build will prove them instead.
 
-# 1. Accounts exist and are enabled
-gcloud iam service-accounts list --project $P --filter="email~sa-cn" --format="table(email,disabled)"
+**1. Re-run the secret check (info command)**
+```bash
+CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER=https://secretmanager.me-central2.rep.googleapis.com/ gcloud secrets get-iam-policy CN_STAGING_DB_HOST --location=me-central2 --project pg-ae-n-app-125609
+```
+Expect `sa-cn-backend` with `roles/secretmanager.secretAccessor`. If this is also denied, skip it, because the backend build covers it.
 
-# 2. Bucket binding (expect sa-cn-backend with Storage Object User)
-gcloud storage buckets get-iam-policy gs://cn-staging-pg-ae-n-app-125609 --format=json | grep -B3 -A3 sa-cn
+**2. Test by building. This is safe.**
+If the account is missing a permission, the build fails at the Packer or create-template step, before the MIG rollout, so running servers are untouched. Nothing is deployed until the build goes green.
 
-# 3. Secret binding on one regional secret (uses your rg helper)
-rg gcloud secrets get-iam-policy CN_STAGING_DB_HOST --location=me-central2 --project $P
+Apply the two edits from my last message (`--service-account=` in `cloudbuild.yaml` and `service_account_email` in the Packer source block). Push the **backend first**, since it tests secrets, bucket and logging.
 
-# 4. Self token-creator binding (needed for getSignedUrl)
-gcloud iam service-accounts get-iam-policy sa-cn-backend@$P.iam.gserviceaccount.com --project $P
+| Build failure | Missing permission |
+|---|---|
+| Packer step: `iam.serviceAccounts.actAs` denied | Cloud Build account lacks Service Account User on that account |
+| Packer health check fails with a secret `PERMISSION_DENIED` | Secret Accessor missing on one or more `CN_STAGING_*` secrets |
+| Create-template step: `actAs` denied | Same as the first row |
 
-# 5. Cloud Build account can attach them
-gcloud iam service-accounts get-iam-policy sa-cn-frontend@$P.iam.gserviceaccount.com --project $P
-EMAIL: sa-cn-frontend@pg-ae-n-app-125609.iam.gserviceaccount.com
-DISABLED: False
+If it fails, paste the Cloud Build log lines. I won't guess which permission is missing.
 
-EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
-DISABLED: False
-    },
-    {
-      "members": [
-        "serviceAccount:sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com"
-      ],
-      "role": "roles/storage.objectUser"
-    },
--bash: rg: command not found
-ERROR: (gcloud.iam.service-accounts.get-iam-policy) PERMISSION_DENIED: Permission 'iam.serviceAccounts.getIamPolicy' denied on resource '//iam.googleapis.com/projects/-/serviceAccounts/109413487176354590213' (or it may not exist). Remediate access with this Troubleshooter URL or share it with your administrator - https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMWExMGZlNC1mMDgzLTcyYzAtOTIzMi1mZmFmYTA1Y2RmMmQSMHByb2plY3RzLy0vc2VydmljZUFjY291bnRzLzEwOTQxMzQ4NzE3NjM1NDU5MDIxMw%3D%3D . This command is authenticated as nikul.sadhu@gcp.pwc.com which is the active account specified by the [core/account] property.
-- '@type': type.googleapis.com/google.rpc.ErrorInfo
-  domain: iam.googleapis.com
-  metadata:
-    error_info_id: CiQwMWExMGZlNC1mMDgzLTcyYzAtOTIzMi1mZmFmYTA1Y2RmMmQSMHByb2plY3RzLy0vc2VydmljZUFjY291bnRzLzEwOTQxMzQ4NzE3NjM1NDU5MDIxMw==
-    permission: iam.serviceAccounts.getIamPolicy
-    resource: projects/-/serviceAccounts/109413487176354590213
-    troubleshooter_url: https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMWExMGZlNC1mMDgzLTcyYzAtOTIzMi1mZmFmYTA1Y2RmMmQSMHByb2plY3RzLy0vc2VydmljZUFjY291bnRzLzEwOTQxMzQ4NzE3NjM1NDU5MDIxMw%3D%3D
-  reason: IAM_PERMISSION_DENIED
-ERROR: (gcloud.iam.service-accounts.get-iam-policy) PERMISSION_DENIED: Permission 'iam.serviceAccounts.getIamPolicy' denied on resource '//iam.googleapis.com/projects/-/serviceAccounts/108525679980566196352' (or it may not exist). Remediate access with this Troubleshooter URL or share it with your administrator - https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMWExMGZlNC1mYjExLTdlNzUtOGRkZS0yN2U1YTgxM2E2MzMSMHByb2plY3RzLy0vc2VydmljZUFjY291bnRzLzEwODUyNTY3OTk4MDU2NjE5NjM1Mg%3D%3D . This command is authenticated as nikul.sadhu@gcp.pwc.com which is the active account specified by the [core/account] property.
-- '@type': type.googleapis.com/google.rpc.ErrorInfo
-  domain: iam.googleapis.com
-  metadata:
-    error_info_id: CiQwMWExMGZlNC1mYjExLTdlNzUtOGRkZS0yN2U1YTgxM2E2MzMSMHByb2plY3RzLy0vc2VydmljZUFjY291bnRzLzEwODUyNTY3OTk4MDU2NjE5NjM1Mg==
-    permission: iam.serviceAccounts.getIamPolicy
-    resource: projects/-/serviceAccounts/108525679980566196352
-    troubleshooter_url: https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMWExMGZlNC1mYjExLTdlNzUtOGRkZS0yN2U1YTgxM2E2MzMSMHByb2plY3RzLy0vc2VydmljZUFjY291bnRzLzEwODUyNTY3OTk4MDU2NjE5NjM1Mg%3D%3D
-  reason: IAM_PERMISSION_DENIED
-nikul_sadhu@cloudshell:~$ 
+**3. After the backend goes green (info commands)**
+```bash
+P=pg-ae-n-app-125609
+gcloud compute instances list --project $P --filter="name~cn-backend-mig" --format="table(name,zone.basename(),serviceAccounts[0].email)"
+curl -s -o /dev/null -w "%{http_code}\n" https://stagingapi.careerdevelopmentnavigator.mer.pwc.com/health
+```
+Then, from a new MIG server, test Token Creator, which the build can't cover (signed URLs):
+```bash
+echo test | gcloud iam service-accounts sign-blob /dev/stdin /tmp/sig.out --iam-account=sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
+```
+`signature` or `signedBlob` in the output means it works. A `PERMISSION_DENIED` means Token Creator on itself is missing, which needs a one-line admin ask.
+
+Also confirm in Logs Explorer that `backend_pm2_out` and `backend_apache_access` still arrive from the new servers. That proves Logs Writer works.
+
+**4. Frontend**
+Push it after the backend is verified. It only needs logging, so the same checks apply minus secrets and the sign-blob test.
+
+**Rollback:** ⚠️ If the deployed servers misbehave, go to Console → Compute Engine → Instance groups → `cn-backend-mig-regional` → Rolling update, and pick the previous template. Note its name before pushing.
+
+**5. Stopped VMs:** do these last, in the Console, as in my earlier message.
+
+Paste the result of step 1 and the build outcome.
