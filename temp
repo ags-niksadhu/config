@@ -1,23 +1,41 @@
-Yes, this works from the command line. ⚠️ It only adds access, so there is no downtime. Your account likely can't edit IAM (`getIamPolicy` was denied earlier), so run it as an admin, or send the block to one.
+Good. Next is confirming the new servers actually run as the new accounts and work. Run these in Cloud Shell (info only) and paste the output.
 
 ```bash
 export P=pg-ae-n-app-125609
-export CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER=https://secretmanager.me-central2.rep.googleapis.com/
 
-for s in DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD REDIS_HOST REDIS_PORT REDIS_PASSWORD MAIL_DRIVER MAIL_HOST MAIL_PORT MAIL_USERNAME MAIL_PASSWORD MAIL_FROM_ADDRESS MAIL_FROM_NAME EMAIL_SENDING_ENABLED GCP_BUCKET GCP_FILE_PATH; do
-  echo "== CN_STAGING_$s"
-  gcloud secrets add-iam-policy-binding CN_STAGING_$s \
-    --location=me-central2 --project=$P \
-    --member="serviceAccount:sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com" \
-    --role="roles/secretmanager.secretAccessor" \
-    --condition=None --quiet >/dev/null && echo OK
-done
+# 1. Template service account (backend and frontend)
+gcloud compute instance-templates list --project $P --format="table(name,properties.serviceAccounts[0].email,creationTimestamp)" --sort-by=~creationTimestamp --limit=6
+
+# 2. Running MIG instances and their service accounts
+gcloud compute instances list --project $P --filter="name~cn-backend-mig OR name~cn-frontend-mig" --format="table(name,zone.basename(),status,serviceAccounts[0].email)"
+
+# 3. Are the MIGs fully on the new template?
+gcloud compute instance-groups managed list-instances cn-backend-mig-regional --region me-central2 --project $P
+gcloud compute instance-groups managed list-instances cn-frontend-mig-regional --region me-central2 --project $P
+
+# 4. Backend health
+curl -s -o /dev/null -w "%{http_code}\n" https://stagingapi.careerdevelopmentnavigator.mer.pwc.com/health
 ```
 
-**Verify.** Re-run the check loop from my last message. All 18 should print `1`.
+**Expect:**
+- The newest templates and the running instances show `sa-cn-backend` or `sa-cn-frontend`, matching their role.
+- Every instance is `RUNNING`, with the current action `NONE` and the new template.
+- `/health` returns `200`.
 
-**If it fails with `PERMISSION_DENIED`:** your account lacks `secretmanager.secrets.setIamPolicy`. Send the block above to the admin who created the service accounts.
+**Functional checks**
+- **Signed URLs (Token Creator).** SSH into one new backend instance and run:
+  ```bash
+  echo test | gcloud iam service-accounts sign-blob /dev/stdin /tmp/sig.out --iam-account=sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com && echo OK
+  ```
+  A `PERMISSION_DENIED` means Token Creator on itself is missing, which an admin must add. Also test one upload/download in the app.
+- **Logging (Logs Writer).** In Logs Explorer, confirm that `backend_pm2_out` and `backend_apache_access` have new entries from the new instance names, and the same for frontend.
 
-**Rollback:** replace `add-iam-policy-binding` with `remove-iam-policy-binding` in the same loop, keeping the other flags.
+**Stopped VMs (⚠️ GUI, no downtime since they're stopped):**
+1. Console → Compute Engine → VM instances → `cn-staging-backapp-vm-01` → Edit → Service account → `sa-cn-backend` → Save.
+2. Repeat for `cn-staging-frontapp-vm-01` with `sa-cn-frontend`.
 
-After all 18 show `1`, re-run the backend build.
+Don't start these VMs unless needed. Once started, they will read the regional secrets too.
+
+**Cleanup check:** the old default-compute-account template is no longer used. The cleanup step is still `DRY_RUN=1`, so keep the previous template until the new servers have run stable for a day.
+
+Paste the outputs and the sign-blob result, and I'll confirm everything is done.
