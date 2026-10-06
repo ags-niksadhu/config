@@ -1,7 +1,4 @@
-**Step 1: Verify (read-only). Paste the outputs.**
-
-```bash
-P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
 
 # 1. Accounts exist and are enabled
 gcloud iam service-accounts list --project $P --filter="email~sa-cn" --format="table(email,disabled)"
@@ -17,41 +14,35 @@ gcloud iam service-accounts get-iam-policy sa-cn-backend@$P.iam.gserviceaccount.
 
 # 5. Cloud Build account can attach them
 gcloud iam service-accounts get-iam-policy sa-cn-frontend@$P.iam.gserviceaccount.com --project $P
-```
+EMAIL: sa-cn-frontend@pg-ae-n-app-125609.iam.gserviceaccount.com
+DISABLED: False
 
-Project-level roles (Logs Writer, Monitoring Metric Writer) can't be read with your account. The real proof is the Packer build, because it starts the app on the build VM, which must read the regional secrets and answer `/health`.
-
-**Step 2: Assign (after the outputs look right). Frontend first, since it only needs logging.**
-
-Add to both repos:
-
-- `cloudbuild.yaml`, create-template step. Use `sa-cn-frontend` in the frontend repo:
-```
---service-account=sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
-```
-- Packer source block. Use `sa-cn-frontend` in the frontend repo:
-```
-service_account_email = "sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com"
-```
-Keep `--scopes=cloud-platform`. IAM roles are the real limit, so the scope doesn't widen anything. Compliance may query the scope separately.
-
-Push frontend to `staging`, verify, then push backend.
-
-**Verify after each deploy:**
-```bash
-gcloud compute instances list --project $P --filter="name~cn-backend-mig" --format="table(name,zone.basename(),serviceAccounts[0].email)"
-gcloud compute instance-groups managed list-instances cn-backend-mig-regional --region me-central2 --project $P
-curl -s -o /dev/null -w "%{http_code}\n" https://stagingapi.careerdevelopmentnavigator.mer.pwc.com/health
-```
-Also check:
-- Logs Explorer: `backend_pm2_out` and `backend_apache_access` still arriving from the new servers.
-- Test one upload/download and one signed-URL feature in the app.
-
-**Rollback:** ⚠️ If the new servers fail, Console → Compute Engine → Instance groups → `cn-backend-mig-regional` → Rolling update → select the previous template (the one running now, so note its name before pushing). Do not pick older templates, since their images may be deleted.
-
-**Step 3: The two stopped standalone VMs (GUI, no downtime since they're stopped):**
-Compute Engine → VM instances → `cn-staging-backapp-vm-01` → Edit → Service account → `sa-cn-backend` → Save. Repeat for `cn-staging-frontapp-vm-01` with `sa-cn-frontend`.
-
-**Cost:** none new.
-
-Send the five outputs and I'll confirm before you push.
+EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
+DISABLED: False
+    },
+    {
+      "members": [
+        "serviceAccount:sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com"
+      ],
+      "role": "roles/storage.objectUser"
+    },
+-bash: rg: command not found
+ERROR: (gcloud.iam.service-accounts.get-iam-policy) PERMISSION_DENIED: Permission 'iam.serviceAccounts.getIamPolicy' denied on resource '//iam.googleapis.com/projects/-/serviceAccounts/109413487176354590213' (or it may not exist). Remediate access with this Troubleshooter URL or share it with your administrator - https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMWExMGZlNC1mMDgzLTcyYzAtOTIzMi1mZmFmYTA1Y2RmMmQSMHByb2plY3RzLy0vc2VydmljZUFjY291bnRzLzEwOTQxMzQ4NzE3NjM1NDU5MDIxMw%3D%3D . This command is authenticated as nikul.sadhu@gcp.pwc.com which is the active account specified by the [core/account] property.
+- '@type': type.googleapis.com/google.rpc.ErrorInfo
+  domain: iam.googleapis.com
+  metadata:
+    error_info_id: CiQwMWExMGZlNC1mMDgzLTcyYzAtOTIzMi1mZmFmYTA1Y2RmMmQSMHByb2plY3RzLy0vc2VydmljZUFjY291bnRzLzEwOTQxMzQ4NzE3NjM1NDU5MDIxMw==
+    permission: iam.serviceAccounts.getIamPolicy
+    resource: projects/-/serviceAccounts/109413487176354590213
+    troubleshooter_url: https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMWExMGZlNC1mMDgzLTcyYzAtOTIzMi1mZmFmYTA1Y2RmMmQSMHByb2plY3RzLy0vc2VydmljZUFjY291bnRzLzEwOTQxMzQ4NzE3NjM1NDU5MDIxMw%3D%3D
+  reason: IAM_PERMISSION_DENIED
+ERROR: (gcloud.iam.service-accounts.get-iam-policy) PERMISSION_DENIED: Permission 'iam.serviceAccounts.getIamPolicy' denied on resource '//iam.googleapis.com/projects/-/serviceAccounts/108525679980566196352' (or it may not exist). Remediate access with this Troubleshooter URL or share it with your administrator - https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMWExMGZlNC1mYjExLTdlNzUtOGRkZS0yN2U1YTgxM2E2MzMSMHByb2plY3RzLy0vc2VydmljZUFjY291bnRzLzEwODUyNTY3OTk4MDU2NjE5NjM1Mg%3D%3D . This command is authenticated as nikul.sadhu@gcp.pwc.com which is the active account specified by the [core/account] property.
+- '@type': type.googleapis.com/google.rpc.ErrorInfo
+  domain: iam.googleapis.com
+  metadata:
+    error_info_id: CiQwMWExMGZlNC1mYjExLTdlNzUtOGRkZS0yN2U1YTgxM2E2MzMSMHByb2plY3RzLy0vc2VydmljZUFjY291bnRzLzEwODUyNTY3OTk4MDU2NjE5NjM1Mg==
+    permission: iam.serviceAccounts.getIamPolicy
+    resource: projects/-/serviceAccounts/108525679980566196352
+    troubleshooter_url: https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMWExMGZlNC1mYjExLTdlNzUtOGRkZS0yN2U1YTgxM2E2MzMSMHByb2plY3RzLy0vc2VydmljZUFjY291bnRzLzEwODUyNTY3OTk4MDU2NjE5NjM1Mg%3D%3D
+  reason: IAM_PERMISSION_DENIED
+nikul_sadhu@cloudshell:~$ 
