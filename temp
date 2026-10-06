@@ -1,173 +1,43 @@
-nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
-gcloud compute instances describe cn-staging-ai-staging --zone me-central2-a --project=$P --format="yaml(machineType,serviceAccounts,shieldedInstanceConfig,networkInterfaces[0].accessConfigs,guestAccelerators,labels)"
-machineType: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-a/machineTypes/e2-medium
-serviceAccounts:
-- email: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
-  scopes:
-  - https://www.googleapis.com/auth/devstorage.read_only
-  - https://www.googleapis.com/auth/logging.write
-  - https://www.googleapis.com/auth/monitoring.write
-  - https://www.googleapis.com/auth/service.management.readonly
-  - https://www.googleapis.com/auth/servicecontrol
-  - https://www.googleapis.com/auth/trace.append
-shieldedInstanceConfig:
-  enableIntegrityMonitoring: true
-  enableSecureBoot: true
-  enableVtpm: true
-nikul_sadhu@cloudshell:~$ gcloud compute instances list --project=$P --filter="name~cn-" --format="table(name,serviceAccounts[0].email,serviceAccounts[0].scopes.list())"
-NAME: cn-backend-mig-regional-05vr
-EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
-SCOPES: https://www.googleapis.com/auth/cloud-platform
+Memory is updated. Here is what your outputs show.
 
-NAME: cn-frontend-mig-regional-jzmx
-EMAIL: sa-cn-frontend@pg-ae-n-app-125609.iam.gserviceaccount.com
-SCOPES: https://www.googleapis.com/auth/cloud-platform
+## `cn-staging-ai-staging`: my earlier note was out of date
 
-NAME: cn-staging-ai-staging
-EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
-SCOPES: https://www.googleapis.com/auth/devstorage.read_only,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/trace.append
-nikul_sadhu@cloudshell:~$ gcloud compute instance-templates list --project=$P --format="table(name,region.basename(),properties.serviceAccounts[0].email,creationTimestamp.date())" --sort-by=creationTimestamp
-NAME: cnstagingbackend-instance-template-22-sept-2026-v2
-REGION: me-central2
-EMAIL: 765297732608-compute@developer.gserviceaccount.com
-CREATION_TIMESTAMP: 2026-09-25T02:05:55
+It now runs as **sa-cn-backend** (e2-medium, no GPU, Shielded VM on, no external IP, narrow scopes), not the default account.
+- ⚠️ That is the backend's identity, which can read every CN_STAGING_* secret. A test VM shouldn't hold it.
+- Vertex AI calls need the cloud-platform scope, and your VM's narrow scopes don't allow them. The shortcut would be to widen sa-cn-backend, which gives the test VM full secret access.
 
-NAME: clean-ubuntu-26092026
-REGION: me-central2
-EMAIL: 765297732608-compute@developer.gserviceaccount.com
-CREATION_TIMESTAMP: 2026-09-26T00:26:03
+| Option | Cost | Complexity | Downtime |
+|---|---|---|---|
+| A. Delete after the test | None | None | None |
+| B. New SA, aiplatform.user only | Same VM cost | Admin ticket | ⚠️ restart (test VM only) |
 
-NAME: cn-frontend-template-b0ad954
-REGION: me-central2
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-04T11:58:43
+**Recommendation:** B if it lives more than a few days, otherwise A. Steps for B are in my last message, with the VM's current account switched to the new one.
 
-NAME: cn-frontend-template-7696009
-REGION: me-central2
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-04T12:14:08
+## #4 Templates: only 4 of the 27 are safe to keep
 
-NAME: cn-backend-template-054eefc
-REGION: me-central2
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-04T12:29:50
+- **Default-account templates (16 pipeline + 2 manual):** frontend b0ad954, 7696009, 13633c6, 0ae7410, 70499c9, 13bcacb, 3255267, 809b228, ee22731. Backend 054eefc, 53262df, ffc8a89, bd3b2bb, 6a5ff7e, b5141a9, 3aaffe9. Manual: clean-ubuntu-26092026 and cnstagingbackend-instance-template-22-sept-2026-v2.
+- **sa-cn-backend templates (8):** 98b9081, a62c29d, b0288db, 9bf4fed, 4dbdd20, 6532834, 8f5b2a1, 36689c0.
+- **sa-cn-frontend templates (1):** a81eb16.
+- **The cleanup script alone won't fix this.** With KEEP=5, the frontend would keep 4 default-account templates as rollback targets until 5 new frontend builds exist.
 
-NAME: cn-backend-template-53262df
-REGION: me-central2
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-04T13:31:42
+**Recommendation:** delete the 18 default-account templates by hand (Console: Compute Engine → Instance templates → tick → **Delete**). GCP refuses to delete a template a MIG still uses, which is a safety net.
+- ⚠️ This is irreversible and leaves one frontend rollback target (a81eb16). After that, rolling back the frontend means rebuilding from git.
+- Check first that no MIG points at any of them:
+```bash
+P=pg-ae-n-app-125609
+for M in cn-backend-mig-regional cn-frontend-mig-regional; do echo $M; gcloud compute instance-groups managed describe $M --region=me-central2 --project=$P --format="value(versions[].instanceTemplate.basename())"; done
+```
+- Flip `DRY_RUN` to 0 only after you paste me the dry-run candidate lines from the latest build log.
 
-NAME: cn-frontend-template-13633c6
-REGION: me-central2
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-04T13:40:01
+## #5 Logging results
 
-NAME: cn-frontend-template-0ae7410
-REGION: me-central2
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-04T13:40:02
-
-NAME: cn-frontend-template-70499c9
-REGION: me-central2
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-04T22:52:29
-
-NAME: cn-backend-template-ffc8a89
-REGION: me-central2
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-04T22:53:03
-
-NAME: cn-frontend-template-13bcacb
-REGION: me-central2
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-04T23:38:02
-
-NAME: cn-backend-template-bd3b2bb
-REGION: me-central2
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-04T23:39:39
-
-NAME: cn-frontend-template-3255267
-REGION: me-central2
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-05T00:34:26
-
-NAME: cn-frontend-template-809b228
-REGION: me-central2
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-05T02:39:02
-
-NAME: cn-backend-template-6a5ff7e
-REGION: me-central2
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-05T02:40:35
-
-NAME: cn-frontend-template-ee22731
-REGION: me-central2
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-05T03:31:18
-
-NAME: cn-backend-template-b5141a9
-REGION: me-central2
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-05T03:32:09
-
-NAME: cn-backend-template-3aaffe9
-REGION: me-central2
-EMAIL: default
-CREATION_TIMESTAMP: 2026-10-05T03:53:02
-
-NAME: cn-backend-template-98b9081
-REGION: me-central2
-EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
-CREATION_TIMESTAMP: 2026-10-05T23:43:29
-
-NAME: cn-backend-template-a62c29d
-REGION: me-central2
-EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
-CREATION_TIMESTAMP: 2026-10-06T02:40:44
-
-NAME: cn-frontend-template-a81eb16
-REGION: me-central2
-EMAIL: sa-cn-frontend@pg-ae-n-app-125609.iam.gserviceaccount.com
-CREATION_TIMESTAMP: 2026-10-06T02:58:23
-
-NAME: cn-backend-template-b0288db
-REGION: me-central2
-EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
-CREATION_TIMESTAMP: 2026-10-06T04:32:59
-
-NAME: cn-backend-template-9bf4fed
-REGION: me-central2
-EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
-CREATION_TIMESTAMP: 2026-10-06T04:33:02
-
-NAME: cn-backend-template-4dbdd20
-REGION: me-central2
-EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
-CREATION_TIMESTAMP: 2026-10-06T04:48:46
-
-NAME: cn-backend-template-6532834
-REGION: me-central2
-EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
-CREATION_TIMESTAMP: 2026-10-06T05:25:40
-
-NAME: cn-backend-template-8f5b2a1
-REGION: me-central2
-EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
-CREATION_TIMESTAMP: 2026-10-06T06:17:39
-
-NAME: cn-backend-template-36689c0
-REGION: me-central2
-EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
-CREATION_TIMESTAMP: 2026-10-06T06:41:24
-nikul_sadhu@cloudshell:~$ gcloud logging buckets describe _Default --location=global --project=$P --format="value(retentionDays)"
-180
-nikul_sadhu@cloudshell:~$ gcloud compute networks subnets describe default --region=me-central2 --project=$P --format="yaml(enableFlowLogs,logConfig)"
-
-  null
-nikul_sadhu@cloudshell:~$ gcloud logging read 'logName:"cloudaudit.googleapis.com%2Fdata_access"' --project=$P --freshness=7d --limit=3 --format="value(timestamp,protoPayload.serviceName)"
-nikul_sadhu@cloudshell:~$ gcloud logging read 'logName:"backend_pm2_out" AND (textPayload:"DDDDDD" OR jsonPayload.message:"DDDDDD")' --project=$P --freshness=7d --limit=5 --format="value(timestamp)"
-nikul_sadhu@cloudshell:~$ gcloud logging read 'logName:"backend_pm2_out" AND jsonPayload.message:"Body :"' --project=$P --freshness=1d --limit=1000 --format="value(timestamp)" | wc -l
-1000
-nikul_sadhu@cloudshell:~$ 
+- **5a Retention: closed.** `_Default` reads 180 days.
+- **5b Flow logs: still off** (`logConfig` null). Needs an admin and brings new cost, as in my last message.
+- **5c Data Access: still unconfirmed.** No entries in 7 days despite today's secret reads, which is consistent with it being off. Needs an admin.
+- **5d DDDDDD: no hits in 7 days in `backend_pm2_out`.** I can't see the pm2 error log, and the code may still exist, so dev team confirmation stays open.
+- **5e Body logging: active.** The query hit its 1000 cap in one day. Check whether sensitive fields appear (counts only, nothing printed):
+```bash
+for K in password token otp email; do echo -n "$K: "; gcloud logging read "logName:\"backend_pm2_out\" AND jsonPayload.message:\"Body :\" AND jsonPayload.message:\"$K\"" --project=$P --freshness=1d --limit=1000 --format="value(timestamp)" | wc -l; done
+```
+Send me those counts. If they're high, this one should go to the dev team as urgent. The sensitive entries stay in logs for 180 days.
+- **5f SECRET_KEY "abc": waiting on the dev team.**
