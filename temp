@@ -1,32 +1,107 @@
-I still don't know `SECRET_LOCATION`, because the `ecosystem.config.js` output wasn't in your paste. Instead of guessing, this script reads those settings from `ecosystem.config.js`, calls the app's own `loadSecrets()` and runs `migration:show` in the same process. It's read-only. It uses the VM's `sa-cn-backend` identity, writes no secrets to disk and prints no values.
-
-```bash
-cat > /tmp/mig.js <<'EOF'
-const path = '/var/www/careernavigator-backend';
-process.chdir(path);
-const app = require(path + '/ecosystem.config.js').apps[0];
-const e = { ...(app.env || {}), ...(app.env_staging || {}) };
-for (const k of ['GCP_PROJECT_ID', 'SECRET_PREFIX', 'SECRET_LOCATION']) {
-  if (e[k] !== undefined) process.env[k] = String(e[k]);
-}
-process.env.NODE_ENV = 'staging';
-console.log('location =', process.env.SECRET_LOCATION || '(global)', '| prefix =', process.env.SECRET_PREFIX || '(default)');
-const { loadSecrets } = require(path + '/dist/common/config/secret-manager.js');
-loadSecrets().then(() => {
-  const r = require('child_process').spawnSync(
-    path + '/node_modules/.bin/typeorm',
-    ['migration:show', '-d', 'dist/data-source.js'],
-    { stdio: 'inherit', env: process.env });
-  process.exit(r.status ?? 1);
-}).catch((err) => { console.error(err.message); process.exit(1); });
-EOF
-node /tmp/mig.js; rm -f /tmp/mig.js
-```
-
-**What the result tells us:**
-- **Migration list with `[X]` / `[ ]`:** it connected. `[ ]` entries are pending, and we go to the backup step, then `migration:run`.
-- **`Cannot read properties of undefined`:** `ecosystem.config.js` has a different structure. Paste `grep -nE "SECRET_|GCP_PROJECT|env" ecosystem.config.js`.
-- **`PERMISSION_DENIED` or `NOT_FOUND` on a secret:** the location or prefix is wrong, or `sa-cn-backend` lacks `secretAccessor` on it. Paste the error line, which shows only secret names.
-- **`ETIMEDOUT` or `ECONNREFUSED` on a non-127.0.0.1 address:** the secrets loaded but the VM can't reach the DB. I'll ask for the Cloud SQL network settings.
-
-Paste the output, but don't include any secret values.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$ cat > /tmp/mig.js <<'EOF'
+> const path = '/var/www/careernavigator-backend';
+> process.chdir(path);
+> const app = require(path + '/ecosystem.config.js').apps[0];
+> const e = { ...(app.env || {}), ...(app.env_staging || {}) };
+> for (const k of ['GCP_PROJECT_ID', 'SECRET_PREFIX', 'SECRET_LOCATION']) {
+>   if (e[k] !== undefined) process.env[k] = String(e[k]);
+> }
+> process.env.NODE_ENV = 'staging';
+> console.log('location =', process.env.SECRET_LOCATION || '(global)', '| prefix =', process.env.SECRET_PREFIX || '(default)');
+> const { loadSecrets } = require(path + '/dist/common/config/secret-manager.js');
+> loadSecrets().then(() => {
+>   const r = require('child_process').spawnSync(
+>     path + '/node_modules/.bin/typeorm',
+>     ['migration:show', '-d', 'dist/data-source.js'],
+>     { stdio: 'inherit', env: process.env });
+>   process.exit(r.status ?? 1);
+> }).catch((err) => { console.error(err.message); process.exit(1); });
+> EOF
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$ node /tmp/mig.js; rm -f /tmp/mig.js
+location = me-central2 | prefix = (default)
+****************************
+staging
+****************************
+[X] 1 Migrations1756903225342
+[X] 2 Migrations1756970971687
+[X] 3 RoleSeeder1756971505253
+[X] 4 SuperSuperAdminSeeder1756972245469
+[X] 5 Migrations1757069962966
+[X] 6 Migrations1757406118530
+[X] 7 Migrations1757509881586
+[X] 8 Migrations1757587539988
+[X] 9 Migrations1758625242345
+[X] 10 Migrations1758701947258
+[X] 11 Migrations1758789128343
+[X] 12 Migrations1758806035553
+[X] 13 Migrations1758893100969
+[X] 14 Migrations1759232750406
+[X] 15 Migrations1759235718720
+[X] 16 Migrations1759302869206
+[X] 17 Migrations1759408545691
+[X] 18 Migrations1760598053943
+[X] 20 Migrations1760698261512
+[X] 22 Migrations1761544000061
+[X] 23 Migrations1761629824568
+[X] 24 Migrations1761829853931
+[X] 25 Migrations1761890195710
+[X] 26 Migrations1762233490893
+[X] 27 Migrations1762234804037
+[X] 28 Migrations1762321942703
+[X] 29 Migrations1762339530777
+[X] 30 Migrations1762340821190
+[X] 32 Migrations1762423720061
+[X] 34 Migrations1762850172416
+[X] 36 Migrations1763108076922
+[X] 37 Migrations1763109345471
+[X] 38 Migrations1763125258744
+[X] 39 Migrations1763127616580
+[X] 40 Migrations1763446568947
+[X] 41 Migrations1763452369878
+[X] 42 Migrations1763532058235
+[X] 43 Migrations1763552584594
+[X] 45 RoleCategoryEmploymentSeeder1763552584596
+[X] 46 Migrations1763962399793
+[X] 47 Migrations1764050079723
+[X] 48 Migrations1764134975795
+[X] 49 Migrations1764152397349
+[X] 50 Migrations1764326057059
+[X] 51 Migrations1764398915466
+[X] 55 Migrations1764410857595
+[X] 56 Migrations1764412047584
+[X] 57 Migrations1764738912813
+[X] 58 Migrations1764740323775
+[X] 65 Migrations1764740720358
+[X] 66 Migrations1764746818526
+[X] 67 Migrations1764760153204
+[X] 68 Migrations1764843479399
+[X] 69 Migrations1765188880468
+[X] 70 Migrations1765189007789
+[X] 71 Migrations1765264574560
+[X] 72 Migrations1765277749294
+[X] 73 Migrations1765344661309
+[X] 74 Migrations1765354787231
+[X] 75 Migrations1765360571707
+[X] 76 Migrations1765360969934
+[X] 77 Migrations1765361185174
+[X] 78 PermissionSeeder1765361185175
+[X] 79 Migrations1766124569927
+[X] 80 Migrations1766142899006
+[X] 82 Migrations1766381281238
+[X] 83 Migrations1767100852084
+[X] 84 Migrations1767182175148
+[X] 85 Migrations1767349286476
+[X] 86 Migrations1767770287409
+[X] 87 Migrations1768196840123
+[X] 88 Migrations1769167936548
+[X] 89 Migrations1769769244335
+[X] 90 Migrations1771235808882
+[X] 91 Migrations1771242045337
+[X] 92 Migrations1776174227116
+[X] 93 Migrations1776174424123
+[X] 94 Migrations1776250219239
+[X] 95 Migrations1776258954758
+[X] 96 Migrations1776775003044
+[X] 98 Migrations1776775003045
+[ ] Migrations1791285240484
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$
