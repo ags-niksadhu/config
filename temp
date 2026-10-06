@@ -1,73 +1,27 @@
-Creating directory '/home/nikul_sadhu_gcp_pwc_com'.
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-f183:~$ P=pg-ae-n-app-125609
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-f183:~$
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-f183:~$ # 1. In the backend repo: confirm the edit is in the pushed commit
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-f183:~$ grep -n "service_account_email" packer/*.pkr.hcl
-grep: packer/*.pkr.hcl: No such file or directory
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-f183:~$ git log -1 --stat
-fatal: not a git repository (or any of the parent directories): .git
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-f183:~$
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-f183:~$ # 2. Which regional CN_STAGING_* secrets have sa-cn-backend (count 1 = yes, 0 = no)
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-f183:~$ for s in $(gcloud secrets list --location=me-central2 --project $P --filter="name~CN_STAGING_" --format="value(name.basename())"); do
->   echo -n "$s: "
->   gcloud secrets get-iam-policy $s --location=me-central2 --project $P --format="value(bindings.members)" | grep -c sa-cn-backend
-> done
+Both failures are my command mistakes, not infra problems.
 
-ERROR: (gcloud.secrets.list) INVALID_ARGUMENT: The provided Project ID [projects/pg-ae-n-app-125609/locations/me-central2] does not match the expected format [projects/*]
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-f183:~$
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-f183:~$ # 3. Full policy on one secret, to see which roles and members are bound
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-f183:~$ gcloud secrets get-iam-policy CN_STAGING_DB_HOST --location=me-central2 --project $P
-ERROR: (gcloud.secrets.get-iam-policy) INVALID_ARGUMENT: The provided Secret ID [projects/pg-ae-n-app-125609/locations/me-central2/secrets/CN_STAGING_DB_HOST] does not match the expected format [projects/*/secrets/*]
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-f183:~$
+1. **Secret errors:** regional secrets need the regional endpoint. I left out the override I gave you earlier.
+2. **grep/git errors:** Cloud Shell has no repo checkout, so those two commands can't run there.
 
+**Run in Cloud Shell (info only):**
+```bash
+export P=pg-ae-n-app-125609
+export CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER=https://secretmanager.me-central2.rep.googleapis.com/
 
-
-
-
-
-
-
-
-
-
-
-nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
-
-# 1. In the backend repo: confirm the edit is in the pushed commit
-grep -n "service_account_email" packer/*.pkr.hcl
-git log -1 --stat
-
-# 2. Which regional CN_STAGING_* secrets have sa-cn-backend (count 1 = yes, 0 = no)
+# 1. Which CN_STAGING_* secrets have sa-cn-backend (1 = yes, 0 = no)
 for s in $(gcloud secrets list --location=me-central2 --project $P --filter="name~CN_STAGING_" --format="value(name.basename())"); do
   echo -n "$s: "
   gcloud secrets get-iam-policy $s --location=me-central2 --project $P --format="value(bindings.members)" | grep -c sa-cn-backend
 done
 
-# 3. Full policy on one secret, to see which roles and members are bound
+# 2. Full policy on one secret
 gcloud secrets get-iam-policy CN_STAGING_DB_HOST --location=me-central2 --project $P
-grep: packer/*.pkr.hcl: No such file or directory
-fatal: not a git repository (or any parent up to mount point /)
-Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
-ERROR: (gcloud.secrets.list) INVALID_ARGUMENT: The provided Project ID [projects/pg-ae-n-app-125609/locations/me-central2] does not match the expected format [projects/*]
-ERROR: (gcloud.secrets.get-iam-policy) INVALID_ARGUMENT: The provided Secret ID [projects/pg-ae-n-app-125609/locations/me-central2/secrets/CN_STAGING_DB_HOST] does not match the expected format [projects/*/secrets/*]
-nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
+```
+Note: the loop is not an exact mirror of the app. The app's keys are `DB_HOST`, `REDIS_HOST`, and so on, and the loop shows only the `CN_STAGING_*` secrets that exist. Those should be the 18 that failed.
 
-# 1. In the backend repo: confirm the edit is in the pushed commit
-grep -n "service_account_email" packer/*.pkr.hcl
-git log -1 --stat
+**Check the Packer edit, using GitHub instead:**
+- The build log shows commit `538bf5d "Update backend.pkr.hcl"`, so a Packer change was pushed.
+- Open that file in the `careernavigator-backend` repo on `staging` and search for `service_account_email`. Paste the `source "googlecompute"` block, or just confirm the line and the account it names.
+- Also confirm the `cloudbuild.yaml` create-template step has `--service-account=sa-cn-backend@...`. That step only runs after Packer succeeds.
 
-# 2. Which regional CN_STAGING_* secrets have sa-cn-backend (count 1 = yes, 0 = no)
-for s in $(gcloud secrets list --location=me-central2 --project $P --filter="name~CN_STAGING_" --format="value(name.basename())"); do
-  echo -n "$s: "
-  gcloud secrets get-iam-policy $s --location=me-central2 --project $P --format="value(bindings.members)" | grep -c sa-cn-backend
-done
-
-# 3. Full policy on one secret, to see which roles and members are bound
-gcloud secrets get-iam-policy CN_STAGING_DB_HOST --location=me-central2 --project $P
-grep: packer/*.pkr.hcl: No such file or directory
-fatal: not a git repository (or any parent up to mount point /)
-Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
-ERROR: (gcloud.secrets.list) INVALID_ARGUMENT: The provided Project ID [projects/pg-ae-n-app-125609/locations/me-central2] does not match the expected format [projects/*]
-ERROR: (gcloud.secrets.get-iam-policy) INVALID_ARGUMENT: The provided Secret ID [projects/pg-ae-n-app-125609/locations/me-central2/secrets/CN_STAGING_DB_HOST] does not match the expected format [projects/*/secrets/*]
-nikul_sadhu@cloudshell:~$ 
-
+Paste the loop output and the source block. I'll name the cause from those.
