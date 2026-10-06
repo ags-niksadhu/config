@@ -1,5 +1,22 @@
-cd /var/www/careernavigator-backend
-find node_modules/.bin -type f ! -perm -u+x | wc -l
-find node_modules/.bin -type f | wc -l
-node -e "const p=require('./package.json');console.log('typeorm in dependencies:',!!p.dependencies.typeorm,'| devDependencies:',!!(p.devDependencies||{}).typeorm)"
-ls package-lock.json
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$ find node_modules/.bin -type f ! -perm -u+x | wc -l
+63
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$ find node_modules/.bin -type f | wc -l
+63
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$ node -e "const p=require('./package.json');console.log('typeorm in dependencies:',!!p.dependencies.typeorm,'| devDependencies:',!!(p.devDependencies||{}).typeorm)"
+node -e "const p=require('./package.json');console.log('typeorm in dependencies:',find node_modules/.bin -type f | wc -lp.dependencies.typeorm,'| devDependencies:',find node_modules/.bin -type f | wc -l(p.devDependencies||{}).typeorm)"
+[eval]:1
+const p=require('./package.json');console.log('typeorm in dependencies:',find node_modules/.bin -type f | wc -lp.dependencies.typeorm,'| devDependencies:',find node_modules/.bin -type f | wc -l(p.devDependencies||{}).typeorm)
+                                                                         ^^^^
+Expected ',', got 'ident'
+
+SyntaxError: missing ) after argument list
+    at makeContextifyScript (node:internal/vm:185:14)
+    at compileScript (node:internal/process/execution:383:10)
+    at evalTypeScript (node:internal/process/execution:256:22)
+    at node:internal/main/eval_string:74:3
+
+Node.js v22.23.3
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$ ls package-lock.json
+package-lock.json
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-n6sc:/var/www/careernavigator-backend$
+
