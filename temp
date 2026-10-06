@@ -1,24 +1,160 @@
-**What the new output shows**
-- The frontend MIG is stable with 1 instance and no action in progress, so there is nothing wrong right now.
-- The only errors listed are old ZONE_RESOURCE_POOL_EXHAUSTED stockouts in me-central2-a (Oct 4). They are not the cause of the 7nz1/kcc7 inserts, but they confirm capacity risk in that zone.
-- `cn-staging-ai-staging` is a running VM created 02:58:00, not by our pipeline. It runs as the default compute service account (765297732608-compute@...), and that account previously held Editor. ⚠️ If it is in scope, it breaks the compliance rule against the default account and its full scope. I won't guess who created it; the audit log will show.
-- Root cause of 7nz1/kcc7 is still unknown. My first filter failed because `~` isn't valid there; use `=~`.
-
-**Commands (read-only)**
-
-1. Who created `cn-staging-ai-staging`, plus the frontend inserts and deletes:
-```bash
-P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
 gcloud logging read 'logName:"cloudaudit.googleapis.com%2Factivity" AND resource.type="gce_instance" AND protoPayload.resourceName=~"(cn-staging-ai-staging|cn-frontend-mig-regional-(7nz1|kcc7))"' --project=$P --freshness=1d --order=asc --format="table(timestamp,protoPayload.methodName,protoPayload.authenticationInfo.principalEmail,protoPayload.resourceName.basename())"
-```
-2. Autoscaler decisions and what triggered the scale-outs:
-```bash
-gcloud compute instance-groups managed describe cn-frontend-mig-regional --region=me-central2 --project=$P --format="yaml(targetSize,status.autoscaler)"
-gcloud compute autoscalers describe cn-frontend-mig-regional --region=me-central2 --project=$P --format="yaml(status,statusDetails,autoscalingPolicy)"
-```
-3. Instance lifetime and CPU around the inserts. 7nz1 and kcc7 are probably already deleted, so this lists the MIG events:
-```bash
-gcloud logging read 'logName:"cloudaudit.googleapis.com%2Fsystem_event" AND resource.type="gce_instance_group_manager" AND protoPayload.resourceName:"cn-frontend-mig-regional"' --project=$P --freshness=1d --order=asc --format="table(timestamp,protoPayload.methodName,protoPayload.response.status.message)"
-```
+TIMESTAMP: 2026-10-06T08:52:55.185735Z
+METHOD_NAME: v1.compute.instances.insert
+PRINCIPAL_EMAIL: 765297732608@cloudservices.gserviceaccount.com
+RESOURCE_NAME: cn-frontend-mig-regional-7nz1
 
-Paste the outputs and I'll work out the cause.
+TIMESTAMP: 2026-10-06T08:53:06.927397Z
+METHOD_NAME: v1.compute.instances.insert
+PRINCIPAL_EMAIL: 765297732608@cloudservices.gserviceaccount.com
+RESOURCE_NAME: cn-frontend-mig-regional-7nz1
+
+TIMESTAMP: 2026-10-06T09:11:42.956164Z
+METHOD_NAME: v1.compute.instances.delete
+PRINCIPAL_EMAIL: 765297732608@cloudservices.gserviceaccount.com
+RESOURCE_NAME: cn-frontend-mig-regional-7nz1
+
+TIMESTAMP: 2026-10-06T09:12:32.911768Z
+METHOD_NAME: v1.compute.instances.delete
+PRINCIPAL_EMAIL: 765297732608@cloudservices.gserviceaccount.com
+RESOURCE_NAME: cn-frontend-mig-regional-7nz1
+
+TIMESTAMP: 2026-10-06T09:26:54.740769Z
+METHOD_NAME: v1.compute.instances.insert
+PRINCIPAL_EMAIL: 765297732608@cloudservices.gserviceaccount.com
+RESOURCE_NAME: cn-frontend-mig-regional-kcc7
+
+TIMESTAMP: 2026-10-06T09:27:07.573241Z
+METHOD_NAME: v1.compute.instances.insert
+PRINCIPAL_EMAIL: 765297732608@cloudservices.gserviceaccount.com
+RESOURCE_NAME: cn-frontend-mig-regional-kcc7
+
+TIMESTAMP: 2026-10-06T09:57:57.820736Z
+METHOD_NAME: beta.compute.instances.insert
+PRINCIPAL_EMAIL: nikul.sadhu@gcp.pwc.com
+RESOURCE_NAME: cn-staging-ai-staging
+
+TIMESTAMP: 2026-10-06T09:58:09.156621Z
+METHOD_NAME: beta.compute.instances.insert
+PRINCIPAL_EMAIL: nikul.sadhu@gcp.pwc.com
+RESOURCE_NAME: cn-staging-ai-staging
+
+TIMESTAMP: 2026-10-06T10:01:17.994523Z
+METHOD_NAME: v1.compute.instances.delete
+PRINCIPAL_EMAIL: 765297732608@cloudservices.gserviceaccount.com
+RESOURCE_NAME: cn-frontend-mig-regional-kcc7
+
+TIMESTAMP: 2026-10-06T10:02:08.337711Z
+METHOD_NAME: v1.compute.instances.delete
+PRINCIPAL_EMAIL: 765297732608@cloudservices.gserviceaccount.com
+RESOURCE_NAME: cn-frontend-mig-regional-kcc7
+nikul_sadhu@cloudshell:~$ gcloud compute instance-groups managed describe cn-frontend-mig-regional --region=me-central2 --project=$P --format="yaml(targetSize,status.autoscaler)"
+gcloud compute autoscalers describe cn-frontend-mig-regional --region=me-central2 --project=$P --format="yaml(status,statusDetails,autoscalingPolicy)"
+status:
+  autoscaler: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/autoscalers/cn-frontend-mig-regional
+targetSize: 1
+ERROR: (gcloud.compute) Invalid choice: 'autoscalers'.
+Maybe you meant:
+  gcloud app describe
+  gcloud compute instances describe
+  gcloud compute instances get-guest-attributes
+  gcloud compute instances get-iam-policy
+  gcloud compute instances get-screenshot
+  gcloud compute instances get-serial-port-output
+  gcloud compute instances get-shielded-identity
+  gcloud compute backend-services describe
+  gcloud compute instance-groups managed describe
+  gcloud compute backend-services get-health
+  gcloud compute accelerator-types
+  gcloud compute addresses
+  gcloud compute advice
+  gcloud compute backend-buckets
+  gcloud compute commitments
+  gcloud compute composite-health-checks
+  gcloud compute config-ssh
+  gcloud compute connect-to-serial-port
+  gcloud compute copy-files
+  gcloud compute diagnose
+  gcloud compute disk-types
+  gcloud compute disks
+  gcloud compute external-vpn-gateways
+  gcloud compute firewall-policies
+  gcloud compute firewall-rules
+  gcloud compute forwarding-rules
+  gcloud compute future-reservations
+  gcloud compute global-vm-extension-policies
+  gcloud compute health-aggregation-policies
+  gcloud compute health-checks
+  gcloud compute health-sources
+  gcloud compute hosts
+  gcloud compute http-health-checks
+  gcloud compute https-health-checks
+  gcloud compute image-views
+  gcloud compute images
+  gcloud compute instance-templates
+  gcloud compute instant-snapshot-groups
+  gcloud compute instant-snapshots
+  gcloud compute interconnects
+  gcloud compute machine-images
+  gcloud compute machine-types
+  gcloud compute managed-rulesets
+  gcloud compute migration
+  gcloud compute network-attachments
+  gcloud compute network-edge-security-services
+  gcloud compute network-endpoint-groups
+  gcloud compute network-firewall-policies
+  gcloud compute network-profiles
+  gcloud compute networks
+  gcloud compute operations
+  gcloud compute org-security-policies
+  gcloud compute os-config
+  gcloud compute os-login
+  gcloud compute packet-mirrorings
+  gcloud compute preview-features
+  gcloud compute project-info
+  gcloud compute project-views
+  gcloud compute project-zonal-metadata
+  gcloud compute public-advertised-prefixes
+  gcloud compute public-delegated-prefixes
+  gcloud compute regions
+  gcloud compute reservations
+  gcloud compute reset-windows-password
+  gcloud compute resource-policies
+  gcloud compute rollout-plans
+  gcloud compute rollouts
+  gcloud compute routers
+  gcloud compute routes
+  gcloud compute scp
+  gcloud compute security-policies
+  gcloud compute service-attachments
+  gcloud compute shared-vpc
+  gcloud compute sign-url
+  gcloud compute snapshot-settings
+  gcloud compute snapshots
+  gcloud compute sole-tenancy
+  gcloud compute ssh
+  gcloud compute ssl-certificates
+  gcloud compute ssl-policies
+  gcloud compute start-iap-tunnel
+  gcloud compute storage-pool-types
+  gcloud compute storage-pools
+  gcloud compute target-grpc-proxies
+  gcloud compute target-http-proxies
+  gcloud compute target-https-proxies
+  gcloud compute target-instances
+  gcloud compute target-pools
+  gcloud compute target-ssl-proxies
+  gcloud compute target-tcp-proxies
+  gcloud compute target-vpn-gateways
+  gcloud compute tpus
+  gcloud compute url-maps
+  gcloud compute vpn-gateways
+  gcloud compute vpn-tunnels
+  gcloud compute zone-vm-extension-policies
+  gcloud compute zones
+
+To search the help text of gcloud commands, run:
+  gcloud help -- SEARCH_TERMS
+nikul_sadhu@cloudshell:~$ gcloud logging read 'logName:"cloudaudit.googleapis.com%2Fsystem_event" AND resource.type="gce_instance_group_manager" AND protoPayload.resourceName:"cn-frontend-mig-regional"' --project=$P --freshness=1d --order=asc --format="table(timestamp,protoPayload.methodName,protoPayload.response.status.message)"
+nikul_sadhu@cloudshell:~$ 
