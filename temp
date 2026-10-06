@@ -1,42 +1,25 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$ NODE_ENV=staging ./node_modules/.bin/typeorm migration:show -d dist/data-source.js
-****************************
-staging
-****************************
-Error during migration show:
-Error: connect ECONNREFUSED 127.0.0.1:5432
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16) {
-  errno: -111,
-  code: 'ECONNREFUSED',
-  syscall: 'connect',
-  address: '127.0.0.1',
-  port: 5432
-}
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$ sed -E 's/(password|secret|key)[^,;]*/\1: ***/Ig' dist/data-source.js
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.AppDataSource = void 0;
-const typeorm_1 = require("typeorm");
-const dotenv = require("dotenv");
-const envFilePath = process.env.NODE_ENV == "production" ? ".env" : `.env.${process.env.NODE_ENV || "development"}`;
-dotenv.config({ path: envFilePath });
-console.log("****************************");
-console.log(process.env.NODE_ENV);
-console.log("****************************");
-exports.AppDataSource = new typeorm_1.DataSource({
-    type: "postgres",
-    host: process.env.DB_HOST,
-    port: 5432,
-    username: process.env.DB_USERNAME,
-    password: ***,
-    database: process.env.DB_DATABASE,
-    entities: ["dist/entities/*{.ts,.js}"],
-    migrations: ["dist/migrations/*{.ts,.js}"],
-    synchronize: false,
-    migrationsTableName: "migrations_TypeORM",
-    ssl: {
-        rejectUnauthorized: false
-    }
-});
-//# sourceMappingURL=data-source.js.mapnikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$
+**Root cause confirmed:** `dist/data-source.js` loads its DB settings from `.env.staging` through dotenv. That file doesn't exist on the VM, which is by design, since your image has no `.env` and the app reads Secret Manager at runtime. So `DB_HOST` is `undefined`, and the `pg` driver falls back to `127.0.0.1:5432`, hence `ECONNREFUSED`. Your TypeORM and permissions setup is fine. The migration CLI just has no DB credentials.
 
+I haven't seen your secret names, so I won't guess them. Run these (read-only, no values printed):
+```bash
+cd /var/www/careernavigator-backend
+gcloud secrets list --location=me-central2 --project=pg-ae-n-app-125609 --format="value(name)" | grep CN_STAGING
+grep -rhoE "CN_STAGING_[A-Z_]+" dist | sort -u
+```
+Paste both outputs. I need to know which secrets hold the DB host, user, password and database name. I'll then give you a copy-paste command.
 
+**How the fix will work:**
+
+| Option | Cost | Complexity | Downtime |
+|---|---|---|---|
+| A. Quick patch: export the 4 `DB_*` values into the shell from Secret Manager for one command, nothing written to disk | None | Low | None |
+| B. Create `.env.staging` on the VM | None | Low | None, but lost on VM recreation and leaves plaintext secrets on disk |
+| C. Long-term: run migrations in a Cloud Build step, with credentials from Secret Manager, before the rolling update | None; slightly longer builds | Medium | None |
+
+**Recommendation:** A now, C later. Avoid B, because plaintext credentials on disk break your secrets-encryption rule.
+
+**Two flags:**
+- ⚠️ `ssl: { rejectUnauthorized: false }` in `data-source.js` skips certificate verification, so the connection is open to man-in-the-middle attacks. It's acceptable for now, but the correct fix is to use the Cloud SQL server CA.
+- ⚠️ `DB_HOST` must be the Cloud SQL private IP, reachable from the VM. If the connection times out after we set the variables, the cause will be the network path or authorized networks, and I'll ask for the instance's network settings.
+
+Don't run `migration:run` yet. It stays behind the backup step.
