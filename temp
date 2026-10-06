@@ -1,29 +1,3 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-05vr:~$ cat > /tmp/dbmig.js <<'EOF'
-> const base = '/var/www/careernavigator-backend';
-> process.chdir(base);
-> process.env.SECRET_LOCATION = 'me-central2';
-> const fs = require('fs');
-> const { loadSecrets } = require(base + '/dist/common/config/secret-manager.js');
-> const { Client } = require(base + '/node_modules/pg');
-> const dir = base + '/dist/migrations/';
-> const inRepo = new Set(fs.readdirSync(dir).filter(f => f.endsWith('.js')).map(f => (fs.readFileSync(dir + f, 'utf8').match(/class\s+(\w+)/) || [])[1]));
-> loadSecrets().then(async () => {
->   const c = new Client({ host: process.env.DB_HOST, port: 5432, user: process.env.DB_USERNAME, password: process.env.DB_PASSWORD, database: process.env.DB_DATABASE, ssl: { rejectUnauthorized: false } });
->   await c.connect();
->   const { rows } = await c.query('SELECT id, name FROM "migrations_TypeORM" ORDER BY id');
->   await c.end();
->   console.log('DB rows:', rows.length, '| files:', inRepo.size);
->   console.log('In DB but not in repo:');
->   rows.filter(r => !inRepo.has(r.name)).forEach(r => console.log(' ', r.id, r.name));
-> }).catch(e => { console.error(e.message); process.exit(1); });
-> EOF
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-05vr:~$ node /tmp/dbmig.js; rm -f /tmp/dbmig.js
-DB rows: 88 | files: 82
-In DB but not in repo:
-  21 PermissionSeeder1760698315635
-  31 RoleCategoryEmploymentSeeder1763000000000
-  33 RoleCategoryEmploymentSeeder1762423720062
-  35 RoleCategoryEmploymentSeeder1762850172417
-  44 RoleCategoryEmploymentSeeder1763552584595
-  97 Migrations1778000000000
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-05vr:~$
+git clone https://github.com/pwc-me-adv-careernavigator/careernavigator-backend.git && cd careernavigator-backend
+git log --all --format="%h %an %ad %s" --date=short -- 'src/migrations/*1778000000000*' 'src/migrations/*PermissionSeeder1760698315635*' 'src/migrations/*RoleCategoryEmploymentSeeder1763000000000*'
+git log --all --diff-filter=D --name-only --format="--- %h %an %ad" --date=short -- 'src/migrations/*Seeder*'
