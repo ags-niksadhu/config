@@ -1,7 +1,4 @@
-Good. Next is confirming the new servers actually run as the new accounts and work. Run these in Cloud Shell (info only) and paste the output.
-
-```bash
-export P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~$ export P=pg-ae-n-app-125609
 
 # 1. Template service account (backend and frontend)
 gcloud compute instance-templates list --project $P --format="table(name,properties.serviceAccounts[0].email,creationTimestamp)" --sort-by=~creationTimestamp --limit=6
@@ -15,27 +12,73 @@ gcloud compute instance-groups managed list-instances cn-frontend-mig-regional -
 
 # 4. Backend health
 curl -s -o /dev/null -w "%{http_code}\n" https://stagingapi.careerdevelopmentnavigator.mer.pwc.com/health
-```
+NAME: cn-frontend-template-a81eb16
+EMAIL: sa-cn-frontend@pg-ae-n-app-125609.iam.gserviceaccount.com
+CREATION_TIMESTAMP: 2026-10-06T02:58:23.231-07:00
 
-**Expect:**
-- The newest templates and the running instances show `sa-cn-backend` or `sa-cn-frontend`, matching their role.
-- Every instance is `RUNNING`, with the current action `NONE` and the new template.
-- `/health` returns `200`.
+NAME: cn-backend-template-a62c29d
+EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
+CREATION_TIMESTAMP: 2026-10-06T02:40:44.978-07:00
 
-**Functional checks**
-- **Signed URLs (Token Creator).** SSH into one new backend instance and run:
-  ```bash
-  echo test | gcloud iam service-accounts sign-blob /dev/stdin /tmp/sig.out --iam-account=sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com && echo OK
-  ```
-  A `PERMISSION_DENIED` means Token Creator on itself is missing, which an admin must add. Also test one upload/download in the app.
-- **Logging (Logs Writer).** In Logs Explorer, confirm that `backend_pm2_out` and `backend_apache_access` have new entries from the new instance names, and the same for frontend.
+NAME: cn-backend-template-98b9081
+EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
+CREATION_TIMESTAMP: 2026-10-05T23:43:29.007-07:00
 
-**Stopped VMs (⚠️ GUI, no downtime since they're stopped):**
-1. Console → Compute Engine → VM instances → `cn-staging-backapp-vm-01` → Edit → Service account → `sa-cn-backend` → Save.
-2. Repeat for `cn-staging-frontapp-vm-01` with `sa-cn-frontend`.
+NAME: cn-backend-template-3aaffe9
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-05T03:53:02.416-07:00
 
-Don't start these VMs unless needed. Once started, they will read the regional secrets too.
+NAME: cn-backend-template-b5141a9
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-05T03:32:09.326-07:00
 
-**Cleanup check:** the old default-compute-account template is no longer used. The cleanup step is still `DRY_RUN=1`, so keep the previous template until the new servers have run stable for a day.
+NAME: cn-frontend-template-ee22731
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-05T03:31:18.325-07:00
+NAME: cn-backend-mig-regional-l5n6
+ZONE: me-central2-a
+STATUS: RUNNING
+EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
 
-Paste the outputs and the sign-blob result, and I'll confirm everything is done.
+NAME: cn-frontend-mig-regional-jzmx
+ZONE: me-central2-a
+STATUS: RUNNING
+EMAIL: sa-cn-frontend@pg-ae-n-app-125609.iam.gserviceaccount.com
+NAME: cn-backend-mig-regional-l5n6
+ZONE: me-central2-a
+STATUS: RUNNING
+HEALTH_STATE: HEALTHY
+ACTION: NONE
+INSTANCE_TEMPLATE: cn-backend-template-a62c29d
+VERSION_NAME: 
+LAST_ERROR: 
+NAME: cn-frontend-mig-regional-jzmx
+ZONE: me-central2-a
+STATUS: RUNNING
+HEALTH_STATE: HEALTHY
+ACTION: NONE
+INSTANCE_TEMPLATE: cn-frontend-template-a81eb16
+VERSION_NAME: 
+LAST_ERROR: 
+200
+nikul_sadhu@cloudshell:~$ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-l5n6:~$ echo test | gcloud iam service-accounts sign-blob /dev/stdin /tmp/sig.out --iam-account=sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com && echo OK
+signed blob [/dev/stdin] as [/tmp/sig.out] for [sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com] using key [15bb3da9eb0c88ba5339f321ec7745585b23463f]
+OK
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-l5n6:~$
