@@ -1,10 +1,19 @@
-nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
-for W in "2026-10-06T08:49:00Z 2026-10-06T08:54:00Z" "2026-10-06T09:23:00Z 2026-10-06T09:28:00Z"; do set -- $W
-echo "== $1 -> $2"
-gcloud logging read "resource.type=\"gce_instance\" AND labels.\"compute.googleapis.com/resource_name\"=\"cn-frontend-mig-regional-f183\" AND timestamp>=\"$1\" AND timestamp<=\"$2\"" --project=$P --order=asc --limit=80 --format="table(timestamp,logName.basename(),textPayload,jsonPayload.message,httpRequest.requestUrl)"
-done
-== 2026-10-06T08:49:00Z -> 2026-10-06T08:54:00Z
-== 2026-10-06T09:23:00Z -> 2026-10-06T09:28:00Z
-nikul_sadhu@cloudshell:~$ gcloud logging read 'resource.type="http_load_balancer" AND httpRequest.requestUrl:"staging.careerdevelopmentnavigator" AND timestamp>="2026-10-06T08:40:00Z" AND timestamp<="2026-10-06T09:35:00Z"' --project=$P --limit=3000 --format="value(timestamp)" | cut -c1-16 | sort | uniq -c
-      2 2026-10-06T09:16
-nikul_sadhu@cloudshell:~$ 
+**What this shows**
+- **LB traffic:** only 2 requests to the frontend host between 08:40 and 09:35 UTC (both at 09:16), so traffic did not cause the spikes. This covers only the frontend host. Health checks don't appear in LB request logs.
+- **f183 logs:** both windows came back empty. The Ops Agent logs likely don't carry the `compute.googleapis.com/resource_name` label, and the same filter returned nothing for syslog earlier, so I suspect my filter rather than missing logs. It is not proven.
+- **Timing doesn't add up.** The scale-outs started at 08:52:55 and 09:26:54 UTC, and no server was at or above 50% CPU in the minutes before. f183's 55% and 50% readings come right after each insert, the same shape as a new server booting (7nz1 hit 36%, kcc7 42%). So f183's CPU looks like a result of the scale-out rather than its cause, and I can't yet say what the autoscaler saw. I also don't know when f183 was created. It never appeared in the earlier audit output, which only filtered 7nz1 and kcc7.
+
+**Read-only checks**
+
+1. Every frontend MIG create/delete in the last day, with instance IDs (this gives f183's lifetime and the IDs for the log query):
+```bash
+P=pg-ae-n-app-125609
+gcloud logging read 'logName:"cloudaudit.googleapis.com%2Factivity" AND resource.type="gce_instance" AND protoPayload.resourceName=~"cn-frontend-mig-regional-" AND protoPayload.methodName=~"insert|delete"' --project=$P --freshness=1d --order=asc --format="table(timestamp,protoPayload.methodName,resource.labels.instance_id,protoPayload.resourceName.basename())"
+```
+2. Then, with f183's instance_id from step 1, read its logs around the first spike. The ID is the only substitution needed:
+```bash
+ID=<f183 instance_id from step 1>   # required substitution
+gcloud logging read "resource.type=\"gce_instance\" AND resource.labels.instance_id=\"$ID\" AND timestamp>=\"2026-10-06T08:45:00Z\" AND timestamp<=\"2026-10-06T08:56:00Z\"" --project=$P --order=asc --limit=100 --format="table(timestamp,logName.basename(),textPayload,jsonPayload.message)"
+```
+
+Paste both outputs.
