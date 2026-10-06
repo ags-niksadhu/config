@@ -105,3 +105,41 @@ staging
 [X] 98 Migrations1776775003045
 [ ] Migrations1791285240484
 nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$ ls -la
+total 668
+drwxr-xr-x   5 sa_108691235514385689272 sa_108691235514385689272   4096 Oct  6 12:22 .
+drwxr-xr-x   4 root                     root                       4096 Oct  6 12:21 ..
+-rw-rw-r--   1 sa_108691235514385689272 sa_108691235514385689272  25435 Oct  6 12:22 add-google-cloud-ops-agent-repo.sh
+drwxr-xr-x  12 sa_108691235514385689272 sa_108691235514385689272   4096 Oct  6 12:19 dist
+-rw-r--r--   1 sa_108691235514385689272 sa_108691235514385689272    651 Oct  6 12:19 ecosystem.config.js
+drwxrwxr-x 583 sa_108691235514385689272 sa_108691235514385689272  32768 Oct  6 12:22 node_modules
+-rw-r--r--   1 sa_108691235514385689272 sa_108691235514385689272   4472 Oct  6 12:19 package.json
+-rw-r--r--   1 sa_108691235514385689272 sa_108691235514385689272 586879 Oct  6 12:19 package-lock.json
+drwxrwxr-x   3 sa_108691235514385689272 sa_108691235514385689272   4096 Oct  6 12:22 src
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$ cat ecosystem.config.js
+module.exports = {
+  apps: [
+    {
+      name: 'careernavigator-backend', // Name of the application
+      script: 'dist/main.js', // The entry point of your NestJS application
+      instances: '1', // Or a number of instances
+      exec_mode: 'fork', // Cluster mode for load balancing
+      max_memory_restart: '1G', // Restart if memory usage exceeds 1G
+      env: {
+        NODE_ENV: 'development',
+        PORT: 3024,
+      },
+      env_production: {
+        NODE_ENV: 'production',
+        PORT: 3024,
+      },
+      env_staging: {
+        NODE_ENV: 'staging',
+        PORT: 3024,
+        SECRET_LOCATION: 'me-central2',
+      },
+    },
+  ],
+};
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-s76v:/var/www/careernavigator-backend$
+
