@@ -1,37 +1,23 @@
-nikul_sadhu@cloudshell:~$ export P=pg-ae-n-app-125609
+Yes, this works from the command line. ⚠️ It only adds access, so there is no downtime. Your account likely can't edit IAM (`getIamPolicy` was denied earlier), so run it as an admin, or send the block to one.
+
+```bash
+export P=pg-ae-n-app-125609
 export CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER=https://secretmanager.me-central2.rep.googleapis.com/
 
-# 1. Which CN_STAGING_* secrets have sa-cn-backend (1 = yes, 0 = no)
-for s in $(gcloud secrets list --location=me-central2 --project $P --filter="name~CN_STAGING_" --format="value(name.basename())"); do
-  echo -n "$s: "
-  gcloud secrets get-iam-policy $s --location=me-central2 --project $P --format="value(bindings.members)" | grep -c sa-cn-backend
+for s in DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD REDIS_HOST REDIS_PORT REDIS_PASSWORD MAIL_DRIVER MAIL_HOST MAIL_PORT MAIL_USERNAME MAIL_PASSWORD MAIL_FROM_ADDRESS MAIL_FROM_NAME EMAIL_SENDING_ENABLED GCP_BUCKET GCP_FILE_PATH; do
+  echo "== CN_STAGING_$s"
+  gcloud secrets add-iam-policy-binding CN_STAGING_$s \
+    --location=me-central2 --project=$P \
+    --member="serviceAccount:sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor" \
+    --condition=None --quiet >/dev/null && echo OK
 done
+```
 
-# 2. Full policy on one secret
-gcloud secrets get-iam-policy CN_STAGING_DB_HOST --location=me-central2 --project $P
-CN_STAGING_BASE_URL: 0
-CN_STAGING_DB_DATABASE: 0
-CN_STAGING_DB_HOST: 0
-CN_STAGING_DB_PASSWORD: 0
-CN_STAGING_DB_PORT: 0
-CN_STAGING_DB_USERNAME: 0
-CN_STAGING_EMAIL_SENDING_ENABLED: 0
-CN_STAGING_FRONTEND_URL: 0
-CN_STAGING_GCP_BUCKET: 0
-CN_STAGING_GCP_FILE_PATH: 0
-CN_STAGING_MAIL_DRIVER: 0
-CN_STAGING_MAIL_ENCRYPTION: 0
-CN_STAGING_MAIL_FROM_ADDRESS: 0
-CN_STAGING_MAIL_FROM_NAME: 0
-CN_STAGING_MAIL_HOST: 0
-CN_STAGING_MAIL_PASSWORD: 0
-CN_STAGING_MAIL_PORT: 0
-CN_STAGING_MAIL_USERNAME: 0
-CN_STAGING_REDIS_HOST: 0
-CN_STAGING_REDIS_PASSWORD: 0
-CN_STAGING_REDIS_PORT: 0
-CN_STAGING_SOCKET_URL: 0
-CN_STAGING_SUB_DOMAIN_URL: 0
-etag: BwZdFWM7-KY=
-nikul_sadhu@cloudshell:~$ 
+**Verify.** Re-run the check loop from my last message. All 18 should print `1`.
 
+**If it fails with `PERMISSION_DENIED`:** your account lacks `secretmanager.secrets.setIamPolicy`. Send the block above to the admin who created the service accounts.
+
+**Rollback:** replace `add-iam-policy-binding` with `remove-iam-policy-binding` in the same loop, keeping the other flags.
+
+After all 18 show `1`, re-run the backend build.
