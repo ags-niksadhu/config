@@ -1,19 +1,770 @@
-**What this shows**
-- **LB traffic:** only 2 requests to the frontend host between 08:40 and 09:35 UTC (both at 09:16), so traffic did not cause the spikes. This covers only the frontend host. Health checks don't appear in LB request logs.
-- **f183 logs:** both windows came back empty. The Ops Agent logs likely don't carry the `compute.googleapis.com/resource_name` label, and the same filter returned nothing for syslog earlier, so I suspect my filter rather than missing logs. It is not proven.
-- **Timing doesn't add up.** The scale-outs started at 08:52:55 and 09:26:54 UTC, and no server was at or above 50% CPU in the minutes before. f183's 55% and 50% readings come right after each insert, the same shape as a new server booting (7nz1 hit 36%, kcc7 42%). So f183's CPU looks like a result of the scale-out rather than its cause, and I can't yet say what the autoscaler saw. I also don't know when f183 was created. It never appeared in the earlier audit output, which only filtered 7nz1 and kcc7.
-
-**Read-only checks**
-
-1. Every frontend MIG create/delete in the last day, with instance IDs (this gives f183's lifetime and the IDs for the log query):
-```bash
-P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
 gcloud logging read 'logName:"cloudaudit.googleapis.com%2Factivity" AND resource.type="gce_instance" AND protoPayload.resourceName=~"cn-frontend-mig-regional-" AND protoPayload.methodName=~"insert|delete"' --project=$P --freshness=1d --order=asc --format="table(timestamp,protoPayload.methodName,resource.labels.instance_id,protoPayload.resourceName.basename())"
-```
-2. Then, with f183's instance_id from step 1, read its logs around the first spike. The ID is the only substitution needed:
-```bash
-ID=<f183 instance_id from step 1>   # required substitution
-gcloud logging read "resource.type=\"gce_instance\" AND resource.labels.instance_id=\"$ID\" AND timestamp>=\"2026-10-06T08:45:00Z\" AND timestamp<=\"2026-10-06T08:56:00Z\"" --project=$P --order=asc --limit=100 --format="table(timestamp,logName.basename(),textPayload,jsonPayload.message)"
-```
+TIMESTAMP: 2026-10-04T15:47:18.839394Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
 
-Paste both outputs.
+TIMESTAMP: 2026-10-04T15:47:25.341695Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:47:26.077453Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:48:57.722738Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:48:58.378488Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:51:15.011228Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:51:15.655736Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:54:39.311311Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:54:40.007615Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:59:44.774219Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T15:59:45.474955Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T16:07:22.167480Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T16:07:22.854716Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T16:18:47.454234Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T16:18:48.162445Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T16:35:54.794508Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T16:35:55.431917Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-vt6q
+
+TIMESTAMP: 2026-10-04T16:56:14.691337Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 7181859206602898368
+RESOURCE_NAME: cn-frontend-mig-regional-jfkd
+
+TIMESTAMP: 2026-10-04T16:56:30.458007Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 7181859206602898368
+RESOURCE_NAME: cn-frontend-mig-regional-jfkd
+
+TIMESTAMP: 2026-10-04T17:09:08.667752Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 2239306160575297242
+RESOURCE_NAME: cn-frontend-mig-regional-jvmm
+
+TIMESTAMP: 2026-10-04T17:09:26.375951Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 2239306160575297242
+RESOURCE_NAME: cn-frontend-mig-regional-jvmm
+
+TIMESTAMP: 2026-10-04T17:10:27.686452Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 7181859206602898368
+RESOURCE_NAME: cn-frontend-mig-regional-jfkd
+
+TIMESTAMP: 2026-10-04T17:11:17.718469Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 7181859206602898368
+RESOURCE_NAME: cn-frontend-mig-regional-jfkd
+
+TIMESTAMP: 2026-10-04T17:55:47.484530Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 808471658845121996
+RESOURCE_NAME: cn-frontend-mig-regional-vqp1
+
+TIMESTAMP: 2026-10-04T17:56:00.435111Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 808471658845121996
+RESOURCE_NAME: cn-frontend-mig-regional-vqp1
+
+TIMESTAMP: 2026-10-04T17:56:23.465536Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 6728785339930848680
+RESOURCE_NAME: cn-frontend-mig-regional-j51l
+
+TIMESTAMP: 2026-10-04T17:56:36.303480Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 6728785339930848680
+RESOURCE_NAME: cn-frontend-mig-regional-j51l
+
+TIMESTAMP: 2026-10-04T18:12:38.989789Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 6728785339930848680
+RESOURCE_NAME: cn-frontend-mig-regional-j51l
+
+TIMESTAMP: 2026-10-04T18:12:59.657842Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 2239306160575297242
+RESOURCE_NAME: cn-frontend-mig-regional-jvmm
+
+TIMESTAMP: 2026-10-04T18:13:28.981561Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 6728785339930848680
+RESOURCE_NAME: cn-frontend-mig-regional-j51l
+
+TIMESTAMP: 2026-10-04T18:13:49.625175Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 2239306160575297242
+RESOURCE_NAME: cn-frontend-mig-regional-jvmm
+
+TIMESTAMP: 2026-10-04T18:27:22.255313Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 270370625261872229
+RESOURCE_NAME: cn-frontend-mig-regional-9xf2
+
+TIMESTAMP: 2026-10-04T18:27:38.864353Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 270370625261872229
+RESOURCE_NAME: cn-frontend-mig-regional-9xf2
+
+TIMESTAMP: 2026-10-04T18:30:00.060218Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 808471658845121996
+RESOURCE_NAME: cn-frontend-mig-regional-vqp1
+
+TIMESTAMP: 2026-10-04T18:30:50.504720Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 808471658845121996
+RESOURCE_NAME: cn-frontend-mig-regional-vqp1
+
+TIMESTAMP: 2026-10-04T19:14:20.686813Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 3902545959781866338
+RESOURCE_NAME: cn-frontend-mig-regional-lc5m
+
+TIMESTAMP: 2026-10-04T19:14:35.668197Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 3902545959781866338
+RESOURCE_NAME: cn-frontend-mig-regional-lc5m
+
+TIMESTAMP: 2026-10-04T19:16:56.848940Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 270370625261872229
+RESOURCE_NAME: cn-frontend-mig-regional-9xf2
+
+TIMESTAMP: 2026-10-04T19:17:47.077759Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 270370625261872229
+RESOURCE_NAME: cn-frontend-mig-regional-9xf2
+
+TIMESTAMP: 2026-10-04T20:11:47.932073Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 3871362452808469995
+RESOURCE_NAME: cn-frontend-mig-regional-n3lk
+
+TIMESTAMP: 2026-10-04T20:12:01.261492Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 3871362452808469995
+RESOURCE_NAME: cn-frontend-mig-regional-n3lk
+
+TIMESTAMP: 2026-10-04T20:12:27.732162Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 3853368313659723203
+RESOURCE_NAME: cn-frontend-mig-regional-71vb
+
+TIMESTAMP: 2026-10-04T20:12:42.019184Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 3853368313659723203
+RESOURCE_NAME: cn-frontend-mig-regional-71vb
+
+TIMESTAMP: 2026-10-04T20:25:15.261028Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 3902545959781866338
+RESOURCE_NAME: cn-frontend-mig-regional-lc5m
+
+TIMESTAMP: 2026-10-04T20:25:32.073861Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 3871362452808469995
+RESOURCE_NAME: cn-frontend-mig-regional-n3lk
+
+TIMESTAMP: 2026-10-04T20:26:07.299242Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 3902545959781866338
+RESOURCE_NAME: cn-frontend-mig-regional-lc5m
+
+TIMESTAMP: 2026-10-04T20:26:22.548427Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 3871362452808469995
+RESOURCE_NAME: cn-frontend-mig-regional-n3lk
+
+TIMESTAMP: 2026-10-04T20:40:13.562839Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 8795718817619576642
+RESOURCE_NAME: cn-frontend-mig-regional-620x
+
+TIMESTAMP: 2026-10-04T20:40:29.085560Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 8795718817619576642
+RESOURCE_NAME: cn-frontend-mig-regional-620x
+
+TIMESTAMP: 2026-10-04T20:40:31.178125Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-620x
+
+TIMESTAMP: 2026-10-04T20:40:31.751725Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 4312018473811117871
+RESOURCE_NAME: cn-frontend-mig-regional-620x
+
+TIMESTAMP: 2026-10-04T20:40:45.523806Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 4312018473811117871
+RESOURCE_NAME: cn-frontend-mig-regional-620x
+
+TIMESTAMP: 2026-10-04T20:43:06.045956Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 3853368313659723203
+RESOURCE_NAME: cn-frontend-mig-regional-71vb
+
+TIMESTAMP: 2026-10-04T20:43:58.149850Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 3853368313659723203
+RESOURCE_NAME: cn-frontend-mig-regional-71vb
+
+TIMESTAMP: 2026-10-04T21:24:07.045487Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 2431450499043523864
+RESOURCE_NAME: cn-frontend-mig-regional-cwcg
+
+TIMESTAMP: 2026-10-04T21:24:19.541778Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 2431450499043523864
+RESOURCE_NAME: cn-frontend-mig-regional-cwcg
+
+TIMESTAMP: 2026-10-04T21:24:23.213848Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 4443394075922496232
+RESOURCE_NAME: cn-frontend-mig-regional-1xv6
+
+TIMESTAMP: 2026-10-04T21:24:37.163469Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 4443394075922496232
+RESOURCE_NAME: cn-frontend-mig-regional-1xv6
+
+TIMESTAMP: 2026-10-04T21:40:56.596224Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 4443394075922496232
+RESOURCE_NAME: cn-frontend-mig-regional-1xv6
+
+TIMESTAMP: 2026-10-04T21:41:17.749204Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 2431450499043523864
+RESOURCE_NAME: cn-frontend-mig-regional-cwcg
+
+TIMESTAMP: 2026-10-04T21:41:46.293474Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 4443394075922496232
+RESOURCE_NAME: cn-frontend-mig-regional-1xv6
+
+TIMESTAMP: 2026-10-04T21:42:07.469914Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 2431450499043523864
+RESOURCE_NAME: cn-frontend-mig-regional-cwcg
+
+TIMESTAMP: 2026-10-05T03:22:08.409146Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 597407624365779215
+RESOURCE_NAME: cn-frontend-mig-regional-ws1w
+
+TIMESTAMP: 2026-10-05T03:22:22.397823Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 550566955848739073
+RESOURCE_NAME: cn-frontend-mig-regional-14bt
+
+TIMESTAMP: 2026-10-05T03:22:33.701020Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 550566955848739073
+RESOURCE_NAME: cn-frontend-mig-regional-14bt
+
+TIMESTAMP: 2026-10-05T03:22:35.849485Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 597407624365779215
+RESOURCE_NAME: cn-frontend-mig-regional-ws1w
+
+TIMESTAMP: 2026-10-05T03:22:39.987753Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 
+RESOURCE_NAME: cn-frontend-mig-regional-14bt
+
+TIMESTAMP: 2026-10-05T03:22:40.739591Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 3582555765060052718
+RESOURCE_NAME: cn-frontend-mig-regional-14bt
+
+TIMESTAMP: 2026-10-05T03:22:53.163966Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 3582555765060052718
+RESOURCE_NAME: cn-frontend-mig-regional-14bt
+
+TIMESTAMP: 2026-10-05T03:35:25.324153Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 4312018473811117871
+RESOURCE_NAME: cn-frontend-mig-regional-620x
+
+TIMESTAMP: 2026-10-05T03:35:51.594580Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 597407624365779215
+RESOURCE_NAME: cn-frontend-mig-regional-ws1w
+
+TIMESTAMP: 2026-10-05T03:36:15.473259Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 4312018473811117871
+RESOURCE_NAME: cn-frontend-mig-regional-620x
+
+TIMESTAMP: 2026-10-05T03:36:41.713874Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 597407624365779215
+RESOURCE_NAME: cn-frontend-mig-regional-ws1w
+
+TIMESTAMP: 2026-10-05T04:22:48.980645Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 1131088058564647158
+RESOURCE_NAME: cn-frontend-mig-regional-g9tt
+
+TIMESTAMP: 2026-10-05T04:23:02.477741Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 1131088058564647158
+RESOURCE_NAME: cn-frontend-mig-regional-g9tt
+
+TIMESTAMP: 2026-10-05T04:23:40.364809Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 3857188102953932963
+RESOURCE_NAME: cn-frontend-mig-regional-pw9c
+
+TIMESTAMP: 2026-10-05T04:23:52.499280Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 3857188102953932963
+RESOURCE_NAME: cn-frontend-mig-regional-pw9c
+
+TIMESTAMP: 2026-10-05T04:36:17.480054Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 3582555765060052718
+RESOURCE_NAME: cn-frontend-mig-regional-14bt
+
+TIMESTAMP: 2026-10-05T04:36:36.507256Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 3857188102953932963
+RESOURCE_NAME: cn-frontend-mig-regional-pw9c
+
+TIMESTAMP: 2026-10-05T04:37:07.484062Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 3582555765060052718
+RESOURCE_NAME: cn-frontend-mig-regional-14bt
+
+TIMESTAMP: 2026-10-05T04:37:26.471088Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 3857188102953932963
+RESOURCE_NAME: cn-frontend-mig-regional-pw9c
+
+TIMESTAMP: 2026-10-05T05:24:24.725803Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 7941410630868568678
+RESOURCE_NAME: cn-frontend-mig-regional-l4tn
+
+TIMESTAMP: 2026-10-05T05:24:36.904851Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 7941410630868568678
+RESOURCE_NAME: cn-frontend-mig-regional-l4tn
+
+TIMESTAMP: 2026-10-05T05:24:43.968252Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 2969368133228202611
+RESOURCE_NAME: cn-frontend-mig-regional-5hl9
+
+TIMESTAMP: 2026-10-05T05:24:56.794735Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 2969368133228202611
+RESOURCE_NAME: cn-frontend-mig-regional-5hl9
+
+TIMESTAMP: 2026-10-05T05:44:06.656455Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 1131088058564647158
+RESOURCE_NAME: cn-frontend-mig-regional-g9tt
+
+TIMESTAMP: 2026-10-05T05:44:41.852662Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 7941410630868568678
+RESOURCE_NAME: cn-frontend-mig-regional-l4tn
+
+TIMESTAMP: 2026-10-05T05:44:56.515508Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 1131088058564647158
+RESOURCE_NAME: cn-frontend-mig-regional-g9tt
+
+TIMESTAMP: 2026-10-05T05:45:36.950815Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 7941410630868568678
+RESOURCE_NAME: cn-frontend-mig-regional-l4tn
+
+TIMESTAMP: 2026-10-05T05:52:41.992218Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 9034653728106251717
+RESOURCE_NAME: cn-frontend-mig-regional-32tm
+
+TIMESTAMP: 2026-10-05T05:52:54.650582Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 9034653728106251717
+RESOURCE_NAME: cn-frontend-mig-regional-32tm
+
+TIMESTAMP: 2026-10-05T05:55:25.166027Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 2969368133228202611
+RESOURCE_NAME: cn-frontend-mig-regional-5hl9
+
+TIMESTAMP: 2026-10-05T05:56:15.274419Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 2969368133228202611
+RESOURCE_NAME: cn-frontend-mig-regional-5hl9
+
+TIMESTAMP: 2026-10-05T06:35:27.339880Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 6927565798008355776
+RESOURCE_NAME: cn-frontend-mig-regional-cnk0
+
+TIMESTAMP: 2026-10-05T06:35:47.236475Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 696429366685399980
+RESOURCE_NAME: cn-frontend-mig-regional-6gx6
+
+TIMESTAMP: 2026-10-05T06:35:48.692360Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 6927565798008355776
+RESOURCE_NAME: cn-frontend-mig-regional-cnk0
+
+TIMESTAMP: 2026-10-05T06:36:00.432263Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 696429366685399980
+RESOURCE_NAME: cn-frontend-mig-regional-6gx6
+
+TIMESTAMP: 2026-10-05T06:38:15.861396Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 3749319642832632631
+RESOURCE_NAME: cn-frontend-mig-regional-cj8r
+
+TIMESTAMP: 2026-10-05T06:38:29.187240Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 3749319642832632631
+RESOURCE_NAME: cn-frontend-mig-regional-cj8r
+
+TIMESTAMP: 2026-10-05T06:41:00.879270Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 9034653728106251717
+RESOURCE_NAME: cn-frontend-mig-regional-32tm
+
+TIMESTAMP: 2026-10-05T06:41:50.957766Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 9034653728106251717
+RESOURCE_NAME: cn-frontend-mig-regional-32tm
+
+TIMESTAMP: 2026-10-05T06:41:57.945393Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 7863131330025814105
+RESOURCE_NAME: cn-frontend-mig-regional-ktsh
+
+TIMESTAMP: 2026-10-05T06:42:20.094712Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 7863131330025814105
+RESOURCE_NAME: cn-frontend-mig-regional-ktsh
+
+TIMESTAMP: 2026-10-05T06:44:56.065696Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 696429366685399980
+RESOURCE_NAME: cn-frontend-mig-regional-6gx6
+
+TIMESTAMP: 2026-10-05T06:45:47.995870Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 696429366685399980
+RESOURCE_NAME: cn-frontend-mig-regional-6gx6
+
+TIMESTAMP: 2026-10-05T06:45:55.885448Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 4717526556932503883
+RESOURCE_NAME: cn-frontend-mig-regional-bqm2
+
+TIMESTAMP: 2026-10-05T06:46:09.966048Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 4717526556932503883
+RESOURCE_NAME: cn-frontend-mig-regional-bqm2
+
+TIMESTAMP: 2026-10-05T06:48:50.857087Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 6927565798008355776
+RESOURCE_NAME: cn-frontend-mig-regional-cnk0
+
+TIMESTAMP: 2026-10-05T06:49:40.990143Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 6927565798008355776
+RESOURCE_NAME: cn-frontend-mig-regional-cnk0
+
+TIMESTAMP: 2026-10-05T06:53:00.773973Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 7863131330025814105
+RESOURCE_NAME: cn-frontend-mig-regional-ktsh
+
+TIMESTAMP: 2026-10-05T06:53:50.910329Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 7863131330025814105
+RESOURCE_NAME: cn-frontend-mig-regional-ktsh
+
+TIMESTAMP: 2026-10-05T06:59:10.926295Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 3749319642832632631
+RESOURCE_NAME: cn-frontend-mig-regional-cj8r
+
+TIMESTAMP: 2026-10-05T07:00:02.557476Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 3749319642832632631
+RESOURCE_NAME: cn-frontend-mig-regional-cj8r
+
+TIMESTAMP: 2026-10-05T07:34:38.182666Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 8776480654078438881
+RESOURCE_NAME: cn-frontend-mig-regional-8vmg
+
+TIMESTAMP: 2026-10-05T07:35:12.543833Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 8776480654078438881
+RESOURCE_NAME: cn-frontend-mig-regional-8vmg
+
+TIMESTAMP: 2026-10-05T07:37:43.069865Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 4717526556932503883
+RESOURCE_NAME: cn-frontend-mig-regional-bqm2
+
+TIMESTAMP: 2026-10-05T07:38:33.894777Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 4717526556932503883
+RESOURCE_NAME: cn-frontend-mig-regional-bqm2
+
+TIMESTAMP: 2026-10-05T07:43:32.598203Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 7459480858914646987
+RESOURCE_NAME: cn-frontend-mig-regional-fx3z
+
+TIMESTAMP: 2026-10-05T07:43:46.224462Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 7459480858914646987
+RESOURCE_NAME: cn-frontend-mig-regional-fx3z
+
+TIMESTAMP: 2026-10-05T07:44:02.610613Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 2513631094774885292
+RESOURCE_NAME: cn-frontend-mig-regional-c6s2
+
+TIMESTAMP: 2026-10-05T07:44:16.218931Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 2513631094774885292
+RESOURCE_NAME: cn-frontend-mig-regional-c6s2
+
+TIMESTAMP: 2026-10-05T07:56:55.920640Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 8776480654078438881
+RESOURCE_NAME: cn-frontend-mig-regional-8vmg
+
+TIMESTAMP: 2026-10-05T07:57:46.149106Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 8776480654078438881
+RESOURCE_NAME: cn-frontend-mig-regional-8vmg
+
+TIMESTAMP: 2026-10-05T07:57:47.131659Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 7459480858914646987
+RESOURCE_NAME: cn-frontend-mig-regional-fx3z
+
+TIMESTAMP: 2026-10-05T07:58:37.099801Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 7459480858914646987
+RESOURCE_NAME: cn-frontend-mig-regional-fx3z
+
+TIMESTAMP: 2026-10-05T08:09:03.813407Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 8174552820178937295
+RESOURCE_NAME: cn-frontend-mig-regional-258b
+
+TIMESTAMP: 2026-10-05T08:09:18.643414Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 8174552820178937295
+RESOURCE_NAME: cn-frontend-mig-regional-258b
+
+TIMESTAMP: 2026-10-05T08:09:34.517672Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 8576944475030349265
+RESOURCE_NAME: cn-frontend-mig-regional-7svz
+
+TIMESTAMP: 2026-10-05T08:09:50.547510Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 8576944475030349265
+RESOURCE_NAME: cn-frontend-mig-regional-7svz
+
+TIMESTAMP: 2026-10-05T08:41:15.824808Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 8174552820178937295
+RESOURCE_NAME: cn-frontend-mig-regional-258b
+
+TIMESTAMP: 2026-10-05T08:41:37.088195Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 8576944475030349265
+RESOURCE_NAME: cn-frontend-mig-regional-7svz
+
+TIMESTAMP: 2026-10-05T08:42:07.363313Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 8174552820178937295
+RESOURCE_NAME: cn-frontend-mig-regional-258b
+
+TIMESTAMP: 2026-10-05T08:42:27.176974Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 8576944475030349265
+RESOURCE_NAME: cn-frontend-mig-regional-7svz
+
+TIMESTAMP: 2026-10-05T09:39:14.274253Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 839081847814016685
+RESOURCE_NAME: cn-frontend-mig-regional-1dv8
+
+TIMESTAMP: 2026-10-05T09:39:29.754828Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 839081847814016685
+RESOURCE_NAME: cn-frontend-mig-regional-1dv8
+
+TIMESTAMP: 2026-10-05T09:42:01.063655Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 2513631094774885292
+RESOURCE_NAME: cn-frontend-mig-regional-c6s2
+
+TIMESTAMP: 2026-10-05T09:42:51.066106Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 2513631094774885292
+RESOURCE_NAME: cn-frontend-mig-regional-c6s2
+
+TIMESTAMP: 2026-10-05T10:31:30.460498Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 3584862561929970285
+RESOURCE_NAME: cn-frontend-mig-regional-f183
+
+TIMESTAMP: 2026-10-05T10:31:58.034944Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 3584862561929970285
+RESOURCE_NAME: cn-frontend-mig-regional-f183
+
+TIMESTAMP: 2026-10-05T10:34:33.543578Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 839081847814016685
+RESOURCE_NAME: cn-frontend-mig-regional-1dv8
+
+TIMESTAMP: 2026-10-05T10:35:25.775670Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 839081847814016685
+RESOURCE_NAME: cn-frontend-mig-regional-1dv8
+
+TIMESTAMP: 2026-10-06T08:52:55.185735Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 6127012541465430024
+RESOURCE_NAME: cn-frontend-mig-regional-7nz1
+
+TIMESTAMP: 2026-10-06T08:53:06.927397Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 6127012541465430024
+RESOURCE_NAME: cn-frontend-mig-regional-7nz1
+
+TIMESTAMP: 2026-10-06T09:11:42.956164Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 6127012541465430024
+RESOURCE_NAME: cn-frontend-mig-regional-7nz1
+
+TIMESTAMP: 2026-10-06T09:12:32.911768Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 6127012541465430024
+RESOURCE_NAME: cn-frontend-mig-regional-7nz1
+
+TIMESTAMP: 2026-10-06T09:26:54.740769Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 2848755886663991344
+RESOURCE_NAME: cn-frontend-mig-regional-kcc7
+
+TIMESTAMP: 2026-10-06T09:27:07.573241Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 2848755886663991344
+RESOURCE_NAME: cn-frontend-mig-regional-kcc7
+
+TIMESTAMP: 2026-10-06T09:39:45.285873Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 3584862561929970285
+RESOURCE_NAME: cn-frontend-mig-regional-f183
+
+TIMESTAMP: 2026-10-06T09:40:34.940018Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 3584862561929970285
+RESOURCE_NAME: cn-frontend-mig-regional-f183
+
+TIMESTAMP: 2026-10-06T09:58:35.144953Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 5580448867530930340
+RESOURCE_NAME: cn-frontend-mig-regional-jzmx
+
+TIMESTAMP: 2026-10-06T09:58:46.369183Z
+METHOD_NAME: v1.compute.instances.insert
+INSTANCE_ID: 5580448867530930340
+RESOURCE_NAME: cn-frontend-mig-regional-jzmx
+
+TIMESTAMP: 2026-10-06T10:01:17.994523Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 2848755886663991344
+RESOURCE_NAME: cn-frontend-mig-regional-kcc7
+
+TIMESTAMP: 2026-10-06T10:02:08.337711Z
+METHOD_NAME: v1.compute.instances.delete
+INSTANCE_ID: 2848755886663991344
+RESOURCE_NAME: cn-frontend-mig-regional-kcc7
+nikul_sadhu@cloudshell:~$ ID=<f183 instance_id from step 1>   # required substitution
+gcloud logging read "resource.type=\"gce_instance\" AND resource.labels.instance_id=\"$ID\" AND timestamp>=\"2026-10-06T08:45:00Z\" AND timestamp<=\"2026-10-06T08:56:00Z\"" --project=$P --order=asc --limit=100 --format="table(timestamp,logName.basename(),textPayload,jsonPayload.message)"
+-bash: syntax error near unexpected token `newline'
+nikul_sadhu@cloudshell:~$ 
