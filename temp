@@ -1,11 +1,4 @@
-Both failures are my command mistakes, not infra problems.
-
-1. **Secret errors:** regional secrets need the regional endpoint. I left out the override I gave you earlier.
-2. **grep/git errors:** Cloud Shell has no repo checkout, so those two commands can't run there.
-
-**Run in Cloud Shell (info only):**
-```bash
-export P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~$ export P=pg-ae-n-app-125609
 export CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER=https://secretmanager.me-central2.rep.googleapis.com/
 
 # 1. Which CN_STAGING_* secrets have sa-cn-backend (1 = yes, 0 = no)
@@ -16,12 +9,29 @@ done
 
 # 2. Full policy on one secret
 gcloud secrets get-iam-policy CN_STAGING_DB_HOST --location=me-central2 --project $P
-```
-Note: the loop is not an exact mirror of the app. The app's keys are `DB_HOST`, `REDIS_HOST`, and so on, and the loop shows only the `CN_STAGING_*` secrets that exist. Those should be the 18 that failed.
+CN_STAGING_BASE_URL: 0
+CN_STAGING_DB_DATABASE: 0
+CN_STAGING_DB_HOST: 0
+CN_STAGING_DB_PASSWORD: 0
+CN_STAGING_DB_PORT: 0
+CN_STAGING_DB_USERNAME: 0
+CN_STAGING_EMAIL_SENDING_ENABLED: 0
+CN_STAGING_FRONTEND_URL: 0
+CN_STAGING_GCP_BUCKET: 0
+CN_STAGING_GCP_FILE_PATH: 0
+CN_STAGING_MAIL_DRIVER: 0
+CN_STAGING_MAIL_ENCRYPTION: 0
+CN_STAGING_MAIL_FROM_ADDRESS: 0
+CN_STAGING_MAIL_FROM_NAME: 0
+CN_STAGING_MAIL_HOST: 0
+CN_STAGING_MAIL_PASSWORD: 0
+CN_STAGING_MAIL_PORT: 0
+CN_STAGING_MAIL_USERNAME: 0
+CN_STAGING_REDIS_HOST: 0
+CN_STAGING_REDIS_PASSWORD: 0
+CN_STAGING_REDIS_PORT: 0
+CN_STAGING_SOCKET_URL: 0
+CN_STAGING_SUB_DOMAIN_URL: 0
+etag: BwZdFWM7-KY=
+nikul_sadhu@cloudshell:~$ 
 
-**Check the Packer edit, using GitHub instead:**
-- The build log shows commit `538bf5d "Update backend.pkr.hcl"`, so a Packer change was pushed.
-- Open that file in the `careernavigator-backend` repo on `staging` and search for `service_account_email`. Paste the `source "googlecompute"` block, or just confirm the line and the account it names.
-- Also confirm the `cloudbuild.yaml` create-template step has `--service-account=sa-cn-backend@...`. That step only runs after Packer succeeds.
-
-Paste the loop output and the source block. I'll name the cause from those.
