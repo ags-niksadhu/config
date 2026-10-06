@@ -1,107 +1,173 @@
-Closed and recorded: #8 (the 5 unused secrets are kept), #7 (private-pool external IPs; PwC will raise it if there is an issue), #6 (the US bucket is not ours). #2 is waiting on the dev team.
-
-## #1 `cn-staging-ai-staging` (Vertex AI test VM)
-
-It runs as the default compute account, and you said that account previously had Editor. That is the exact thing the compliance rule bans. I need its current config before recommending, and the other half is whether the Vertex endpoint must stay in me-central2. I haven't confirmed that me-central2 supports your model, so check that on the Vertex AI locations page.
-```bash
-P=pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
 gcloud compute instances describe cn-staging-ai-staging --zone me-central2-a --project=$P --format="yaml(machineType,serviceAccounts,shieldedInstanceConfig,networkInterfaces[0].accessConfigs,guestAccelerators,labels)"
-```
+machineType: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-a/machineTypes/e2-medium
+serviceAccounts:
+- email: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
+  scopes:
+  - https://www.googleapis.com/auth/devstorage.read_only
+  - https://www.googleapis.com/auth/logging.write
+  - https://www.googleapis.com/auth/monitoring.write
+  - https://www.googleapis.com/auth/service.management.readonly
+  - https://www.googleapis.com/auth/servicecontrol
+  - https://www.googleapis.com/auth/trace.append
+shieldedInstanceConfig:
+  enableIntegrityMonitoring: true
+  enableSecureBoot: true
+  enableVtpm: true
+nikul_sadhu@cloudshell:~$ gcloud compute instances list --project=$P --filter="name~cn-" --format="table(name,serviceAccounts[0].email,serviceAccounts[0].scopes.list())"
+NAME: cn-backend-mig-regional-05vr
+EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
+SCOPES: https://www.googleapis.com/auth/cloud-platform
 
-| Option | Cost | Complexity | Downtime |
-|---|---|---|---|
-| A. Delete the VM after the test | Stops VM spend | None | None |
-| B. Dedicated SA (e.g. sa-cn-ai-test, role aiplatform.user only) | Same VM cost | Admin ticket (you can't edit IAM) | ⚠️ VM restart, test VM only |
-| C. Keep the default account | Same | None | None, but it violates compliance |
+NAME: cn-frontend-mig-regional-jzmx
+EMAIL: sa-cn-frontend@pg-ae-n-app-125609.iam.gserviceaccount.com
+SCOPES: https://www.googleapis.com/auth/cloud-platform
 
-**Recommendation:** A if it's a short test, B if it lives more than a few days. Never C. Vertex calls themselves are billed per use, and a GPU VM would be a large recurring cost (the command shows whether it has one).
+NAME: cn-staging-ai-staging
+EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
+SCOPES: https://www.googleapis.com/auth/devstorage.read_only,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/trace.append
+nikul_sadhu@cloudshell:~$ gcloud compute instance-templates list --project=$P --format="table(name,region.basename(),properties.serviceAccounts[0].email,creationTimestamp.date())" --sort-by=creationTimestamp
+NAME: cnstagingbackend-instance-template-22-sept-2026-v2
+REGION: me-central2
+EMAIL: 765297732608-compute@developer.gserviceaccount.com
+CREATION_TIMESTAMP: 2026-09-25T02:05:55
 
-B, once the account exists (Console steps):
-1. Compute Engine → VM instances → `cn-staging-ai-staging` → **Stop**.
-2. **Edit** → Service account → pick the new account → Access scopes: **Allow full access to all Cloud APIs** (IAM limits it to aiplatform.user).
-3. Confirm Shielded VM options are all on, then **Save** → **Start**.
+NAME: clean-ubuntu-26092026
+REGION: me-central2
+EMAIL: 765297732608-compute@developer.gserviceaccount.com
+CREATION_TIMESTAMP: 2026-09-26T00:26:03
 
-## #3 What "cloud-platform scope" sign-off means
+NAME: cn-frontend-template-b0ad954
+REGION: me-central2
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-04T11:58:43
 
-- **Scope** is an old OAuth cap on the VM's token.
-- **IAM roles** on the service account decide what the VM can actually do.
-- **Full-access scope** means the scope no longer limits anything, so IAM alone controls access.
-- **Compliance rule:** remove full-access scope from the default account, because that account had Editor.
-- **Why the new accounts are different:** they only have least-privilege roles, so full scope plus tight IAM is safe, and it is also Google's recommended pattern.
-- **Backend:** as far as I know, Secret Manager has no narrower scope, so the backend needs cloud-platform to load its secrets. Narrow scopes already failed with "insufficient authentication scopes".
-- **Frontend:** it only needs logs and metrics, so it could use narrow scopes (`logging.write`, `monitoring.write`).
+NAME: cn-frontend-template-7696009
+REGION: me-central2
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-04T12:14:08
 
-If compliance refuses full scope on the backend, the app can't read its secrets and won't start. What to do:
-1. Send them one short justification: the new accounts have only Logs Writer, Monitoring Metric Writer, and (backend only) Secret Accessor on CN_STAGING_* secrets, Storage Object User on one bucket, and Token Creator on itself.
-2. Optionally narrow the frontend scopes. This is the cheapest concession, and it needs a `--scopes` change in the frontend cloudbuild.yaml, a push, and a rollout.
+NAME: cn-backend-template-054eefc
+REGION: me-central2
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-04T12:29:50
 
-Check what is running now:
-```bash
-gcloud compute instances list --project=$P --filter="name~cn-" --format="table(name,serviceAccounts[0].email,serviceAccounts[0].scopes.list())"
-```
+NAME: cn-backend-template-53262df
+REGION: me-central2
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-04T13:31:42
 
-## #4 Cleanup: ⚠️ deletion is irreversible, and the delete path is unproven for regional templates
+NAME: cn-frontend-template-13633c6
+REGION: me-central2
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-04T13:40:01
 
-I need two outputs first.
+NAME: cn-frontend-template-0ae7410
+REGION: me-central2
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-04T13:40:02
 
-1. The "dry-run candidates" lines from the latest backend and frontend Cloud Build logs.
-2. This:
-```bash
-gcloud compute instance-templates list --project=$P --format="table(name,region.basename(),properties.serviceAccounts[0].email,creationTimestamp.date())" --sort-by=creationTimestamp
-```
+NAME: cn-frontend-template-70499c9
+REGION: me-central2
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-04T22:52:29
 
-**Plan after I see them:**
-1. Check the candidates are all pipeline-created and none is the live template.
-2. Change `DRY_RUN=1` to `0` in both cloudbuild.yaml files and push. KEEP=5 still leaves your last 5 templates as rollback targets.
-3. Verify: the next build log should show deletions with no errors (the `--region` flag is the risk), and then the MIGs should still show `isStable: true`.
+NAME: cn-backend-template-ffc8a89
+REGION: me-central2
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-04T22:53:03
 
-`clean-ubuntu-26092026`, `cnstagingbackend-instance-template-22-sept-2026-v2`, and image `cn-backend-os-image-v1` don't match the cleanup filter, so delete them by hand once you confirm nothing needs them. In the Console: Compute Engine → Instance templates → tick → **Delete**.
+NAME: cn-frontend-template-13bcacb
+REGION: me-central2
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-04T23:38:02
 
-## #5 Logging items, one by one
+NAME: cn-backend-template-bd3b2bb
+REGION: me-central2
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-04T23:39:39
 
-**5a. _Default retention 90 days vs the 6-month rule**
-- ⚠️ New recurring cost: as far as I know, retention beyond 30 days is billed per GiB-month. Check Cloud Logging pricing.
-- You probably can't edit the bucket, so this likely goes to an admin.
-- Console: Logging → Logs Storage → `_Default` → Edit → Retention **180** days.
-- Check:
-```bash
-gcloud logging buckets describe _Default --location=global --project=$P --format="value(retentionDays)"
-```
+NAME: cn-frontend-template-3255267
+REGION: me-central2
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-05T00:34:26
 
-**5b. VPC flow logs off**
-- ⚠️ New recurring cost: flow logs volume scales with traffic. Set sampling to 0.5 to start.
-- It changes the shared `default` subnet in me-central2, so it likely needs an admin.
-- Console: VPC network → `default` → me-central2 subnet → Edit → Flow logs **On**.
-- Check:
-```bash
-gcloud compute networks subnets describe default --region=me-central2 --project=$P --format="yaml(enableFlowLogs,logConfig)"
-```
+NAME: cn-frontend-template-809b228
+REGION: me-central2
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-05T02:39:02
 
-**5c. Data Access audit state unknown**
-- You can't read the IAM policy, so ask an admin to enable DATA_READ and DATA_WRITE for Secret Manager, Cloud Storage and Cloud SQL (Console: IAM & Admin → Audit Logs).
-- ⚠️ Cost: Secret Manager read logs fire on every app start.
-- Check whether any exist today:
-```bash
-gcloud logging read 'logName:"cloudaudit.googleapis.com%2Fdata_access"' --project=$P --freshness=7d --limit=3 --format="value(timestamp,protoPayload.serviceName)"
-```
+NAME: cn-backend-template-6a5ff7e
+REGION: me-central2
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-05T02:40:35
 
-**5d. DDDDDD console.log printing the key**
-- Dev team removes the `console.log`. If the key ever reached logs, rotate it, because logs hold it for 90 days.
-- Check 7 days (your earlier check covered 24h):
-```bash
-gcloud logging read 'logName:"backend_pm2_out" AND (textPayload:"DDDDDD" OR jsonPayload.message:"DDDDDD")' --project=$P --freshness=7d --limit=5 --format="value(timestamp)"
-```
+NAME: cn-frontend-template-ee22731
+REGION: me-central2
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-05T03:31:18
 
-**5e. Request bodies logged ("Body : {...}")**
-- Bodies can carry passwords or personal data, and they sit in Cloud Logging for 90 days.
-- Dev team removes the body logging or redacts sensitive fields.
-- Count only, no content:
-```bash
-gcloud logging read 'logName:"backend_pm2_out" AND jsonPayload.message:"Body :"' --project=$P --freshness=1d --limit=1000 --format="value(timestamp)" | wc -l
-```
+NAME: cn-backend-template-b5141a9
+REGION: me-central2
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-05T03:32:09
 
-**5f. SECRET_KEY "abc" in next.config.ts**
-- Ask the dev team if it is a placeholder.
-- As far as I know, values in Next.js's `env` block are inlined into the browser JavaScript at build time. A real key there would be public, so it belongs in a server-side secret instead.
+NAME: cn-backend-template-3aaffe9
+REGION: me-central2
+EMAIL: default
+CREATION_TIMESTAMP: 2026-10-05T03:53:02
 
-Send me the outputs for #1 and #4 (and any others you run) and I'll take it from there.
+NAME: cn-backend-template-98b9081
+REGION: me-central2
+EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
+CREATION_TIMESTAMP: 2026-10-05T23:43:29
+
+NAME: cn-backend-template-a62c29d
+REGION: me-central2
+EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
+CREATION_TIMESTAMP: 2026-10-06T02:40:44
+
+NAME: cn-frontend-template-a81eb16
+REGION: me-central2
+EMAIL: sa-cn-frontend@pg-ae-n-app-125609.iam.gserviceaccount.com
+CREATION_TIMESTAMP: 2026-10-06T02:58:23
+
+NAME: cn-backend-template-b0288db
+REGION: me-central2
+EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
+CREATION_TIMESTAMP: 2026-10-06T04:32:59
+
+NAME: cn-backend-template-9bf4fed
+REGION: me-central2
+EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
+CREATION_TIMESTAMP: 2026-10-06T04:33:02
+
+NAME: cn-backend-template-4dbdd20
+REGION: me-central2
+EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
+CREATION_TIMESTAMP: 2026-10-06T04:48:46
+
+NAME: cn-backend-template-6532834
+REGION: me-central2
+EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
+CREATION_TIMESTAMP: 2026-10-06T05:25:40
+
+NAME: cn-backend-template-8f5b2a1
+REGION: me-central2
+EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
+CREATION_TIMESTAMP: 2026-10-06T06:17:39
+
+NAME: cn-backend-template-36689c0
+REGION: me-central2
+EMAIL: sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com
+CREATION_TIMESTAMP: 2026-10-06T06:41:24
+nikul_sadhu@cloudshell:~$ gcloud logging buckets describe _Default --location=global --project=$P --format="value(retentionDays)"
+180
+nikul_sadhu@cloudshell:~$ gcloud compute networks subnets describe default --region=me-central2 --project=$P --format="yaml(enableFlowLogs,logConfig)"
+
+  null
+nikul_sadhu@cloudshell:~$ gcloud logging read 'logName:"cloudaudit.googleapis.com%2Fdata_access"' --project=$P --freshness=7d --limit=3 --format="value(timestamp,protoPayload.serviceName)"
+nikul_sadhu@cloudshell:~$ gcloud logging read 'logName:"backend_pm2_out" AND (textPayload:"DDDDDD" OR jsonPayload.message:"DDDDDD")' --project=$P --freshness=7d --limit=5 --format="value(timestamp)"
+nikul_sadhu@cloudshell:~$ gcloud logging read 'logName:"backend_pm2_out" AND jsonPayload.message:"Body :"' --project=$P --freshness=1d --limit=1000 --format="value(timestamp)" | wc -l
+1000
+nikul_sadhu@cloudshell:~$ 
