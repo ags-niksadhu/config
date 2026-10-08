@@ -1,2 +1,22 @@
-az account list --query "[].{name:name,id:id,state:state}" -o table
+nikul [ ~ ]$ az account list --query "[].{name:name,id:id,state:state}" -o table
 az group list -o table
+Name                   State
+---------------------  -------
+PZI-GXEU-P-SUB164      Enabled
+PZI-GXSE-P-SUB029      Enabled
+PZI-GXUS-P-SUB060      Enabled
+PZI-GXUS-P-SUB314      Enabled
+PZI-GXAU-P-SUB009      Enabled
+PZI-GXEU-P-SUB029      Enabled
+PZI-GXSW-P-SUB005      Enabled
+pzi-gxx1-rl5cr-stg001  Enabled
+PZI-GXUS-P-SUB013      Enabled
+pzi-gxus-qsmil-prd011  Enabled
+pzi-gxeu-dizyh-prd007  Enabled
+PZI-GXEU-S-SUB001      Enabled
+PZI-GXSE-S-SUB001      Enabled
+
+nikul [ ~ ]$ 
+
+
+and my resouce group is pzi-gxx1-rl5cr-stg001
