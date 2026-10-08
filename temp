@@ -1,2 +1,14 @@
-for p in Microsoft.OperationalInsights Microsoft.Insights Microsoft.ManagedIdentity Microsoft.DBforPostgreSQL Microsoft.Storage Microsoft.Authorization Microsoft.Compute Microsoft.Network; do echo -n "$p: "; az provider show -n $p --query registrationState -o tsv; done
+ikul [ ~ ]$ for p in Microsoft.OperationalInsights Microsoft.Insights Microsoft.ManagedIdentity Microsoft.DBforPostgreSQL Microsoft.Storage Microsoft.Authorization Microsoft.Compute Microsoft.Network; do echo -n "$p: "; az provider show -n $p --query registrationState -o tsv; done
 az policy assignment list --query "[].{name:displayName,scope:scope}" -o table
+Microsoft.OperationalInsights: Registered
+Microsoft.Insights: Registered
+Microsoft.ManagedIdentity: Registered
+Microsoft.DBforPostgreSQL: Registered
+Microsoft.Storage: Registered
+Microsoft.Authorization: Registered
+Microsoft.Compute: Registered
+Microsoft.Network: Registered
+
+nikul [ ~ ]$ 
+
+
