@@ -1,4 +1,4 @@
-az ad signed-in-user show --query "{upn:userPrincipalName,oid:id}" -o json
+nikul [ ~ ]$ az ad signed-in-user show --query "{upn:userPrincipalName,oid:id}" -o json
 OID=$(az ad signed-in-user show --query id -o tsv)
 az role assignment list --assignee $OID --all --include-groups --include-inherited -o table
 az resource list -o table
@@ -6,3 +6,14 @@ az group list --query "length(@)"
 az provider show -n Microsoft.Compute --query registrationState -o tsv
 az provider show -n Microsoft.Network --query registrationState -o tsv
 az provider show -n Microsoft.KeyVault --query registrationState -o tsv
+{
+  "oid": "5975ab35-e0ec-40d4-b9e8-9a83b2e55b97",
+  "upn": "nikul.sadhu@admin.pwc.com"
+}
+
+
+0
+Registered
+Registered
+Registered
+nikul [ ~ ]$ 
