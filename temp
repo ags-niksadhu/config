@@ -1,14 +1,12 @@
-az role assignment list --assignee <your-UPN> --all -o table
-az resource list -o table
-
-az network vnet list -o table
-az policy assignment list --query "[].{n:displayName,s:scope}" -o table
-az provider list --query "[?registrationState=='Registered'].namespace" -o tsv
-
-
-az network vnet list -o table
-
-az account show -o table
+Your Cloud Shell session will be ephemeral so no files or system changes will persist beyond your current session.
+nikul [ ~ ]$ az account show -o table
 az group list -o table
 az network vnet list -o table
 az role assignment list --assignee $(az ad signed-in-user show --query userPrincipalName -o tsv) --all -o table
+EnvironmentName    HomeTenantId                          IsDefault    Name               State    TenantId
+-----------------  ------------------------------------  -----------  -----------------  -------  ------------------------------------
+AzureCloud         513294a0-3e20-41b2-a970-6d30bf1546fa  True         PZI-GXEU-P-SUB164  Enabled  513294a0-3e20-41b2-a970-6d30bf1546fa
+
+
+
+nikul [ ~ ]$ 
