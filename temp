@@ -1,3 +1,6 @@
-az resource list -g PZI-GX-P-RGP-MDCL-P001 --query "[].{n:name,t:type,l:location}" -o table
+nikul [ ~ ]$ az resource list -g PZI-GX-P-RGP-MDCL-P001 --query "[].{n:name,t:type,l:location}" -o table
 az network vnet list -o table
 az lock list -g PZI-GX-P-RGP-MDCL-P001 -o table
+N                 T                               L
+----------------  ------------------------------  ----------
+exportToEventHub  Microsoft.Security/automations  westeurope
