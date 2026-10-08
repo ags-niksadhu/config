@@ -1,3 +1,15 @@
-az vm list-skus -l uaenorth --size Standard_B2s --zone -o table
+nikul [ ~ ]$ az vm list-skus -l uaenorth --size Standard_B2s --zone -o table
 az vm list-skus -l uaenorth --size Standard_D2s_v5 --zone -o table
 az account list-locations --query "[?name=='uaenorth'||name=='uaecentral'].{n:name,pair:metadata.pairedRegion[0].name}" -o table
+ResourceType     Locations    Name             Zones    Restrictions
+---------------  -----------  ---------------  -------  --------------
+virtualMachines  UAENorth     Standard_B2s     1,2,3    None
+virtualMachines  UAENorth     Standard_B2s_v2  1,2,3    None
+ResourceType     Locations    Name             Zones    Restrictions
+---------------  -----------  ---------------  -------  --------------
+virtualMachines  UAENorth     Standard_D2s_v5  1,2,3    None
+N           Pair
+----------  ----------
+uaenorth    uaecentral
+uaecentral  uaenorth
+nikul [ ~ ]$ 
