@@ -1,1 +1,8 @@
-az vm list-usage -l uaenorth -o table | grep -Ei "Total Regional|Standard DSv5|Standard BS|Standard B "
+nikul [ ~ ]$ az vm list-usage -l uaenorth -o table | grep -Ei "Total Regional|Standard DSv5|Standard BS|Standard B "
+Total Regional Low-priority vCPUs         0               350
+Total Regional vCPUs                      0               350
+Standard BS Family vCPUs                  0               350
+Standard Bsv2 Family vCPUs                0               350
+Standard DSv5 Family vCPUs                0               350
+nikul [ ~ ]$ 
+
