@@ -1,8 +1,272 @@
-nikul [ ~ ]$ az vm list-usage -l uaenorth -o table | grep -Ei "Total Regional|Standard DSv5|Standard BS|Standard B "
-Total Regional Low-priority vCPUs         0               350
-Total Regional vCPUs                      0               350
-Standard BS Family vCPUs                  0               350
-Standard Bsv2 Family vCPUs                0               350
-Standard DSv5 Family vCPUs                0               350
-nikul [ ~ ]$ 
+packer/backend.pkr.hcl
 
+
+packer {
+  required_plugins {
+    azure = {
+      source  = "github.com/hashicorp/azure"
+      version = ">= 2.0.0"
+    }
+  }
+}
+
+variable "subscription_id" { type = string }
+variable "image_version"   { type = string }
+variable "app" {
+  type    = string
+  default = "cn-backend"        # frontend: cn-frontend
+}
+variable "app_port" {
+  type    = number
+  default = 3024                # frontend: 3027
+}
+variable "health_path" {
+  type    = string
+  default = "/health"           # frontend: /login
+}
+variable "rg" {
+  type    = string
+  default = "rg-cn-prod-uaenorth"
+}
+variable "vnet" {
+  type    = string
+  default = "vnet-cn-prod-uaenorth"   # REQUIRED: confirm real VNet name
+}
+variable "build_subnet" {
+  type    = string
+  default = "snet-agents"             # REQUIRED: confirm real subnet name
+}
+variable "base_rg"      { type = string }   # REQUIRED: base image gallery RG
+variable "base_gallery" { type = string }   # REQUIRED
+variable "base_image"   { type = string }   # REQUIRED
+variable "base_version" {
+  type    = string
+  default = "latest"
+}
+
+source "azure-arm" "cn" {
+  use_azure_cli_auth                     = true
+  subscription_id                        = var.subscription_id
+  location                               = "uaenorth"
+  vm_size                                = "Standard_B2s_v2"
+  os_type                                = "Linux"
+  build_resource_group_name              = var.rg
+  virtual_network_name                   = var.vnet
+  virtual_network_subnet_name            = var.build_subnet
+  virtual_network_resource_group_name    = var.rg
+  private_virtual_network_with_public_ip = false
+  ssh_username                           = "packer"
+  shared_image_gallery_timeout           = "60m"
+
+  shared_image_gallery {
+    subscription   = var.subscription_id
+    resource_group = var.base_rg
+    gallery_name   = var.base_gallery
+    image_name     = var.base_image
+    image_version  = var.base_version
+  }
+
+  shared_image_gallery_destination {
+    subscription         = var.subscription_id
+    resource_group       = var.rg
+    gallery_name         = "gal_cn_prod"
+    image_name           = var.app
+    image_version        = var.image_version
+    replication_regions  = ["uaenorth"]
+    storage_account_type = "Standard_LRS"
+  }
+
+  azure_tags = {
+    "managed-by" = "azure-pipelines-packer"
+    "app"        = var.app
+  }
+}
+
+build {
+  sources = ["source.azure-arm.cn"]
+
+  provisioner "shell" {
+    inline = [
+      "sudo apt-get update",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get -y upgrade",
+      "sudo systemctl start apt-daily-upgrade.service || true",
+      "curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs apache2",
+      "sudo a2enmod proxy proxy_http headers rewrite remoteip",
+      "sudo npm install -g pm2",
+      "sudo mkdir -p /var/www/${var.app} && sudo chown packer:packer /var/www/${var.app}"
+    ]
+  }
+
+  provisioner "file" {
+    source      = "artifact/"
+    destination = "/var/www/${var.app}"
+  }
+
+  provisioner "file" {
+    source      = "packer/files/apache-vhost.conf"   # reuse GCP vhost, see note below
+    destination = "/tmp/apache-vhost.conf"
+  }
+
+  provisioner "shell" {
+    inline = [
+      "cd /var/www/${var.app} && npm ci --omit=dev",
+      "sudo mv /tmp/apache-vhost.conf /etc/apache2/sites-available/000-default.conf",
+      "sudo apache2ctl configtest && sudo systemctl enable apache2 && sudo systemctl restart apache2",
+      "cd /var/www/${var.app} && pm2 start ecosystem.config.js --env staging && pm2 save",
+      "sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u packer --hp /home/packer",
+      "for i in $(seq 1 30); do curl -fs http://localhost:${var.app_port}${var.health_path} && exit 0; sleep 2; done; echo 'health check failed'; exit 1"
+    ]
+  }
+
+  provisioner "shell" {
+    execute_command = "chmod +x {{ .Path }}; sudo sh -c '{{ .Vars }} {{ .Path }}'"
+    inline = [
+      "/usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync"
+    ]
+    inline_shebang = "/bin/sh -x"
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+azure-pipelines.yml
+
+
+
+trigger:
+  branches:
+    include: [staging]
+
+pool:
+  name: cn-agents-pool
+
+variables:
+  azureSubscription: sc-cn-prod
+  rg: rg-cn-prod-uaenorth
+  app: cn-backend                       # frontend: cn-frontend
+  vmss: vmss-cn-backend                 # frontend: vmss-cn-frontend
+  imageVersion: 1.0.$(Build.BuildId)
+  baseRg: REPLACE_BASE_RG               # REQUIRED
+  baseGallery: REPLACE_BASE_GALLERY     # REQUIRED
+  baseImage: REPLACE_BASE_IMAGE         # REQUIRED
+
+stages:
+- stage: Build
+  jobs:
+  - job: build
+    steps:
+    - task: NodeTool@0
+      inputs: { versionSpec: '22.x' }
+    - script: |
+        npm ci
+        npm test -- --passWithNoTests
+        npm run build:staging          # frontend: npm run build
+      displayName: Install, test, build
+    - script: |
+        mkdir -p artifact
+        cp -r dist package.json package-lock.json ecosystem.config.js artifact/   # frontend: build public next.config.ts
+      displayName: Stage artifact
+    - publish: artifact
+      artifact: app
+
+- stage: Image
+  dependsOn: Build
+  jobs:
+  - job: packer
+    steps:
+    - download: current
+      artifact: app
+    - script: cp -r $(Pipeline.Workspace)/app artifact
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: $(azureSubscription)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          packer version
+          packer init packer/backend.pkr.hcl
+          packer build \
+            -var subscription_id=$(az account show --query id -o tsv) \
+            -var image_version=$(imageVersion) \
+            -var app=$(app) \
+            -var base_rg=$(baseRg) -var base_gallery=$(baseGallery) -var base_image=$(baseImage) \
+            packer/backend.pkr.hcl
+      displayName: Packer build to Compute Gallery
+
+- stage: Deploy
+  dependsOn: Image
+  jobs:
+  - deployment: rollout
+    environment: cn-prod                # approval gate lives here
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: none
+          - task: AzureCLI@2
+            displayName: Rolling update
+            inputs:
+              azureSubscription: $(azureSubscription)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -e
+                SUB=$(az account show --query id -o tsv)
+                NEW=/subscriptions/$SUB/resourceGroups/$(rg)/providers/Microsoft.Compute/galleries/gal_cn_prod/images/$(app)/versions/$(imageVersion)
+                PREV=$(az vmss show -g $(rg) -n $(vmss) --query virtualMachineProfile.storageProfile.imageReference.id -o tsv)
+                echo "##vso[task.setvariable variable=PREV_IMAGE]$PREV"
+                echo "Previous: $PREV"
+                az vmss update -g $(rg) -n $(vmss) \
+                  --set virtualMachineProfile.storageProfile.imageReference.id=$NEW
+                for i in $(seq 1 90); do
+                  S=$(az vmss rolling-upgrade get -g $(rg) -n $(vmss) --query runningStatus.code -o tsv)
+                  echo "rolling upgrade: $S"
+                  [ "$S" = "Completed" ] && exit 0
+                  [ "$S" = "Faulted" ] && exit 1
+                  sleep 20
+                done
+                exit 1
+          - task: AzureCLI@2
+            displayName: Verify
+            inputs:
+              azureSubscription: $(azureSubscription)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az vmss list-instances -g $(rg) -n $(vmss) --query "[].{n:name,state:provisioningState}" -o table
+                az vmss rolling-upgrade get -g $(rg) -n $(vmss) --query "{status:runningStatus.code,failed:progress.failedInstanceCount,ok:progress.successfulInstanceCount}" -o json
+          - task: AzureCLI@2
+            displayName: Rollback on failure
+            condition: failed()
+            inputs:
+              azureSubscription: $(azureSubscription)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                [ -n "$(PREV_IMAGE)" ] || { echo "no previous image recorded"; exit 1; }
+                az vmss update -g $(rg) -n $(vmss) \
+                  --set virtualMachineProfile.storageProfile.imageReference.id=$(PREV_IMAGE)
+                echo "Rolled back to $(PREV_IMAGE)"
