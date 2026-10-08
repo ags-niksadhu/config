@@ -1,89 +1,14 @@
-nikul_sadhu@cloudshell:~$ P=pg-ae-n-app-125609
-gcloud compute instance-templates list --project=$P --format="table(name,properties.disks[0].initializeParams.sourceImage.basename())"
-NAME: cn-backend-template-36689c0
-SOURCE_IMAGE: cn-backend-image-36689c0
+az role assignment list --assignee <your-UPN> --all -o table
+az resource list -o table
 
-NAME: cn-backend-template-4dbdd20
-SOURCE_IMAGE: cn-backend-image-4dbdd20
+az network vnet list -o table
+az policy assignment list --query "[].{n:displayName,s:scope}" -o table
+az provider list --query "[?registrationState=='Registered'].namespace" -o tsv
 
-NAME: cn-backend-template-6532834
-SOURCE_IMAGE: cn-backend-image-6532834
 
-NAME: cn-backend-template-8f5b2a1
-SOURCE_IMAGE: cn-backend-image-8f5b2a1
+az network vnet list -o table
 
-NAME: cn-backend-template-98b9081
-SOURCE_IMAGE: cn-backend-image-98b9081
-
-NAME: cn-backend-template-9bf4fed
-SOURCE_IMAGE: cn-backend-image-9bf4fed
-
-NAME: cn-backend-template-a62c29d
-SOURCE_IMAGE: cn-backend-image-a62c29d
-
-NAME: cn-backend-template-b0288db
-SOURCE_IMAGE: cn-backend-image-b0288db
-
-NAME: cn-frontend-template-a81eb16
-SOURCE_IMAGE: cn-frontend-image-a81eb16
-nikul_sadhu@cloudshell:~$ gcloud compute images delete \
-  cn-backend-os-image-v1 \
-  cn-frontend-image-d3dff86 cn-frontend-image-b0ad954 cn-frontend-image-7696009 cn-frontend-image-13633c6 cn-frontend-image-0ae7410 \
-  cn-frontend-image-70499c9 cn-frontend-image-13bcacb cn-frontend-image-3255267 cn-frontend-image-809b228 cn-frontend-image-ee22731 \
-  cn-backend-image-41f3935 cn-backend-image-054eefc cn-backend-image-53262df cn-backend-image-ffc8a89 \
-  cn-backend-image-bd3b2bb cn-backend-image-6a5ff7e cn-backend-image-b5141a9 cn-backend-image-3aaffe9 \
-  --project=$P
-The following images will be deleted:
- - [cn-backend-image-054eefc]
- - [cn-backend-image-3aaffe9]
- - [cn-backend-image-41f3935]
- - [cn-backend-image-53262df]
- - [cn-backend-image-6a5ff7e]
- - [cn-backend-image-b5141a9]
- - [cn-backend-image-bd3b2bb]
- - [cn-backend-image-ffc8a89]
- - [cn-backend-os-image-v1]
- - [cn-frontend-image-0ae7410]
- - [cn-frontend-image-13633c6]
- - [cn-frontend-image-13bcacb]
- - [cn-frontend-image-3255267]
- - [cn-frontend-image-70499c9]
- - [cn-frontend-image-7696009]
- - [cn-frontend-image-809b228]
- - [cn-frontend-image-b0ad954]
- - [cn-frontend-image-d3dff86]
- - [cn-frontend-image-ee22731]
-
-Do you want to continue (Y/n)?  Y
-
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-backend-os-image-v1].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-frontend-image-d3dff86].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-frontend-image-b0ad954].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-frontend-image-7696009].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-frontend-image-13633c6].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-frontend-image-0ae7410].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-frontend-image-70499c9].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-frontend-image-13bcacb].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-frontend-image-3255267].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-frontend-image-809b228].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-frontend-image-ee22731].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-backend-image-41f3935].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-backend-image-054eefc].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-backend-image-53262df].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-backend-image-ffc8a89].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-backend-image-bd3b2bb].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-backend-image-6a5ff7e].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-backend-image-b5141a9].
-Deleted [https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/images/cn-backend-image-3aaffe9].
-nikul_sadhu@cloudshell:~$ gcloud compute images list --project=$P --no-standard-images --format="value(name)" | sort
-clean-ubuntu-26092026-img-v2
-cn-backend-image-36689c0
-cn-backend-image-4dbdd20
-cn-backend-image-6532834
-cn-backend-image-8f5b2a1
-cn-backend-image-98b9081
-cn-backend-image-9bf4fed
-cn-backend-image-a62c29d
-cn-backend-image-b0288db
-cn-frontend-image-a81eb16
-nikul_sadhu@cloudshell:~$ 
+az account show -o table
+az group list -o table
+az network vnet list -o table
+az role assignment list --assignee $(az ad signed-in-user show --query userPrincipalName -o tsv) --all -o table
