@@ -1,22 +1,27 @@
-nikul [ ~ ]$ az account list --query "[].{name:name,id:id,state:state}" -o table
+`pzi-gxx1-rl5cr-stg001` appears in your list as a **subscription**, not a resource group. So the work belongs in that subscription, and your earlier checks ran against the wrong one (`PZI-GXEU-P-SUB164`, the default). That explains the 0 resource groups.
+
+⚠️ The name ends in `stg`, but we have been treating this as production. Confirm with PwC or your lead whether this subscription is staging or prod, because it changes the names (`rg-cn-prod-*` vs `rg-cn-stg-*`), the approval gate and the branch plan.
+
+**Switch to it and re-run all earlier checks (read-only):**
+```bash
+az account set --subscription "pzi-gxx1-rl5cr-stg001"
+az account show --query "{name:name,id:id}" -o table
 az group list -o table
-Name                   State
----------------------  -------
-PZI-GXEU-P-SUB164      Enabled
-PZI-GXSE-P-SUB029      Enabled
-PZI-GXUS-P-SUB060      Enabled
-PZI-GXUS-P-SUB314      Enabled
-PZI-GXAU-P-SUB009      Enabled
-PZI-GXEU-P-SUB029      Enabled
-PZI-GXSW-P-SUB005      Enabled
-pzi-gxx1-rl5cr-stg001  Enabled
-PZI-GXUS-P-SUB013      Enabled
-pzi-gxus-qsmil-prd011  Enabled
-pzi-gxeu-dizyh-prd007  Enabled
-PZI-GXEU-S-SUB001      Enabled
-PZI-GXSE-S-SUB001      Enabled
+OID=$(az ad signed-in-user show --query id -o tsv)
+az role assignment list --assignee $OID --all --include-groups --include-inherited -o table
+az policy assignment list --query "[].{name:displayName,scope:scope}" -o table
+az vm list-skus -l uaenorth --size Standard_B2s_v2 --zone -o table
+az vm list-usage -l uaenorth -o table | grep -Ei "Total Regional vCPUs|Bsv2"
+for p in Microsoft.Compute Microsoft.Network Microsoft.KeyVault Microsoft.OperationalInsights Microsoft.Insights Microsoft.ManagedIdentity Microsoft.DBforPostgreSQL Microsoft.Storage; do echo -n "$p: "; az provider show -n $p --query registrationState -o tsv; done
+```
 
-nikul [ ~ ]$ 
+**What each result decides:**
 
+| Result | Meaning |
+|---|---|
+| An RG appears | Use that exact name everywhere instead of `rg-cn-prod-uaenorth` |
+| Role shown (Contributor etc.) | Ready to build |
+| UAE North SKU or quota restricted | Change size or region plan now |
+| Provider `NotRegistered` | Goes in the denial log |
 
-and my resouce group is pzi-gxx1-rl5cr-stg001
+Paste the output, plus the RG name if one is listed. I'll then give Step 2 using the real names.
