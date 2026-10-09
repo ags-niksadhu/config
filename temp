@@ -1,13 +1,23 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email
-sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.comnikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/scopes
-https://www.googleapis.com/auth/devstorage.read_only
-https://www.googleapis.com/auth/logging.write
-https://www.googleapis.com/auth/monitoring.write
-https://www.googleapis.com/auth/service.management.readonly
-https://www.googleapis.com/auth/servicecontrol
-https://www.googleapis.com/auth/trace.append
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo sed -i 's|^RewriteCond %{HTTP:X-Forwarded-Proto} !https|#&|; s|^RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} \[R=301,L\]|#&|' /etc/apache2/sites-enabled/ai_test.conf
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo apache2ctl configtest && sudo systemctl reload apache2
-AH00526: Syntax error on line 109 of /etc/apache2/sites-enabled/ai_test.conf:
-Invalid command 'RemoteIPHeader', perhaps misspelled or defined by a module not included in the server configuration
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$
+## 1. Scopes confirmed
+`cloud-platform` is missing, so Secret Manager is blocked. Apply the scope fix from my previous message (stop VM → edit access scopes → full access → start). The service account is `sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com`. Check that it has `Secret Manager Secret Accessor`.
+
+## 2. Apache error
+`mod_remoteip` isn't enabled. Your sed edit isn't the cause, but the directive was already unrecognized, so Apache has been running without this module loaded (this config was likely never reloaded successfully). The reload was blocked, so the running Apache is unchanged.
+
+```bash
+sudo a2enmod remoteip headers proxy proxy_http rewrite http2
+sudo apache2ctl configtest && sudo systemctl reload apache2
+grep -n Rewrite /etc/apache2/sites-enabled/ai_test.conf
+```
+
+Expected: `Syntax OK`. If another module error appears, send me the output.
+
+**Rollback:** `sudo a2dismod remoteip && sudo systemctl reload apache2`, and uncomment the two Rewrite lines.
+
+## 3. Verify after both fixes
+```bash
+pm2 restart careernavigator-backend && sleep 5 && pm2 logs careernavigator-backend --lines 20 --nostream
+sudo ss -tlnp | grep node
+curl -sI http://localhost/
+```
+Send the output. I still need the port from `ss` to confirm whether 3024 or 3333 is correct.
