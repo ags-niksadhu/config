@@ -1,4 +1,14 @@
-gcloud compute instances list --filter="name=cn-staging-ai-staging" --format="table(name,zone.basename(),tags.items.list(),networkInterfaces[0].network.basename(),networkInterfaces[0].accessConfigs[0].natIP)"
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute instances list --filter="name=cn-staging-ai-staging" --format="table(name,zone.basename(),tags.items.list(),networkInterfaces[0].network.basename(),networkInterfaces[0].accessConfigs[0].natIP)"
 gcloud compute target-http-proxies describe cm-staging-lb-target-proxy-2 --format="value(urlMap.basename())"
 gcloud compute target-https-proxies describe cm-staging-lb-https-proxy --format="value(urlMap.basename())"
 gcloud compute url-maps list --format="table(name,defaultService.basename())"
+NAME: cn-staging-ai-staging
+ZONE: me-central2-a
+ITEMS: http-server,lb-health-check
+NETWORK: default
+NAT_IP: 
+cm-staging-lb
+cm-staging-lb
+NAME: cm-staging-lb
+DEFAULT_SERVICE: frontend-service
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
