@@ -1,45 +1,71 @@
-## Finding
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute backend-services describe ai-test-backend --global --format="yaml(securityPolicy)"
+securityPolicy: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/securityPolicies/ai-test-allowlist
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ curl -i http://136.68.140.144/ai-test/health
+HTTP/1.1 200 OK
+date: Fri, 09 Oct 2026 08:48:38 GMT
+server: Apache/2.4.58 (Ubuntu)
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+permissions-policy: geolocation=(), microphone=(), camera=()
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';
+x-powered-by: Express
+access-control-allow-origin: *
+content-type: application/json; charset=utf-8
+Content-Length: 59
+etag: W/"3b-pyt3M/rUNoRNvzfbEVhjhh0mLuE"
+via: 1.1 cn-staging-ai-staging.c.pg-ae-n-app-125609.internal (Apache/2.4.58), 1.1 google
+x-frame-options: SAMEORIGIN
 
-`cnstaging-waf-policy-v2` is **WAF + rate limiting only, with a default `allow` for `*`**. It blocks attack signatures but not unknown users, so `/ai-test/*` is currently open to the whole internet. Option B (dedicated allowlist policy) is needed.
+{"status":"healthy","timestamp":"2026-10-09T08:48:38.694Z"}nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ curl -i http://136.68.140.144/ai-test/health
+HTTP/1.1 200 OK
+date: Fri, 09 Oct 2026 08:48:47 GMT
+server: Apache/2.4.58 (Ubuntu)
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+permissions-policy: geolocation=(), microphone=(), camera=()
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';
+x-powered-by: Express
+access-control-allow-origin: *
+content-type: application/json; charset=utf-8
+Content-Length: 59
+etag: W/"3b-erkMUwG4fCAfn0H1juKJjRn8Kys"
+via: 1.1 cn-staging-ai-staging.c.pg-ae-n-app-125609.internal (Apache/2.4.58), 1.1 google
+x-frame-options: SAMEORIGIN
 
-⚠️ Also, the OWASP rules may block legitimate AI prompts (SQLi/XSS/RCE signatures can false-positive on code or free text). A dedicated policy avoids that.
+{"status":"healthy","timestamp":"2026-10-09T08:curl -sI https://stagingapi.careerdevelopmentnavigator.mer.pwc.com/health://stagingapi.careerdevelopmentnavigator.mer.pwc.com/health
+HTTP/2 200 
+date: Fri, 09 Oct 2026 08:48:54 GMT
+server: Apache/2.4.58 (Ubuntu)
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+permissions-policy: geolocation=(), microphone=(), camera=()
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';
+x-powered-by: Express
+access-control-allow-origin: *
+x-ratelimit-limit: 180
+x-ratelimit-remaining: 171
+x-ratelimit-reset: 1791535768
+content-type: application/json; charset=utf-8
+content-length: 59
+etag: W/"3b-rxTv1IRoYx6ikcI+Dpt3N8AkVPw"
+via: 1.1 stagingapi.careerdevelopmentnavigator.mer.pwc.com (Apache/2.4.58), 1.1 google
+x-frame-options: SAMEORIGIN
+alt-svc: h3=":443"; ma=2592000
 
-## Create the policy (GUI)
-
-1. Network security → Cloud Armor policies → **Create policy**.
-2. Name `ai-test-allowlist`, Type **Backend security policy**, Default rule action **Deny (403)**.
-3. Add rule: priority `1000`, Action **Allow**, Match source IPs `110.227.205.102, 14.99.145.222` ← required substitution. Confirm these are your current office/VPN IPs (taken from `temp-testing-cn`).
-4. Targets: add `ai-test-backend` (this replaces `cnstaging-waf-policy-v2` on that backend only; staging backends are untouched).
-5. Create.
-
-Cost: about $5/mo plus about $1/mo per rule, which is about $6/mo until you delete it.
-
-## Verify (wait 2-3 min)
-
-Check the attachment:
-```bash
-gcloud compute backend-services describe ai-test-backend --global --format="yaml(securityPolicy)"
-```
-Expect `.../ai-test-allowlist`.
-
-From an allowlisted IP (your laptop, not Cloud Shell):
-```bash
-curl -i http://136.68.140.144/ai-test/health
-```
-Expect 200.
-
-From Cloud Shell, which isn't on the list:
-```bash
-curl -i http://136.68.140.144/ai-test/health
-```
-Expect 403.
-
-Staging check (must be unchanged):
-```bash
-curl -sI https://stagingapi.careerdevelopmentnavigator.mer.pwc.com/health
-```
-
-## Rollback
-Backends → `ai-test-backend` → Edit → Security → select `cnstaging-waf-policy-v2`.
-
-Send the verify outputs.
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ curl -sI https://staging.careerdevelopmentnavigator.mer.pwc.com/health
+HTTP/2 307 
+date: Fri, 09 Oct 2026 08:49:03 GMT
+server: Apache/2.4.58 (Ubuntu)
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+permissions-policy: geolocation=(), microphone=(), camera=()
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://stagingapi.careerdevelopmentnavigator.mer.pwc.com;
+location: /login
+set-cookie: org_subdomain=health; Path=/; SameSite=lax
+via: 1.1 staging.careerdevelopmentnavigator.mer.pwc.com (Apache/2.4.58), 1.1 google
+x-frame-options: SAMEORIGIN
+alt-svc: h3=":443"; ma=2592000
