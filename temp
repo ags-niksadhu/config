@@ -1,5 +1,70 @@
-gcloud config set project pg-ae-n-app-125609
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud config set project pg-ae-n-app-125609
 gcloud compute forwarding-rules list --format="table(name,IPAddress,loadBalancingScheme,target,region)"
 gcloud compute addresses list
 gcloud compute backend-services list --format="table(name,protocol,port,region,healthChecks.basename())"
 gcloud compute instances describe cn-staging-ai-staging --format="value(zone.basename())"
+[environment: untagged] Read more to tag: g.co/cloud/project-env-tag.
+Updated property [core/project].
+NAME: app-lb-frontend-https
+IP_ADDRESS: 136.68.140.144
+LOAD_BALANCING_SCHEME: EXTERNAL_MANAGED
+TARGET: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/targetHttpsProxies/cm-staging-lb-https-proxy
+REGION: 
+
+NAME: app-lb-frontend2
+IP_ADDRESS: 136.68.140.144
+LOAD_BALANCING_SCHEME: EXTERNAL_MANAGED
+TARGET: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/targetHttpProxies/cm-staging-lb-target-proxy-2
+REGION: 
+NAME: cn-staging-static-ip
+ADDRESS/RANGE: 136.68.140.144
+TYPE: EXTERNAL
+PURPOSE: 
+NETWORK: 
+REGION: 
+SUBNET: 
+STATUS: IN_USE
+
+NAME: default-ip-range-1777629612925
+ADDRESS/RANGE: 10.57.64.0/20
+TYPE: INTERNAL
+PURPOSE: VPC_PEERING
+NETWORK: default
+REGION: 
+SUBNET: 
+STATUS: RESERVED
+
+NAME: google-managed-services-cn-backend
+ADDRESS/RANGE: 10.58.0.0/16
+TYPE: INTERNAL
+PURPOSE: VPC_PEERING
+NETWORK: default
+REGION: 
+SUBNET: 
+STATUS: RESERVED
+
+NAME: nat-auto-ip-40795557-5-1778073890572402
+ADDRESS/RANGE: 34.166.214.83
+TYPE: EXTERNAL
+PURPOSE: NAT_AUTO
+NETWORK: 
+REGION: me-central2
+SUBNET: 
+STATUS: IN_USE
+NAME: app-backend-service
+PROTOCOL: HTTP
+PORT: 80
+REGION: 
+HEALTH_CHECKS: ['app-health-check']
+
+NAME: frontend-service
+PROTOCOL: HTTP
+PORT: 80
+REGION: 
+HEALTH_CHECKS: ['frontend-health-check']
+Did you mean zone [europe-west4-b] for instance: [cn-staging-ai-staging] (Y/n)?  Y
+
+ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
+ - The resource 'projects/pg-ae-n-app-125609/zones/europe-west4-b/instances/cn-staging-ai-staging' was not found
+
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
