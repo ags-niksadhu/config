@@ -1,23 +1,81 @@
-## 1. Scopes confirmed
-`cloud-platform` is missing, so Secret Manager is blocked. Apply the scope fix from my previous message (stop VM → edit access scopes → full access → start). The service account is `sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com`. Check that it has `Secret Manager Secret Accessor`.
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo a2enmod remoteip headers proxy proxy_http rewrite http2
+Enabling module remoteip.
+Module headers already enabled
+Module proxy already enabled
+Considering dependency proxy for proxy_http:
+Module proxy already enabled
+Module proxy_http already enabled
+Module rewrite already enabled
+Module http2 already enabled
+To activate the new configuration, you need to run:
+  systemctl restart apache2
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo apache2ctl configtest && sudo systemctl reload apache2
+Syntax OK
+apache2.service is not active, cannot reload.
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ grep -n Rewrite /etc/apache2/sites-enabled/ai_test.conf
+17:#    RewriteEngine On
+19: #       RewriteCond %{HTTP:X-Forwarded-Proto} !https
+20: #   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+22:RewriteEngine On
+24:RewriteCond %{HTTP_USER_AGENT} GoogleHC/
+25:RewriteRule ^ - [L]
+27:#RewriteCond %{HTTP:X-Forwarded-Proto} !https
+28:#RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ pm2 restart careernavigator-backend && sleep 5 && pm2 logs careernavigator-backend --lines 20 --nostream
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [careernavigator-backend](ids: [ 0 ])
+[PM2] [careernavigator-backend](0) ✓
+┌────┬────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                       │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ careernavigator-backend    │ default     │ 0.0.1   │ fork    │ 1080959  │ 0s     │ 218… │ online    │ 0%       │ 21.5mb   │ nikul_s… │ disabled │
+└────┴────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 40.3% | ram usage: 18.6% | ens4: ⇓ 0.006mb/s ⇑ 0.009mb/s | disk: ⇓ 0.059mb/s ⇑ 0.513mb/s
+[TAILING] Tailing last 20 lines for [careernavigator-backend] process (change the value with --lines option)
+/home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-backend-out-0.log last 20 lines:
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
 
-## 2. Apache error
-`mod_remoteip` isn't enabled. Your sed edit isn't the cause, but the directive was already unrecognized, so Apache has been running without this module loaded (this config was likely never reloaded successfully). The reload was blocked, so the running Apache is unchanged.
+/home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-backend-error-0.log last 20 lines:
+0|careerna |   - DB_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - DB_DATABASE: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - DB_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - GCP_BUCKET: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - GCP_FILE_PATH: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - MAIL_DRIVER: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - MAIL_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - MAIL_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - MAIL_USERNAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - MAIL_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - MAIL_FROM_NAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - MAIL_FROM_ADDRESS: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - REDIS_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - REDIS_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - REDIS_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - EMAIL_SENDING_ENABLED: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |     at loadSecrets (/var/www/careernavigator-backend/src/common/config/secret-manager.ts:62:15)
+0|careerna |     at runNextTicks (node:internal/process/task_queues:64:5)
+0|careerna |     at process.processImmediate (node:internal/timers:452:9)
+0|careerna |     at async bootstrap (/var/www/careernavigator-backend/src/main.ts:24:9)
 
-```bash
-sudo a2enmod remoteip headers proxy proxy_http rewrite http2
-sudo apache2ctl configtest && sudo systemctl reload apache2
-grep -n Rewrite /etc/apache2/sites-enabled/ai_test.conf
-```
-
-Expected: `Syntax OK`. If another module error appears, send me the output.
-
-**Rollback:** `sudo a2dismod remoteip && sudo systemctl reload apache2`, and uncomment the two Rewrite lines.
-
-## 3. Verify after both fixes
-```bash
-pm2 restart careernavigator-backend && sleep 5 && pm2 logs careernavigator-backend --lines 20 --nostream
-sudo ss -tlnp | grep node
-curl -sI http://localhost/
-```
-Send the output. I still need the port from `ss` to confirm whether 3024 or 3333 is correct.
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo ss -tlnp | grep node
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -sI http://localhost/
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$
