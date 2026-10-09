@@ -1,30 +1,47 @@
-## Status
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -si http://localhost/health
+HTTP/1.1 200 OK
+Date: Fri, 09 Oct 2026 07:22:13 GMT
+Server: Apache/2.4.58 (Ubuntu)
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 1; mode=block
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: geolocation=(), microphone=(), camera=()
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';
+X-Powered-By: Express
+Access-Control-Allow-Origin: *
+Content-Type: application/json; charset=utf-8
+Content-Length: 59
+ETag: W/"3b-cvy4jTXOHLXED4GjgAK298pBo7A"
+Via: 1.1 cn-staging-ai-staging.c.pg-ae-n-app-125609.internal (Apache/2.4.58)
+X-Frame-Options: SAMEORIGIN
 
-Diagnosis confirmed: `000-default.conf` was the default vhost on `*:80` and won because `ai_test.conf` has no `ServerName`. The app itself is healthy (`/health` returns 200 on 3024). You disabled `000-default` and `configtest` passed, and the `&&` chain then ran `systemctl reload apache2` (no error shown).
+{"status":"healthy","timestamp":"2026-10-09T07:22:13.865Z"}nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -sI http://localhost/
+HTTP/1.1 200 OK
+Date: Fri, 09 Oct 2026 07:22:19 GMT
+Server: Apache/2.4.58 (Ubuntu)
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 1; mode=block
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: geolocation=(), microphone=(), camera=()
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';
+X-Powered-By: Express
+Content-Type: application/json; charset=utf-8
+Content-Length: 36
+ETag: W/"24-5gmL63oM0Emh+GIUetFZfJeFwGU"
+Via: 1.1 cn-staging-ai-staging.c.pg-ae-n-app-125609.internal (Apache/2.4.58)
+X-Frame-Options: SAMEORIGIN
 
-## Verify
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ gcloud compute forwarding-rules list --format="table(name,IPAddress,loadBalancingScheme,target,region)"
+WARNING: Some requests did not succeed.
+ - Required 'compute.forwardingRules.list' permission for 'projects/pg-ae-n-app-125609'
 
-```bash
-curl -si http://localhost/health
-curl -sI http://localhost/
-```
-Expected: `200` with `{"status":"healthy",...}` for `/health`. If you get 5xx, check `sudo tail -20 /var/log/apache2/careernavigator-backend-staging-error.log`.
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ gcloud compute addresses list
+WARNING: Some requests did not succeed.
+ - Required 'compute.addresses.list' permission for 'projects/pg-ae-n-app-125609'
 
-**Rollback:** `sudo a2ensite 000-default.conf && sudo systemctl reload apache2`
+Listed 0 items.
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ gcloud compute backend-services list --format="table(name,protocol,port,healthChecks.basename())"
+WARNING: Some requests did not succeed.
+ - Required 'compute.backendServices.list' permission for 'projects/pg-ae-n-app-125609'
 
-⚠️ Also check the 443 listener: Apache has `*:443` open, but there's no SSL vhost in `sites-enabled` now. It's harmless for LB HTTP testing, but don't use HTTPS directly against the VM.
-
-## Next: LB static IP
-
-Scopes are fixed, so re-run:
-```bash
-gcloud compute forwarding-rules list --format="table(name,IPAddress,loadBalancingScheme,target,region)"
-gcloud compute addresses list
-gcloud compute backend-services list --format="table(name,protocol,port,healthChecks.basename())"
-```
-
-Send me:
-1. The output of the three commands above and the `curl /health` result.
-2. Whether HTTPS is required for the AI features.
-
-Then I'll give the exact GUI steps for the static IP, the health check (`/health`, port 80) and the Cloud Armor allowlist.
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$
