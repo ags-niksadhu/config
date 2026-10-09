@@ -1,16 +1,4 @@
-## Findings
-
-- The map has **host rules only**, with no redirects and no path rules. Requests to the raw IP (Host = `136.68.140.144`) match no host rule, so they fall to the **default service `frontend-service`**. This is why `/ai-test/*` must be added at the **top level (`pathMatcher` for the default)**, not inside `path-matcher-1/2`.
-- Staging traffic uses the PwC hostnames, so a rule that only matches the raw IP can't touch it. This keeps the risk low.
-
-## Edit: add a host rule for the IP only
-
-Create a new path matcher used only when Host = the IP. Staging hosts are untouched.
-
-**Create the file** (run in Cloud Shell; copy-paste the whole block):
-
-```bash
-cat > url-map-new.yaml <<'EOF'
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ cat > url-map-new.yaml <<'EOF'
 defaultService: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/frontend-service
 fingerprint: bNmBHrRNKyY=
 hostRules:
@@ -40,38 +28,9 @@ pathMatchers:
       urlRewrite:
         pathPrefixRewrite: /
 EOF
-```
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute backend-services describe ai-test-backend --global --format="value(name)"
+ERROR: (gcloud.compute.backend-services.describe) Could not fetch resource:
+ - The resource 'projects/pg-ae-n-app-125609/global/backendServices/ai-test-backend' was not found
 
-**⚠️ Prerequisite:** `ai-test-backend` must exist first (the import fails otherwise). Confirm with:
-```bash
-gcloud compute backend-services describe ai-test-backend --global --format="value(name)"
-```
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
 
-**Apply:**
-```bash
-gcloud compute url-maps validate --source=url-map-new.yaml --global
-gcloud compute url-maps import cm-staging-lb --global --source=url-map-new.yaml
-```
-If the fingerprint is rejected (map changed), re-export and re-apply the edit. Don't use `--quiet`.
-
-## Verify
-```bash
-gcloud compute backend-services get-health ai-test-backend --global
-curl -i http://136.68.140.144/ai-test/health
-curl -sI http://136.68.140.144/
-```
-Expected: `HEALTHY`, a 200 with `{"status":"healthy"}`, and `/` still served by the default `frontend-service`. Wait 2-5 minutes after the import for propagation.
-
-Note: `/ai-test` without the trailing slash falls through to `frontend-service`. Always use `/ai-test/...`.
-
-## Rollback
-```bash
-gcloud compute url-maps import cm-staging-lb --global --source=url-map-backup-2026-10-09.yaml
-```
-Then delete `ai-test-backend`, `ai-test-health-check` and `ai-test-ig`.
-
-## Remaining checks
-- ⚠️ Cloud Armor allowlist on `ai-test-backend`, or the test app is public on the IP.
-- HTTPS to the raw IP will give a cert mismatch (the cert is for the PwC domain). Test over HTTP, or use `curl -k`.
-
-Confirm that the instance group, health check and `ai-test-backend` exist (the `describe` output), and send me the `import` result.
