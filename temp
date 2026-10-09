@@ -1,80 +1,33 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo systemctl start apache2 && sudo systemctl enable apache2
-Synchronizing state of apache2.service with SysV service script with /usr/lib/systemd/systemd-sysv-install.
-Executing: /usr/lib/systemd/systemd-sysv-install enable apache2
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo systemctl status apache2 --no-pager | head -5
-● apache2.service - The Apache HTTP Server
-     Loaded: loaded (/usr/lib/systemd/system/apache2.service; enabled; preset: enabled)
-     Active: active (running) since Fri 2026-10-09 07:15:35 UTC; 1min 12s ago
-       Docs: https://httpd.apache.org/docs/2.4/
-   Main PID: 1002 (apache2)
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sleep 5; pm2 status
-┌────┬────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
-│ id │ name                       │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
-├────┼────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
-│ 0  │ careernavigator-backend    │ default     │ 0.0.1   │ fork    │ 1267     │ 80s    │ 0    │ online    │ 0%       │ 178.5mb  │ nikul_s… │ disabled │
-└────┴────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
-host metrics | cpu: 3.2% | ram usage: 17.8% | disk: ⇓ 0.401mb/s ⇑ 0.163mb/s
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ pm2 logs careernavigator-backend --lines 20 --nostream
-[TAILING] Tailing last 20 lines for [careernavigator-backend] process (change the value with --lines option)
-/home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-backend-error-0.log last 20 lines:
-0|careerna |   - MAIL_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
-0|careerna |   - MAIL_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
-0|careerna |   - MAIL_USERNAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
-0|careerna |   - MAIL_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
-0|careerna |   - MAIL_FROM_NAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
-0|careerna |   - MAIL_FROM_ADDRESS: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
-0|careerna |   - REDIS_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
-0|careerna |   - REDIS_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
-0|careerna |   - REDIS_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
-0|careerna |   - EMAIL_SENDING_ENABLED: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
-0|careerna |     at loadSecrets (/var/www/careernavigator-backend/src/common/config/secret-manager.ts:62:15)
-0|careerna |     at runNextTicks (node:internal/process/task_queues:64:5)
-0|careerna |     at process.processImmediate (node:internal/timers:452:9)
-0|careerna |     at async bootstrap (/var/www/careernavigator-backend/src/main.ts:24:9)
-0|careerna | (node:1267) NOTE: The AWS SDK for JavaScript (v2) is in maintenance mode.
-0|careerna |  SDK releases are limited to address critical bug fixes and security issues only.
-0|careerna |
-0|careerna | Please migrate your code to use AWS SDK for JavaScript (v3).
-0|careerna | For more information, check the blog post at https://a.co/cUPnyil
-0|careerna | (Use `node --trace-warnings ...` to show where the warning was created)
+## Status
 
-/home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-backend-out-0.log last 20 lines:
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RouterExplorer] Mapped {/training-provider/bulk-delete, DELETE} (version: 1) route +1ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RouterExplorer] Mapped {/training-provider/affected-count, POST} (version: 1) route +0ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RouterExplorer] Mapped {/training-provider/:id, DELETE} (version: 1) route +0ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RouterExplorer] Mapped {/training-provider/list-export, GET} (version: 1) route +0ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RouterExplorer] Mapped {/training-provider/:slug, GET} (version: 1) route +0ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RoutesResolver] TrainingCategoryController {/training-category} (version: 1): +1ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RouterExplorer] Mapped {/training-category, GET} (version: 1) route +0ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RouterExplorer] Mapped {/training-category, POST} (version: 1) route +3ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RouterExplorer] Mapped {/training-category/:id, PUT} (version: 1) route +0ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RouterExplorer] Mapped {/training-category/change-status, PATCH} (version: 1) route +0ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RouterExplorer] Mapped {/training-category/bulk-delete, DELETE} (version: 1) route +1ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RouterExplorer] Mapped {/training-category/:id, DELETE} (version: 1) route +1ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RouterExplorer] Mapped {/training-category/list-export, GET} (version: 1) route +1ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RouterExplorer] Mapped {/training-category/affected-count, POST} (version: 1) route +0ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RouterExplorer] Mapped {/training-category/:slug, GET} (version: 1) route +0ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RoutesResolver] HealthController {/health} (version: Neutral): +0ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [RouterExplorer] Mapped {/health, GET} (version: Neutral) route +0ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [Redis] ✅ Redis connection established successfully
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM     LOG [NestApplication] Nest application successfully started +4ms
-0|careerna | [Nest] 1267  - 10/09/2026, 7:16:15 AM   DEBUG 🚀  Server is listening on port 3024
+✅ Backend is fixed. No new `PERMISSION_DENIED`, Redis connected, and node listens on **3024**, so the vhost port is correct. (The `PERMISSION_DENIED` lines in the error log are old entries; the timestamps show the new start at 07:16:15.)
 
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo ss -tlnp | grep -E 'node|apache2'
-LISTEN 0      511          0.0.0.0:3024      0.0.0.0:*    users:(("node /var/www/c",pid=1267,fd=24))
-LISTEN 0      511                *:443             *:*    users:(("apache2",pid=1005,fd=6),("apache2",pid=1004,fd=6),("apache2",pid=1002,fd=6))
-LISTEN 0      511                *:80              *:*    users:(("apache2",pid=1005,fd=4),("apache2",pid=1004,fd=4),("apache2",pid=1002,fd=4))
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -sI http://localhost/
-HTTP/1.1 200 OK
-Date: Fri, 09 Oct 2026 07:17:17 GMT
-Server: Apache/2.4.58 (Ubuntu)
-Upgrade: h2,h2c
-Connection: Upgrade
-Last-Modified: Tue, 06 Oct 2026 10:11:50 GMT
-ETag: "29af-65d293a1ecd73"
-Accept-Ranges: bytes
-Content-Length: 10671
-Vary: Accept-Encoding
-Content-Type: text/html
+⚠️ **`curl localhost` returned Apache's default static page**, not the app (Content-Length 10671, `Last-Modified` 6 Oct, no proxy headers). So `ai_test.conf` is not the vhost answering. Likely causes: another vhost on `*:80` is matching first, or `ai_test.conf` has no `ServerName` and loses to it. Diagnose:
 
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$
+```bash
+sudo apache2ctl -S
+ls -l /etc/apache2/sites-enabled/
+curl -s http://localhost:3024/health
+curl -sI -H "Host: test" http://localhost/health
+```
+
+- `curl :3024/health` tells us whether the app itself works.
+- `apache2ctl -S` shows which vhost is the default for `*:80`.
+
+Send the output.
+
+## Likely fix (after diagnosis)
+
+If `000-default.conf` is the default on `*:80`, disable it so `ai_test.conf` takes over:
+
+```bash
+sudo a2dissite 000-default.conf && sudo apache2ctl configtest && sudo systemctl reload apache2
+```
+**Rollback:** `sudo a2ensite 000-default.conf && sudo systemctl reload apache2`.
+
+## LB static IP, after Apache is fixed
+I still need these from you:
+1. Does the LB already exist, or is it new? (`gcloud compute forwarding-rules list` failed earlier on scopes. Re-run it now, since scopes are fixed.)
+2. Is HTTPS needed for the AI features?
+
+Also, port 443 is listening, so check that the LB health check targets `/health` on port 80. The `GoogleHC/` rewrite exemption is already in place.
