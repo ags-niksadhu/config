@@ -1,95 +1,22 @@
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute backend-services describe ai-test-backend --global --format="yaml(securityPolicy)"
-securityPolicy: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/securityPolicies/ai-test-allowlist
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ curl -i http://136.68.140.144/ai-test/health
-HTTP/1.1 200 OK
-date: Fri, 09 Oct 2026 08:48:38 GMT
-server: Apache/2.4.58 (Ubuntu)
-x-content-type-options: nosniff
-x-xss-protection: 1; mode=block
-referrer-policy: strict-origin-when-cross-origin## Status
-
-✅ Policy `ai-test-allowlist` is attached, and staging is unaffected (`stagingapi` 200, `staging` 307 → `/login` as normal).
-
-⚠️ **Allowlist not proven yet.** Cloud Shell returned **200**, but I expected **403**. Either Cloud Shell's egress IP matches your allowlist (possible if the policy rule uses a broad range), or the policy hasn't propagated or its default rule isn't Deny. Check (read-only):
-
-```bash
-gcloud compute security-policies describe ai-test-allowlist --format="yaml(rules[].priority,rules[].action,rules[].match)"
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute security-policies describe ai-test-allowlist --format="yaml(rules[].priority,rules[].action,rules[].match)"
 curl -s ifconfig.me
-```
-
-Expected: a rule `1000 allow` with your two IPs, and a default `2147483647 deny(403)`. The second command shows Cloud Shell's IP so we can compare.
-
-- **Default rule is `allow`:** the policy was created with the wrong default. Fix: Cloud Armor → `ai-test-allowlist` → default rule → Edit → Action **Deny (403)**.
-- **Default is `deny` and the Cloud Shell IP is not in your list:** wait 5 minutes (Cloud Armor propagation), then retest.
-
-## Verify again
-```bash
-curl -s -o /dev/null -w "%{http_code}\n" http://136.68.140.144/ai-test/health
-```
-Expect **403** from Cloud Shell and **200** from an allowlisted IP.
-
-Note: your last paste shows one corrupted command (`...health://stagingapi...`). It's a paste artifact, not an issue.
-
-Send the `describe` output and the Cloud Shell IP.
-permissions-policy: geolocation=(), microphone=(), camera=()
-content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';
-x-powered-by: Express
-access-control-allow-origin: *
-content-type: application/json; charset=utf-8
-Content-Length: 59
-etag: W/"3b-pyt3M/rUNoRNvzfbEVhjhh0mLuE"
-via: 1.1 cn-staging-ai-staging.c.pg-ae-n-app-125609.internal (Apache/2.4.58), 1.1 google
-x-frame-options: SAMEORIGIN
-
-{"status":"healthy","timestamp":"2026-10-09T08:48:38.694Z"}nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ curl -i http://136.68.140.144/ai-test/health
-HTTP/1.1 200 OK
-date: Fri, 09 Oct 2026 08:48:47 GMT
-server: Apache/2.4.58 (Ubuntu)
-x-content-type-options: nosniff
-x-xss-protection: 1; mode=block
-referrer-policy: strict-origin-when-cross-origin
-permissions-policy: geolocation=(), microphone=(), camera=()
-content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';
-x-powered-by: Express
-access-control-allow-origin: *
-content-type: application/json; charset=utf-8
-Content-Length: 59
-etag: W/"3b-erkMUwG4fCAfn0H1juKJjRn8Kys"
-via: 1.1 cn-staging-ai-staging.c.pg-ae-n-app-125609.internal (Apache/2.4.58), 1.1 google
-x-frame-options: SAMEORIGIN
-
-{"status":"healthy","timestamp":"2026-10-09T08:curl -sI https://stagingapi.careerdevelopmentnavigator.mer.pwc.com/health://stagingapi.careerdevelopmentnavigator.mer.pwc.com/health
-HTTP/2 200 
-date: Fri, 09 Oct 2026 08:48:54 GMT
-server: Apache/2.4.58 (Ubuntu)
-x-content-type-options: nosniff
-x-xss-protection: 1; mode=block
-referrer-policy: strict-origin-when-cross-origin
-permissions-policy: geolocation=(), microphone=(), camera=()
-content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';
-x-powered-by: Express
-access-control-allow-origin: *
-x-ratelimit-limit: 180
-x-ratelimit-remaining: 171
-x-ratelimit-reset: 1791535768
-content-type: application/json; charset=utf-8
-content-length: 59
-etag: W/"3b-rxTv1IRoYx6ikcI+Dpt3N8AkVPw"
-via: 1.1 stagingapi.careerdevelopmentnavigator.mer.pwc.com (Apache/2.4.58), 1.1 google
-x-frame-options: SAMEORIGIN
-alt-svc: h3=":443"; ma=2592000
-
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ curl -sI https://staging.careerdevelopmentnavigator.mer.pwc.com/health
-HTTP/2 307 
-date: Fri, 09 Oct 2026 08:49:03 GMT
-server: Apache/2.4.58 (Ubuntu)
-x-content-type-options: nosniff
-x-xss-protection: 1; mode=block
-referrer-policy: strict-origin-when-cross-origin
-permissions-policy: geolocation=(), microphone=(), camera=()
-content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://stagingapi.careerdevelopmentnavigator.mer.pwc.com;
-location: /login
-set-cookie: org_subdomain=health; Path=/; SameSite=lax
-via: 1.1 staging.careerdevelopmentnavigator.mer.pwc.com (Apache/2.4.58), 1.1 google
-x-frame-options: SAMEORIGIN
-alt-svc: h3=":443"; ma=2592000
+---
+rules:
+- action: allow
+  match:
+    config:
+      srcIpRanges:
+      - 110.227.205.102
+      - 14.99.145.222
+    versionedExpr: SRC_IPS_V1
+  priority: 1000
+- action: deny(403)
+  match:
+    config:
+      srcIpRanges:
+      - '*'
+    versionedExpr: SRC_IPS_V1
+  priority: 2147483647
+34.34.52.162nikul_sadhu@cloudshell:~ (pg-ae-n-acurl -s -o /dev/null -w "%{http_code}\n" http://136.68.140.144/ai-test/health-test/health
+403
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
