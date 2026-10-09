@@ -1,70 +1,78 @@
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud config set project pg-ae-n-app-125609
-gcloud compute forwarding-rules list --format="table(name,IPAddress,loadBalancingScheme,target,region)"
-gcloud compute addresses list
-gcloud compute backend-services list --format="table(name,protocol,port,region,healthChecks.basename())"
-gcloud compute instances describe cn-staging-ai-staging --format="value(zone.basename())"
-[environment: untagged] Read more to tag: g.co/cloud/project-env-tag.
-Updated property [core/project].
-NAME: app-lb-frontend-https
-IP_ADDRESS: 136.68.140.144
-LOAD_BALANCING_SCHEME: EXTERNAL_MANAGED
-TARGET: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/targetHttpsProxies/cm-staging-lb-https-proxy
-REGION: 
+## Before the steps, I need 2 outputs (rule 13)
 
-NAME: app-lb-frontend2
-IP_ADDRESS: 136.68.140.144
-LOAD_BALANCING_SCHEME: EXTERNAL_MANAGED
-TARGET: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/targetHttpProxies/cm-staging-lb-target-proxy-2
-REGION: 
-NAME: cn-staging-static-ip
-ADDRESS/RANGE: 136.68.140.144
-TYPE: EXTERNAL
-PURPOSE: 
-NETWORK: 
-REGION: 
-SUBNET: 
-STATUS: IN_USE
+I don't have the VM's zone or the URL map name yet. Run the 4 commands from my last message in Cloud Shell, and send the output. Also check this one, because it decides whether the health check passes:
 
-NAME: default-ip-range-1777629612925
-ADDRESS/RANGE: 10.57.64.0/20
-TYPE: INTERNAL
-PURPOSE: VPC_PEERING
-NETWORK: default
-REGION: 
-SUBNET: 
-STATUS: RESERVED
+```bash
+gcloud compute firewall-rules list --format="table(name,direction,sourceRanges.list(),targetTags.list(),allowed[].map().firewall_rule().list())"
+gcloud compute instances describe cn-staging-ai-staging --zone=<ZONE> --format="value(tags.items)"
+```
+`<ZONE>` ← required, from the first command's output.
 
-NAME: google-managed-services-cn-backend
-ADDRESS/RANGE: 10.58.0.0/16
-TYPE: INTERNAL
-PURPOSE: VPC_PEERING
-NETWORK: default
-REGION: 
-SUBNET: 
-STATUS: RESERVED
+## Plan (GUI, in this order)
 
-NAME: nat-auto-ip-40795557-5-1778073890572402
-ADDRESS/RANGE: 34.166.214.83
-TYPE: EXTERNAL
-PURPOSE: NAT_AUTO
-NETWORK: 
-REGION: me-central2
-SUBNET: 
-STATUS: IN_USE
-NAME: app-backend-service
-PROTOCOL: HTTP
-PORT: 80
-REGION: 
-HEALTH_CHECKS: ['app-health-check']
+⚠️ Steps 1–4 only add new resources, so staging is not affected. Step 5 edits the shared URL map, so export the backup first.
 
-NAME: frontend-service
-PROTOCOL: HTTP
-PORT: 80
-REGION: 
-HEALTH_CHECKS: ['frontend-health-check']
-Did you mean zone [europe-west4-b] for instance: [cn-staging-ai-staging] (Y/n)?  Y
+**1. Unmanaged instance group**
+Compute Engine → Instance groups → Create → **New unmanaged instance group**
+- Name: `ai-test-ig`
+- Region `me-central2`, same zone as the VM
+- Network and subnet: same as the VM
+- VM instances: add `cn-staging-ai-staging`
+- Create, then open the group → **Edit** → Port mappings → `http` = `80`
 
-ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
- - The resource 'projects/pg-ae-n-app-125609/zones/europe-west4-b/instances/cn-staging-ai-staging' was not found
+**2. Health check**
+Compute Engine → Health checks → Create
+- Name: `ai-test-health-check`
+- Scope: Global
+- Protocol: HTTP, Port: 80
+- Request path: `/health`
+- Intervals: leave the defaults
 
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
+**3. Firewall (only if the earlier output shows no rule for the health-check ranges on this VM's tag)**
+VPC network → Firewall → Create
+- Name: `allow-gfe-to-ai-test`
+- Direction: Ingress, Allow
+- Source ranges: `130.211.0.0/22,35.191.0.0/16`
+- Target: the VM's network tag (from the output above)
+- Protocols/ports: `tcp:80`
+
+**4. Backend service**
+Network services → Load balancing → **Backends** tab → Create backend service
+- Name: `ai-test-backend`
+- Type: Global external Application LB (the same type as `app-backend-service`)
+- Protocol: HTTP, Named port: `http`
+- Backend: `ai-test-ig`, with a port-80 backend
+- Health check: `ai-test-health-check`
+- Cloud Armor policy: attach an allowlist for your office/VPN IPs (about $5/mo plus about $1/mo per rule)
+
+**5. URL map** (after the backup)
+```bash
+gcloud compute url-maps export <URL_MAP> --global --destination=url-map-backup-2026-10-09.yaml
+```
+`<URL_MAP>` ← required.
+
+Then in the console: Load balancing → the LB → **Edit** → Host and path rules → **Advanced host and path rule** → Add:
+- Path: `/ai-test/*`
+- Backend service: `ai-test-backend`
+- Route action → URL rewrite → Path prefix rewrite: `/`
+- Leave the default rule on the existing staging service. Don't change it.
+
+If the console won't allow advanced actions on the existing matcher, send me the exported YAML and I'll give you the exact edit to import.
+
+⚠️ If `app-lb-frontend2` (HTTP) is just a redirect to HTTPS (common), `http://136.68.140.144/ai-test/` will return a 301. In that case the rule goes on the HTTPS map, and HTTPS on an IP will give a cert warning. Use `curl -k`, or tell me and we'll use `nip.io`.
+
+## Verify
+```bash
+gcloud compute backend-services get-health ai-test-backend --global
+curl -i http://136.68.140.144/ai-test/health
+curl -i http://136.68.140.144/
+```
+Expected: the backend reports `HEALTHY`, `/ai-test/health` returns 200 with `{"status":"healthy"}`, and `/` still returns the old staging response, unchanged.
+
+## Rollback
+1. Remove the `/ai-test/*` rule from the URL map in the console.
+2. Delete `ai-test-backend`, `ai-test-health-check` and `ai-test-ig`, and the firewall rule if you created one.
+3. If something breaks, restore the backup with `gcloud compute url-maps import <URL_MAP> --global --source=url-map-backup-2026-10-09.yaml`.
+
+## Caveat
+With path rewrite, the app will see `/health`, not `/ai-test/health`. This works for API calls. If the AI frontend generates absolute links or redirects, they'll lose the `/ai-test` prefix. Tell me if the frontend is served from this VM.
