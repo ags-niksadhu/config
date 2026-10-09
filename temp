@@ -1,33 +1,38 @@
-## Status
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo apache2ctl -S
+VirtualHost configuration:
+*:80                   is a NameVirtualHost
+         default server cn-staging-ai-staging.c.pg-ae-n-app-125609.internal (/etc/apache2/sites-enabled/000-default.conf:1)
+         port 80 namevhost cn-staging-ai-staging.c.pg-ae-n-app-125609.internal (/etc/apache2/sites-enabled/000-default.conf:1)
+         port 80 namevhost cn-staging-ai-staging.c.pg-ae-n-app-125609.internal (/etc/apache2/sites-enabled/ai_test.conf:1)
+ServerRoot: "/etc/apache2"
+Main DocumentRoot: "/var/www/html"
+Main ErrorLog: "/var/log/apache2/error.log"
+Mutex watchdog-callback: using_defaults
+Mutex rewrite-map: using_defaults
+Mutex ssl-stapling-refresh: using_defaults
+Mutex ssl-stapling: using_defaults
+Mutex proxy: using_defaults
+Mutex ssl-cache: using_defaults
+Mutex default: dir="/var/run/apache2/" mechanism=default
+PidFile: "/var/run/apache2/apache2.pid"
+Define: DUMP_VHOSTS
+Define: DUMP_RUN_CFG
+User: name="www-data" id=33
+Group: name="www-data" id=33
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ ls -l /etc/apache2/sites-enabled/
+total 8
+lrwxrwxrwx 1 root root   35 Oct  6 10:11 000-default.conf -> ../sites-available/000-default.conf
+-rw-r--r-- 1 root root 4876 Oct  9 06:22 ai_test.conf
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -s http://localhost:3024/health
+{"status":"healthy","timestamp":"2026-10-09T07:18:46.844Z"}nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -sI -H "Host: test" http://localhost/health
+HTTP/1.1 404 Not Found
+Date: Fri, 09 Oct 2026 07:18:52 GMT
+Server: Apache/2.4.58 (Ubuntu)
+Content-Type: text/html; charset=iso-8859-1
 
-✅ Backend is fixed. No new `PERMISSION_DENIED`, Redis connected, and node listens on **3024**, so the vhost port is correct. (The `PERMISSION_DENIED` lines in the error log are old entries; the timestamps show the new start at 07:16:15.)
-
-⚠️ **`curl localhost` returned Apache's default static page**, not the app (Content-Length 10671, `Last-Modified` 6 Oct, no proxy headers). So `ai_test.conf` is not the vhost answering. Likely causes: another vhost on `*:80` is matching first, or `ai_test.conf` has no `ServerName` and loses to it. Diagnose:
-
-```bash
-sudo apache2ctl -S
-ls -l /etc/apache2/sites-enabled/
-curl -s http://localhost:3024/health
-curl -sI -H "Host: test" http://localhost/health
-```
-
-- `curl :3024/health` tells us whether the app itself works.
-- `apache2ctl -S` shows which vhost is the default for `*:80`.
-
-Send the output.
-
-## Likely fix (after diagnosis)
-
-If `000-default.conf` is the default on `*:80`, disable it so `ai_test.conf` takes over:
-
-```bash
-sudo a2dissite 000-default.conf && sudo apache2ctl configtest && sudo systemctl reload apache2
-```
-**Rollback:** `sudo a2ensite 000-default.conf && sudo systemctl reload apache2`.
-
-## LB static IP, after Apache is fixed
-I still need these from you:
-1. Does the LB already exist, or is it new? (`gcloud compute forwarding-rules list` failed earlier on scopes. Re-run it now, since scopes are fixed.)
-2. Is HTTPS needed for the AI features?
-
-Also, port 443 is listening, so check that the LB health check targets `/health` on port 80. The `GoogleHC/` rewrite exemption is already in place.
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo a2dissite 000-default.conf && sudo apache2ctl configtest && sudo systemctl reload apache2
+Site 000-default disabled.
+To activate the new configuration, you need to run:
+  systemctl reload apache2
+Syntax OK
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$
