@@ -1,38 +1,30 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo apache2ctl -S
-VirtualHost configuration:
-*:80                   is a NameVirtualHost
-         default server cn-staging-ai-staging.c.pg-ae-n-app-125609.internal (/etc/apache2/sites-enabled/000-default.conf:1)
-         port 80 namevhost cn-staging-ai-staging.c.pg-ae-n-app-125609.internal (/etc/apache2/sites-enabled/000-default.conf:1)
-         port 80 namevhost cn-staging-ai-staging.c.pg-ae-n-app-125609.internal (/etc/apache2/sites-enabled/ai_test.conf:1)
-ServerRoot: "/etc/apache2"
-Main DocumentRoot: "/var/www/html"
-Main ErrorLog: "/var/log/apache2/error.log"
-Mutex watchdog-callback: using_defaults
-Mutex rewrite-map: using_defaults
-Mutex ssl-stapling-refresh: using_defaults
-Mutex ssl-stapling: using_defaults
-Mutex proxy: using_defaults
-Mutex ssl-cache: using_defaults
-Mutex default: dir="/var/run/apache2/" mechanism=default
-PidFile: "/var/run/apache2/apache2.pid"
-Define: DUMP_VHOSTS
-Define: DUMP_RUN_CFG
-User: name="www-data" id=33
-Group: name="www-data" id=33
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ ls -l /etc/apache2/sites-enabled/
-total 8
-lrwxrwxrwx 1 root root   35 Oct  6 10:11 000-default.conf -> ../sites-available/000-default.conf
--rw-r--r-- 1 root root 4876 Oct  9 06:22 ai_test.conf
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -s http://localhost:3024/health
-{"status":"healthy","timestamp":"2026-10-09T07:18:46.844Z"}nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -sI -H "Host: test" http://localhost/health
-HTTP/1.1 404 Not Found
-Date: Fri, 09 Oct 2026 07:18:52 GMT
-Server: Apache/2.4.58 (Ubuntu)
-Content-Type: text/html; charset=iso-8859-1
+## Status
 
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo a2dissite 000-default.conf && sudo apache2ctl configtest && sudo systemctl reload apache2
-Site 000-default disabled.
-To activate the new configuration, you need to run:
-  systemctl reload apache2
-Syntax OK
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$
+Diagnosis confirmed: `000-default.conf` was the default vhost on `*:80` and won because `ai_test.conf` has no `ServerName`. The app itself is healthy (`/health` returns 200 on 3024). You disabled `000-default` and `configtest` passed, and the `&&` chain then ran `systemctl reload apache2` (no error shown).
+
+## Verify
+
+```bash
+curl -si http://localhost/health
+curl -sI http://localhost/
+```
+Expected: `200` with `{"status":"healthy",...}` for `/health`. If you get 5xx, check `sudo tail -20 /var/log/apache2/careernavigator-backend-staging-error.log`.
+
+**Rollback:** `sudo a2ensite 000-default.conf && sudo systemctl reload apache2`
+
+⚠️ Also check the 443 listener: Apache has `*:443` open, but there's no SSL vhost in `sites-enabled` now. It's harmless for LB HTTP testing, but don't use HTTPS directly against the VM.
+
+## Next: LB static IP
+
+Scopes are fixed, so re-run:
+```bash
+gcloud compute forwarding-rules list --format="table(name,IPAddress,loadBalancingScheme,target,region)"
+gcloud compute addresses list
+gcloud compute backend-services list --format="table(name,protocol,port,healthChecks.basename())"
+```
+
+Send me:
+1. The output of the three commands above and the `curl /health` result.
+2. Whether HTTPS is required for the AI features.
+
+Then I'll give the exact GUI steps for the static IP, the health check (`/health`, port 80) and the Cloud Armor allowlist.
