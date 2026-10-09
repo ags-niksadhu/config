@@ -1,2 +1,254 @@
-gcloud compute forwarding-rules list --format="table(name,IPAddress,loadBalancingScheme,target,region)"
-gcloud compute addresses list
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ pm2 list
+┌────┬────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                       │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ careernavigator-backend    │ default     │ 0.0.1   │ fork    │ 1046595  │ 2s     │ 210… │ online    │ 0%       │ 145.4mb  │ nikul_s… │ disabled │
+└────┴────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 39.5% | ram usage: 19.3% | ens4: ⇓ 0.005mb/s ⇑ 0.008mb/s | disk: ⇓ 0mb/s ⇑ 0.542mb/s
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo cat /etc/apache2/sites-enabled/ai_test.conf
+<VirtualHost *:80>
+    #ServerName stagingapi.careerdevelopmentnavigator.mer.pwc.com
+ #   ServerAlias www.staging.yourdomain.com
+
+    # ── Protocol Support ──────────────────────────────────────
+    Protocols h2 http/1.1
+
+    # ── Document Root ────────────────────────────────────────
+    #DocumentRoot /var/www/ABC/public
+
+    # ── Logging ──────────────────────────────────────────────
+    ErrorLog  /var/log/apache2/careernavigator-backend-staging-error.log
+    CustomLog /var/log/apache2/careernavigator-backend-staging-access.log combined
+    LogLevel warn
+
+    # ── URL Rewriting ─────────────────────────────────────────
+#    RewriteEngine On
+
+ #       RewriteCond %{HTTP:X-Forwarded-Proto} !https
+ #   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+RewriteEngine On
+
+RewriteCond %{HTTP_USER_AGENT} GoogleHC/
+RewriteRule ^ - [L]
+
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+    # ── GCP LB HTTPS Detection ────────────────────────────────
+    SetEnvIf X-Forwarded-Proto https HTTPS=on
+
+    # ── Directory Config ─────────────────────────────────────
+    <Directory /var/www>
+        Options -Indexes -ExecCGI
+        AllowOverride All
+        Require all granted
+
+        <FilesMatch "^\.">
+            Require all denied
+        </FilesMatch>
+    </Directory>
+
+    # ── Legacy HTML Directory ─────────────────────────────────
+    <Directory /var/www>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    # ── Block Sensitive Files ─────────────────────────────────
+    <FilesMatch "\.(env|git|gitignore|sh|sql|json|lock|md|log|bak|swp|orig)$">
+        Require all denied
+    </FilesMatch>
+
+    # ── Block .git Directory ──────────────────────────────────
+    <DirectoryMatch "^/.*/\.git/">
+        Order 'deny,allow'
+        Deny from all
+
+        <LimitExcept GET POST PUT DELETE OPTIONS PATCH>
+                Require all denied
+        </LimitExcept>
+
+
+    </DirectoryMatch>
+
+    # ── Security Headers ──────────────────────────────────────
+    Header always set X-Content-Type-Options        "nosniff"
+    Header always unset X-Frame-Options
+    Header set X-Frame-Options                      "SAMEORIGIN"
+    Header always set X-XSS-Protection              "1; mode=block"
+    Header always set Referrer-Policy               "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy            "geolocation=(), microphone=(), camera=()"
+    Header always set Content-Security-Policy       "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';"
+    Header always unset X-Powered-By
+    Header always unset Server
+
+    # ── Timeout & Connection Settings ────────────────────────
+    Timeout 60
+    KeepAlive On
+    KeepAliveTimeout 15
+    MaxKeepAliveRequests 100
+
+    # ── Block Bad Bots ────────────────────────────────────────
+    <If "%{HTTP_USER_AGENT} =~ /sqlmap|nikto|nessus|masscan|zgrab|nmap|dirbuster|hydra|havij/">
+        Require all denied
+    </If>
+
+    # ── Block XML-RPC ─────────────────────────────────────────
+    <Location /xmlrpc.php>
+        Require all denied
+    </Location>
+
+
+    # ── Proxy to App (Node.js port 3333) ─────────────────────
+    ProxyRequests off
+    ProxyPreserveHost on
+    ProxyVia Full
+
+    <Proxy *>
+        Require all granted
+    </Proxy>
+
+    ProxyPass / http://localhost:3024/
+    ProxyPassReverse / http://localhost:3024/
+
+    # ── GCP Load Balancer Real IP ─────────────────────────────
+    RemoteIPHeader X-Forwarded-For
+    RemoteIPInternalProxy 130.211.0.0/22
+    RemoteIPInternalProxy 35.191.0.0/16
+
+</VirtualHost>
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ gcloud compute forwarding-rules list --format="table(name,IPAddress,loadBalancingScheme,target,region)"
+WARNING: Some requests did not succeed.
+ - Request had insufficient authentication scopes.
+
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ gcloud compute addresses list
+WARNING: Some requests did not succeed.
+ - Request had insufficient authentication scopes.
+
+Listed 0 items.
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ pm2 log 0
+[TAILING] Tailing last 15 lines for [0] process (change the value with --lines option)
+/home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-backend-error-0.log last 15 lines:
+0|careerna |   - MAIL_DRIVER: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - MAIL_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - MAIL_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - MAIL_USERNAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - MAIL_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - MAIL_FROM_NAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - MAIL_FROM_ADDRESS: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - REDIS_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - REDIS_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - REDIS_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |   - EMAIL_SENDING_ENABLED: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careerna |     at loadSecrets (/var/www/careernavigator-backend/src/common/config/secret-manager.ts:62:15)
+0|careerna |     at runNextTicks (node:internal/process/task_queues:64:5)
+0|careerna |     at process.processImmediate (node:internal/timers:452:9)
+0|careerna |     at async bootstrap (/var/www/careernavigator-backend/src/main.ts:24:9)
+
+/home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-backend-out-0.log last 15 lines:
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careerna | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+
+0|careernavigator-backend  | [Nest] 1048001  - 10/09/2026, 6:18:50 AM   ERROR ❌  Error starting server, Error: [secret-manager] Failed to load 18 secret(s):
+0|careernavigator-backend  |   - DB_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - DB_USERNAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - DB_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - DB_DATABASE: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - DB_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - GCP_BUCKET: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - GCP_FILE_PATH: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_DRIVER: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_USERNAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_FROM_NAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_FROM_ADDRESS: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - REDIS_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - REDIS_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - REDIS_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - EMAIL_SENDING_ENABLED: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  | Error: [secret-manager] Failed to load 18 secret(s):
+0|careernavigator-backend  |   - DB_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - DB_USERNAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - DB_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - DB_DATABASE: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - DB_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - GCP_BUCKET: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - GCP_FILE_PATH: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_DRIVER: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_USERNAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_FROM_NAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_FROM_ADDRESS: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - REDIS_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - REDIS_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - REDIS_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - EMAIL_SENDING_ENABLED: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |     at loadSecrets (/var/www/careernavigator-backend/src/common/config/secret-manager.ts:62:15)
+0|careernavigator-backend  |     at runNextTicks (node:internal/process/task_queues:64:5)
+0|careernavigator-backend  |     at process.processImmediate (node:internal/timers:452:9)
+0|careernavigator-backend  |     at async bootstrap (/var/www/careernavigator-backend/src/main.ts:24:9)
+0|careernavigator-backend  | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+0|careernavigator-backend  | [Nest] 1048056  - 10/09/2026, 6:18:53 AM   ERROR ❌  Error starting server, Error: [secret-manager] Failed to load 18 secret(s):
+0|careernavigator-backend  |   - DB_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - DB_USERNAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - DB_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - DB_DATABASE: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - DB_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - GCP_BUCKET: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - GCP_FILE_PATH: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_DRIVER: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_USERNAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_FROM_NAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_FROM_ADDRESS: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - REDIS_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - REDIS_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - REDIS_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - EMAIL_SENDING_ENABLED: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  | Error: [secret-manager] Failed to load 18 secret(s):
+0|careernavigator-backend  |   - DB_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - DB_USERNAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - DB_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - DB_DATABASE: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - DB_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - GCP_BUCKET: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - GCP_FILE_PATH: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_DRIVER: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_USERNAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_FROM_NAME: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - MAIL_FROM_ADDRESS: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - REDIS_HOST: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - REDIS_PORT: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - REDIS_PASSWORD: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |   - EMAIL_SENDING_ENABLED: 7 PERMISSION_DENIED: Request had insufficient authentication scopes.
+0|careernavigator-backend  |     at loadSecrets (/var/www/careernavigator-backend/src/common/config/secret-manager.ts:62:15)
+0|careernavigator-backend  |     at runNextTicks (node:internal/process/task_queues:64:5)
+0|careernavigator-backend  |     at process.processImmediate (node:internal/timers:452:9)
+0|careernavigator-backend  |     at async bootstrap (/var/www/careernavigator-backend/src/main.ts:24:9)
+0|careernavigator-backend  | [bootstrap] NODE_ENV=staging envFilePath=.env.staging
+^C
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$
