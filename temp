@@ -1,36 +1,43 @@
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ cat > url-map-new.yaml <<'EOF'
-defaultService: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/frontend-service
-fingerprint: bNmBHrRNKyY=
-hostRules:
-- hosts:
-  - staging.careerdevelopmentnavigator.mer.pwc.com
-  pathMatcher: path-matcher-1
-- hosts:
-  - stagingapi.careerdevelopmentnavigator.mer.pwc.com
-  pathMatcher: path-matcher-2
-- hosts:
-  - 136.68.140.144
-  pathMatcher: path-matcher-ai-test
-name: cm-staging-lb
-pathMatchers:
-- defaultService: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/frontend-service
-  name: path-matcher-1
-- defaultService: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/app-backend-service
-  name: path-matcher-2
-- defaultService: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/frontend-service
-  name: path-matcher-ai-test
-  routeRules:
-  - priority: 1
-    matchRules:
-    - prefixMatch: /ai-test/
-    service: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/ai-test-backend
-    routeAction:
-      urlRewrite:
-        pathPrefixRewrite: /
-EOF
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute backend-services describe ai-test-backend --global --format="value(name)"
-ERROR: (gcloud.compute.backend-services.describe) Could not fetch resource:
- - The resource 'projects/pg-ae-n-app-125609/global/backendServices/ai-test-backend' was not found
+## Status
 
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
+The file is written, but **don't import yet**. `ai-test-backend` doesn't exist, so the import would fail. Create the three resources first (GUI, no staging impact).
 
+**1. Instance group**
+Compute Engine → Instance groups → Create → New unmanaged instance group
+- Name `ai-test-ig`, Region `me-central2`, Zone `me-central2-a`, Network/subnet `default`
+- VM instances: add `cn-staging-ai-staging` → Create
+- Open the group → Edit → Port mappings → `http` = `80` → Save
+
+**2. Health check**
+Compute Engine → Health checks → Create
+- Name `ai-test-health-check`, Scope Global, Protocol HTTP, Port 80, Request path `/health`
+
+**3. Backend service**
+Network services → Load balancing → Backends → Create backend service
+- Name `ai-test-backend`, Type Global external Application LB, Protocol HTTP, Named port `http`
+- Backend: `ai-test-ig`, port 80
+- Health check: `ai-test-health-check`
+- Cloud Armor: attach your IP allowlist policy (about $5/mo plus about $1/mo per rule). ⚠️ Without it, the test app is public.
+
+**Check**
+```bash
+gcloud compute backend-services describe ai-test-backend --global --format="value(name)"
+gcloud compute backend-services get-health ai-test-backend --global
+```
+Expect the name, then `HEALTHY` (can take 1–3 min).
+
+**4. Apply the URL map** (only after the check passes)
+```bash
+gcloud compute url-maps validate --source=url-map-new.yaml --global
+gcloud compute url-maps import cm-staging-lb --global --source=url-map-new.yaml
+```
+
+**5. Verify** (wait 2–5 min)
+```bash
+curl -i http://136.68.140.144/ai-test/health
+curl -sI http://136.68.140.144/
+```
+
+**Rollback:** `gcloud compute url-maps import cm-staging-lb --global --source=url-map-backup-2026-10-09.yaml`, then delete `ai-test-backend`, `ai-test-health-check` and `ai-test-ig`.
+
+Send the output of the Check commands when done.
