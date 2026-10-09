@@ -1,53 +1,33 @@
-## Diagnosis
-
-Good news: the URL map rule works. `x-goog-iap-generated-response: true` means the request matched `ai-test-backend`, and **IAP (Identity-Aware Proxy) is enabled on it**. IAP generated both responses:
-
-- **HTTP → 302 "Redirecting to HTTPS."** IAP requires HTTPS, so it redirects.
-- **HTTPS → 401, IAP error code 52.** The request carries no IAP credentials, so IAP rejects it.
-
-Earlier 301s came from `frontend-service` (a different path). The `/` request went to the default service, which is expected.
-
-## Why IAP is on
-
-You most likely enabled it while creating `ai-test-backend` in the console (IAP is sometimes pre-checked). Confirm (read-only):
-
-```bash
-gcloud compute backend-services describe ai-test-backend --global --format="yaml(iap)"
-```
-Expect `enabled: true`.
-
-## Options
-
-| Option | Cost | Complexity | Notes |
-|---|---|---|---|
-| A. Keep IAP (Google login) | Free | Medium | Strongest security, replaces Cloud Armor. But IAP over a raw IP needs HTTPS and an OAuth client; browsers and curl are awkward, and API clients/webhooks can't use it easily. |
-| B. Disable IAP, use Cloud Armor allowlist | ~$5/mo + ~$1/mo/rule | Low | Works with plain HTTP and curl. Restricted by source IP. |
-
-**Recommendation: B for a quick AI feature test.** IAP on an IP-only HTTPS endpoint is unnecessarily painful.
-
-## Fix for B (GUI)
-
-1. Network services → Load balancing → Backends → `ai-test-backend` → **Edit**.
-2. Uncheck **Identity-Aware Proxy** → Save.
-3. Attach a Cloud Armor policy: Edit → Security → Cloud Armor backend security policy → create/select a policy with:
-   - Rule priority 1000: **Allow**, source IPs: your office/VPN IPs (`110.227.205.102`, `14.99.145.222` appear in your `temp-testing-cn` rule; confirm they're right).
-   - Default rule: **Deny (403)**.
-
-⚠️ Do the Cloud Armor step before or together with step 2, or the test app is open to the internet for a moment.
-
-Wait 2-3 minutes, then verify:
-```bash
-curl -i http://136.68.140.144/ai-test/health
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute backend-services describe ai-test-backend --global --format="yaml(iap)"
+iap:
+  enabled: false
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ curl -i http://136.68.140.144/ai-test/health
 curl -sI http://136.68.140.144/
-```
-Expected: 200 `{"status":"healthy"}` with `Via: ... cn-staging-ai-staging`. If the first curl still returns 302, IAP is still on.
+HTTP/1.1 200 OK
+date: Fri, 09 Oct 2026 08:33:48 GMT
+server: Apache/2.4.58 (Ubuntu)
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+permissions-policy: geolocation=(), microphone=(), camera=()
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';
+x-powered-by: Express
+access-control-allow-origin: *
+content-type: application/json; charset=utf-8
+Content-Length: 59
+etag: W/"3b-gaKrLqo7l78wwRlBhinRFQAmntA"
+via: 1.1 cn-staging-ai-staging.c.pg-ae-n-app-125609.internal (Apache/2.4.58), 1.1 google
+x-frame-options: SAMEORIGIN
 
-Run from an allowlisted IP, not Cloud Shell, whose IP isn't on your list.
-
-## Rollback
-Re-enable IAP on the backend, or restore the URL map:
-```bash
-gcloud compute url-maps import cm-staging-lb --global --source=url-map-backup-2026-10-09.yaml
-```
-
-Send the `describe ... iap` output and the verify result.
+{"status":"healthy","timestamp":"2026-10-09T08:33:48.037Z"}HTTP/1.1 301 Moved Permanently
+date: Fri, 09 Oct 2026 08:33:48 GMT
+server: Apache/2.4.58 (Ubuntu)
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+permissions-policy: geolocation=(), microphone=(), camera=()
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://stagingapi.careerdevelopmentnavigator.mer.pwc.com;
+location: https://136.68.140.144/
+content-type: text/html; charset=iso-8859-1
+via: 1.1 google
+Transfer-Encoding: chunked
