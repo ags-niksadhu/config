@@ -1,44 +1,53 @@
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ curl -si -H "Host: 136.68.140.144" http://136.68.140.144/ai-test/health | head -20
-gcloud compute url-maps describe cm-staging-lb --global --format="yaml(hostRules,pathMatchers[].name)"
-gcloud compute backend-services get-health frontend-service --global
-HTTP/1.1 302 Found
-location: https://136.68.140.144/ai-test/health
-x-goog-iap-generated-response: true
-content-type: text/html; charset=UTF-8
-Content-Length: 21
-via: 1.1 google
-date: Fri, 09 Oct 2026 08:25:24 GMT
+## Diagnosis
 
-Redirecting to HTTPS.hostRules:
-- hosts:
-  - staging.careerdevelopmentnavigator.mer.pwc.com
-  pathMatcher: path-matcher-1
-- hosts:
-  - stagingapi.careerdevelopmentnavigator.mer.pwc.com
-  pathMatcher: path-matcher-2
-- hosts:
-  - 136.68.140.144
-  pathMatcher: path-matcher-ai-test
-pathMatchers:
-- name: path-matcher-1
-- name: path-matcher-2
-- name: path-matcher-ai-test
----
-backend: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroups/cn-frontend-mig-regional
-status:
-  healthStatus:
-  - healthState: HEALTHY
-    instance: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-a/instances/cn-frontend-mig-regional-wdql
-    ipAddress: 10.216.0.11
-    port: 80
-  kind: compute#backendServiceGroupHealth
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ curl -ik https://136.68.140.144/ai-test/health
-HTTP/2 401 
-x-goog-iap-generated-response: true
-content-type: text/html; charset=UTF-8
-content-length: 120
-via: 1.1 google
-date: Fri, 09 Oct 2026 08:25:47 GMT
-alt-svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+Good news: the URL map rule works. `x-goog-iap-generated-response: true` means the request matched `ai-test-backend`, and **IAP (Identity-Aware Proxy) is enabled on it**. IAP generated both responses:
 
-There was a problem with your request. Please reference https://cloud.google.com/iap/docs/faq#error_codes. Error code 52nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
+- **HTTP → 302 "Redirecting to HTTPS."** IAP requires HTTPS, so it redirects.
+- **HTTPS → 401, IAP error code 52.** The request carries no IAP credentials, so IAP rejects it.
+
+Earlier 301s came from `frontend-service` (a different path). The `/` request went to the default service, which is expected.
+
+## Why IAP is on
+
+You most likely enabled it while creating `ai-test-backend` in the console (IAP is sometimes pre-checked). Confirm (read-only):
+
+```bash
+gcloud compute backend-services describe ai-test-backend --global --format="yaml(iap)"
+```
+Expect `enabled: true`.
+
+## Options
+
+| Option | Cost | Complexity | Notes |
+|---|---|---|---|
+| A. Keep IAP (Google login) | Free | Medium | Strongest security, replaces Cloud Armor. But IAP over a raw IP needs HTTPS and an OAuth client; browsers and curl are awkward, and API clients/webhooks can't use it easily. |
+| B. Disable IAP, use Cloud Armor allowlist | ~$5/mo + ~$1/mo/rule | Low | Works with plain HTTP and curl. Restricted by source IP. |
+
+**Recommendation: B for a quick AI feature test.** IAP on an IP-only HTTPS endpoint is unnecessarily painful.
+
+## Fix for B (GUI)
+
+1. Network services → Load balancing → Backends → `ai-test-backend` → **Edit**.
+2. Uncheck **Identity-Aware Proxy** → Save.
+3. Attach a Cloud Armor policy: Edit → Security → Cloud Armor backend security policy → create/select a policy with:
+   - Rule priority 1000: **Allow**, source IPs: your office/VPN IPs (`110.227.205.102`, `14.99.145.222` appear in your `temp-testing-cn` rule; confirm they're right).
+   - Default rule: **Deny (403)**.
+
+⚠️ Do the Cloud Armor step before or together with step 2, or the test app is open to the internet for a moment.
+
+Wait 2-3 minutes, then verify:
+```bash
+curl -i http://136.68.140.144/ai-test/health
+curl -sI http://136.68.140.144/
+```
+Expected: 200 `{"status":"healthy"}` with `Via: ... cn-staging-ai-staging`. If the first curl still returns 302, IAP is still on.
+
+Run from an allowlisted IP, not Cloud Shell, whose IP isn't on your list.
+
+## Rollback
+Re-enable IAP on the backend, or restore the URL map:
+```bash
+gcloud compute url-maps import cm-staging-lb --global --source=url-map-backup-2026-10-09.yaml
+```
+
+Send the `describe ... iap` output and the verify result.
