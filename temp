@@ -1,33 +1,20 @@
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute backend-services describe ai-test-backend --global --format="yaml(iap)"
-iap:
-  enabled: false
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ curl -i http://136.68.140.144/ai-test/health
-curl -sI http://136.68.140.144/
-HTTP/1.1 200 OK
-date: Fri, 09 Oct 2026 08:33:48 GMT
-server: Apache/2.4.58 (Ubuntu)
-x-content-type-options: nosniff
-x-xss-protection: 1; mode=block
-referrer-policy: strict-origin-when-cross-origin
-permissions-policy: geolocation=(), microphone=(), camera=()
-content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';
-x-powered-by: Express
-access-control-allow-origin: *
-content-type: application/json; charset=utf-8
-Content-Length: 59
-etag: W/"3b-gaKrLqo7l78wwRlBhinRFQAmntA"
-via: 1.1 cn-staging-ai-staging.c.pg-ae-n-app-125609.internal (Apache/2.4.58), 1.1 google
-x-frame-options: SAMEORIGIN
+## Status
 
-{"status":"healthy","timestamp":"2026-10-09T08:33:48.037Z"}HTTP/1.1 301 Moved Permanently
-date: Fri, 09 Oct 2026 08:33:48 GMT
-server: Apache/2.4.58 (Ubuntu)
-x-content-type-options: nosniff
-x-xss-protection: 1; mode=block
-referrer-policy: strict-origin-when-cross-origin
-permissions-policy: geolocation=(), microphone=(), camera=()
-content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://stagingapi.careerdevelopmentnavigator.mer.pwc.com;
-location: https://136.68.140.144/
-content-type: text/html; charset=iso-8859-1
-via: 1.1 google
-Transfer-Encoding: chunked
+✅ **Working.** `http://136.68.140.144/ai-test/health` returns 200 from your test VM (`Express`, `Via: cn-staging-ai-staging`). I was wrong about IAP: it's disabled. The earlier 302/401 were from IAP on the old path or propagation, and it has settled now. `/` still goes to the unchanged staging frontend (301 → HTTPS is its normal behaviour).
+
+## Remaining items
+
+⚠️ **1. Cloud Armor (still open).** Confirm a policy is attached; otherwise `/ai-test/*` is public.
+```bash
+gcloud compute backend-services describe ai-test-backend --global --format="yaml(securityPolicy)"
+```
+Empty output means no policy. Fix: Network security → Cloud Armor policies → Create → add an Allow rule for your office/VPN IPs and set the default rule to Deny (403) → Targets → add `ai-test-backend`. Cost: about $5/mo plus about $1/mo per rule.
+
+**2. Cleanup when testing ends** (the exposure is on the shared IP):
+- Remove the `temp-testing-cn` firewall rule (tcp:3024 from two IPs, applies to all VMs).
+- Remove `path-matcher-ai-test` by importing `url-map-backup-2026-10-09.yaml`.
+- Delete `ai-test-backend`, `ai-test-health-check` and `ai-test-ig`.
+
+**3. App behaviour via the path prefix.** The prefix is stripped, so API calls to `/ai-test/<route>` work. Absolute redirects or links from the app will lose `/ai-test`. The CSP `connect-src 'self'` will also block browser calls to external AI APIs. Tell me if the frontend calls them directly and I'll give the Apache edit.
+
+Send the `securityPolicy` output.
