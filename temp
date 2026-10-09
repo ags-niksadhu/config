@@ -1,20 +1,3 @@
-## Status
-
-✅ **Working.** `http://136.68.140.144/ai-test/health` returns 200 from your test VM (`Express`, `Via: cn-staging-ai-staging`). I was wrong about IAP: it's disabled. The earlier 302/401 were from IAP on the old path or propagation, and it has settled now. `/` still goes to the unchanged staging frontend (301 → HTTPS is its normal behaviour).
-
-## Remaining items
-
-⚠️ **1. Cloud Armor (still open).** Confirm a policy is attached; otherwise `/ai-test/*` is public.
-```bash
-gcloud compute backend-services describe ai-test-backend --global --format="yaml(securityPolicy)"
-```
-Empty output means no policy. Fix: Network security → Cloud Armor policies → Create → add an Allow rule for your office/VPN IPs and set the default rule to Deny (403) → Targets → add `ai-test-backend`. Cost: about $5/mo plus about $1/mo per rule.
-
-**2. Cleanup when testing ends** (the exposure is on the shared IP):
-- Remove the `temp-testing-cn` firewall rule (tcp:3024 from two IPs, applies to all VMs).
-- Remove `path-matcher-ai-test` by importing `url-map-backup-2026-10-09.yaml`.
-- Delete `ai-test-backend`, `ai-test-health-check` and `ai-test-ig`.
-
-**3. App behaviour via the path prefix.** The prefix is stripped, so API calls to `/ai-test/<route>` work. Absolute redirects or links from the app will lose `/ai-test`. The CSP `connect-src 'self'` will also block browser calls to external AI APIs. Tell me if the frontend calls them directly and I'll give the Apache edit.
-
-Send the `securityPolicy` output.
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute backend-services describe ai-test-backend --global --format="yaml(securityPolicy)"
+securityPolicy: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/securityPolicies/cnstaging-waf-policy-v2
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
