@@ -1,47 +1,5 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -si http://localhost/health
-HTTP/1.1 200 OK
-Date: Fri, 09 Oct 2026 07:22:13 GMT
-Server: Apache/2.4.58 (Ubuntu)
-X-Content-Type-Options: nosniff
-X-XSS-Protection: 1; mode=block
-Referrer-Policy: strict-origin-when-cross-origin
-Permissions-Policy: geolocation=(), microphone=(), camera=()
-Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';
-X-Powered-By: Express
-Access-Control-Allow-Origin: *
-Content-Type: application/json; charset=utf-8
-Content-Length: 59
-ETag: W/"3b-cvy4jTXOHLXED4GjgAK298pBo7A"
-Via: 1.1 cn-staging-ai-staging.c.pg-ae-n-app-125609.internal (Apache/2.4.58)
-X-Frame-Options: SAMEORIGIN
-
-{"status":"healthy","timestamp":"2026-10-09T07:22:13.865Z"}nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -sI http://localhost/
-HTTP/1.1 200 OK
-Date: Fri, 09 Oct 2026 07:22:19 GMT
-Server: Apache/2.4.58 (Ubuntu)
-X-Content-Type-Options: nosniff
-X-XSS-Protection: 1; mode=block
-Referrer-Policy: strict-origin-when-cross-origin
-Permissions-Policy: geolocation=(), microphone=(), camera=()
-Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';
-X-Powered-By: Express
-Content-Type: application/json; charset=utf-8
-Content-Length: 36
-ETag: W/"24-5gmL63oM0Emh+GIUetFZfJeFwGU"
-Via: 1.1 cn-staging-ai-staging.c.pg-ae-n-app-125609.internal (Apache/2.4.58)
-X-Frame-Options: SAMEORIGIN
-
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ gcloud compute forwarding-rules list --format="table(name,IPAddress,loadBalancingScheme,target,region)"
-WARNING: Some requests did not succeed.
- - Required 'compute.forwardingRules.list' permission for 'projects/pg-ae-n-app-125609'
-
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ gcloud compute addresses list
-WARNING: Some requests did not succeed.
- - Required 'compute.addresses.list' permission for 'projects/pg-ae-n-app-125609'
-
-Listed 0 items.
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ gcloud compute backend-services list --format="table(name,protocol,port,healthChecks.basename())"
-WARNING: Some requests did not succeed.
- - Required 'compute.backendServices.list' permission for 'projects/pg-ae-n-app-125609'
-
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$
+gcloud config set project pg-ae-n-app-125609
+gcloud compute forwarding-rules list --format="table(name,IPAddress,loadBalancingScheme,target,region)"
+gcloud compute addresses list
+gcloud compute backend-services list --format="table(name,protocol,port,region,healthChecks.basename())"
+gcloud compute instances describe cn-staging-ai-staging --format="value(zone.basename())"
