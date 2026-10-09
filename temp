@@ -1,42 +1,13 @@
-## Diagnosis
-
-The logs show the root cause. `insufficient authentication scopes` on both Secret Manager and `gcloud compute` means the VM's **access scopes** are too narrow (likely the default scopes, not `cloud-platform`). This is separate from IAM roles. The app crash-loops at `loadSecrets` (restart count 210+) and never reaches port 3024, so the LB can't help until this is fixed.
-
-Verify first (read-only):
-```bash
-curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email
-curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/scopes
-```
-If `cloud-platform` is missing from the scopes, that's confirmed.
-
-## Fix
-
-**⚠️ Downtime:** changing scopes requires stopping the VM, which takes a few minutes. There's no zero-downtime option for a single VM. This is a test server, so that's acceptable.
-
-1. Compute Engine → VM instances → `cn-staging-ai-staging` → **Stop**.
-2. **Edit** → Security and access → Access scopes → **Allow full access to all Cloud APIs** → Save. Keep the same service account.
-3. **Start** the VM.
-4. IAM & Admin → IAM: confirm the VM's service account has `Secret Manager Secret Accessor`. Scope it to these 18 secrets, not the project, if you can (least privilege).
-5. Check:
-```bash
-pm2 restart careernavigator-backend && pm2 logs careernavigator-backend --lines 30 --nostream
-```
-You should see the server start with no `PERMISSION_DENIED`. If you still see it after the scope fix, the problem is IAM, so send me the output of the first `curl` above.
-
-**Rollback:** stop the VM, restore the previous scopes, and start it.
-
-## Apache issue for IP-only HTTP testing
-
-Your vhost redirects every request to `https://` when `X-Forwarded-Proto` isn't https. An HTTP-only LB IP will therefore return a 301 to `https://<IP>`, which fails. In `/etc/apache2/sites-enabled/ai_test.conf`, comment out these two lines, then reload:
-
-```bash
-sudo sed -i 's|^RewriteCond %{HTTP:X-Forwarded-Proto} !https|#&|; s|^RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} \[R=301,L\]|#&|' /etc/apache2/sites-enabled/ai_test.conf
-sudo apache2ctl configtest && sudo systemctl reload apache2
-```
-Keep the `GoogleHC/` rule so health checks still pass. Check the result with `grep -n Rewrite /etc/apache2/sites-enabled/ai_test.conf`. To roll back, uncomment the two lines and reload.
-
-Also check these:
-- The proxy targets `localhost:3024`, but your comment says 3333. Confirm the app's actual port with `sudo ss -tlnp | grep node`.
-- The CSP has `connect-src 'self'`, which will block browser calls to external AI APIs. Add those domains if the frontend calls them directly.
-
-Send the `curl` output after the fix, and the LB type (new or existing) if you still need the static IP steps.
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email
+sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.comnikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/scopes
+https://www.googleapis.com/auth/devstorage.read_only
+https://www.googleapis.com/auth/logging.write
+https://www.googleapis.com/auth/monitoring.write
+https://www.googleapis.com/auth/service.management.readonly
+https://www.googleapis.com/auth/servicecontrol
+https://www.googleapis.com/auth/trace.append
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo sed -i 's|^RewriteCond %{HTTP:X-Forwarded-Proto} !https|#&|; s|^RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} \[R=301,L\]|#&|' /etc/apache2/sites-enabled/ai_test.conf
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo apache2ctl configtest && sudo systemctl reload apache2
+AH00526: Syntax error on line 109 of /etc/apache2/sites-enabled/ai_test.conf:
+Invalid command 'RemoteIPHeader', perhaps misspelled or defined by a module not included in the server configuration
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$
