@@ -1,129 +1,45 @@
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud config set project pg-ae-n-app-125609
-gcloud compute forwarding-rules list --format="table(name,IPAddress,loadBalancingScheme,target,region)"
-gcloud compute addresses list
-gcloud compute backend-services list --format="table(name,protocol,port,region,healthChecks.basename())"
-gcloud compute instances describe cn-staging-ai-staging --format="value(zone.basename())"
-[environment: untagged] Read more to tag: g.co/cloud/project-env-tag.
-Updated property [core/project].
-NAME: app-lb-frontend-https
-IP_ADDRESS: 136.68.140.144
-LOAD_BALANCING_SCHEME: EXTERNAL_MANAGED
-TARGET: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/targetHttpsProxies/cm-staging-lb-https-proxy
-REGION: 
+## Finding
 
-NAME: app-lb-frontend2
-IP_ADDRESS: 136.68.140.144
-LOAD_BALANCING_SCHEME: EXTERNAL_MANAGED
-TARGET: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/targetHttpProxies/cm-staging-lb-target-proxy-2
-REGION: 
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute firewall-rules list --format="table(name,direction,sourceRanges.list(),targetTags.list(),allowed[].map().firewall_rule().list())"
-gcloud compute instances describe cn-staging-ai-staging --zone=<ZONE> --format="value(tags.items)"
-NAME: allow-iap-ssh
-DIRECTION: INGRESS
-SOURCE_RANGES: 35.235.240.0/20
-TARGET_TAGS: 
-ALLOW: tcp:22
+`cnstaging-waf-policy-v2` is **WAF + rate limiting only, with a default `allow` for `*`**. It blocks attack signatures but not unknown users, so `/ai-test/*` is currently open to the whole internet. Option B (dedicated allowlist policy) is needed.
 
-NAME: allow-lb-health-check-cn-backend
-DIRECTION: INGRESS
-SOURCE_RANGES: 130.211.0.0/22,35.191.0.0/16
-TARGET_TAGS: cn-backend
-ALLOW: tcp:3024
+⚠️ Also, the OWASP rules may block legitimate AI prompts (SQLi/XSS/RCE signatures can false-positive on code or free text). A dedicated policy avoids that.
 
-NAME: allow-lb-to-vm
-DIRECTION: INGRESS
-SOURCE_RANGES: 130.211.0.0/22,35.191.0.0/16
-TARGET_TAGS: 
-ALLOW: tcp:80
+## Create the policy (GUI)
 
-NAME: allow-ssh-from-cn-backend-pool
-DIRECTION: INGRESS
-SOURCE_RANGES: 10.58.0.0/24
-TARGET_TAGS: packer-build-temp
-ALLOW: tcp:22
+1. Network security → Cloud Armor policies → **Create policy**.
+2. Name `ai-test-allowlist`, Type **Backend security policy**, Default rule action **Deny (403)**.
+3. Add rule: priority `1000`, Action **Allow**, Match source IPs `110.227.205.102, 14.99.145.222` ← required substitution. Confirm these are your current office/VPN IPs (taken from `temp-testing-cn`).
+4. Targets: add `ai-test-backend` (this replaces `cnstaging-waf-policy-v2` on that backend only; staging backends are untouched).
+5. Create.
 
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute backend-services describe ai-test-backend --global --format="value(name)"
-gcloud compute backend-services get-health ai-test-backend --global
-ai-test-backend
----
-backend: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-a/instanceGroups/ai-test-ig
-status:
-  healthStatus:
-  - healthState: HEALTHY
-    instance: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-a/instances/cn-staging-ai-staging
-    ipAddress: 10.216.15.218
-    port: 80
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute security-policies describe cnstaging-waf-policy-v2 --format="yaml(rules[].priority,rules[].action,rules[].description,rules[].match)"
----
-rules:
-- action: rate_based_ban
-  description: Rate limit and IP ban
-  match:
-    config:
-      srcIpRanges:
-      - '*'
-    versionedExpr: SRC_IPS_V1
-  priority: 1000
-- action: deny(403)
-  description: ''
-  match:
-    expr:
-      expression: evaluatePreconfiguredWaf('sqli-v33-stable')
-  priority: 1100
-- action: deny(403)
-  description: ''
-  match:
-    expr:
-      expression: evaluatePreconfiguredWaf('xss-v33-stable')
-  priority: 1200
-- action: deny(403)
-  description: ''
-  match:
-    expr:
-      expression: evaluatePreconfiguredWaf('lfi-v33-stable')
-  priority: 1300
-- action: deny(403)
-  description: ''
-  match:
-    expr:
-      expression: evaluatePreconfiguredWaf('rfi-v33-stable')
-  priority: 1400
-- action: deny(403)
-  description: ''
-  match:
-    expr:
-      expression: evaluatePreconfiguredWaf('rce-v33-stable')
-  priority: 1500
-- action: deny(403)
-  description: ''
-  match:
-    expr:
-      expression: evaluatePreconfiguredWaf('scannerdetection-v33-stable')
-  priority: 1600
-- action: deny(403)
-  description: ''
-  match:
-    expr:
-      expression: evaluatePreconfiguredWaf('protocolattack-v33-stable')
-  priority: 1700
-- action: deny(403)
-  description: ''
-  match:
-    expr:
-      expression: evaluatePreconfiguredWaf('sessionfixation-v33-stable')
-  priority: 1800
-- action: deny(403)
-  description: ''
-  match:
-    expr:
-      expression: evaluatePreconfiguredWaf('nodejs-v33-stable')
-  priority: 1900
-- action: allow
-  description: default rule
-  match:
-    config:
-      srcIpRanges:
-      - '*'
-    versionedExpr: SRC_IPS_V1
-  priority: 2147483647
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
+Cost: about $5/mo plus about $1/mo per rule, which is about $6/mo until you delete it.
+
+## Verify (wait 2-3 min)
+
+Check the attachment:
+```bash
+gcloud compute backend-services describe ai-test-backend --global --format="yaml(securityPolicy)"
+```
+Expect `.../ai-test-allowlist`.
+
+From an allowlisted IP (your laptop, not Cloud Shell):
+```bash
+curl -i http://136.68.140.144/ai-test/health
+```
+Expect 200.
+
+From Cloud Shell, which isn't on the list:
+```bash
+curl -i http://136.68.140.144/ai-test/health
+```
+Expect 403.
+
+Staging check (must be unchanged):
+```bash
+curl -sI https://stagingapi.careerdevelopmentnavigator.mer.pwc.com/health
+```
+
+## Rollback
+Backends → `ai-test-backend` → Edit → Security → select `cnstaging-waf-policy-v2`.
+
+Send the verify outputs.
