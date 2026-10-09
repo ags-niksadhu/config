@@ -1,2 +1,19 @@
-gcloud compute url-maps export cm-staging-lb --global --destination=url-map-backup-2026-10-09.yaml
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute url-maps export cm-staging-lb --global --destination=url-map-backup-2026-10-09.yaml
 cat url-map-backup-2026-10-09.yaml
+defaultService: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/frontend-service
+fingerprint: bNmBHrRNKyY=
+hostRules:
+- hosts:
+  - staging.careerdevelopmentnavigator.mer.pwc.com
+  pathMatcher: path-matcher-1
+- hosts:
+  - stagingapi.careerdevelopmentnavigator.mer.pwc.com
+  pathMatcher: path-matcher-2
+name: cm-staging-lb
+pathMatchers:
+- defaultService: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/frontend-service
+  name: path-matcher-1
+- defaultService: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/app-backend-service
+  name: path-matcher-2
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
+
