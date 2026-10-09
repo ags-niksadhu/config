@@ -1,3 +1,1 @@
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute backend-services describe ai-test-backend --global --format="yaml(securityPolicy)"
-securityPolicy: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/securityPolicies/cnstaging-waf-policy-v2
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
+gcloud compute security-policies describe cnstaging-waf-policy-v2 --format="yaml(rules[].priority,rules[].action,rules[].description,rules[].match)"
