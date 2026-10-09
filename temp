@@ -1,37 +1,44 @@
-## Findings
-
-✅ Backend `HEALTHY`, URL map imported.
-
-⚠️ **Both requests return a 301 to HTTPS, and it's not your test VM.** `/ai-test/health` and `/` both return `301 → https://136.68.140.144/...`, and the `connect-src` in the CSP names `stagingapi...pwc.com`. That's a different server's config than `ai_test.conf` (whose CSP is `connect-src 'self'`). So these requests are still going to the **existing staging frontend**, which redirects HTTP→HTTPS.
-
-Likely cause: the HTTP frontend doesn't match my IP host rule (the `Host` header may differ, or the rule hasn't propagated), so traffic fell to `frontend-service`. I can't confirm from this output. Diagnose:
-
-```bash
-curl -si -H "Host: 136.68.140.144" http://136.68.140.144/ai-test/health | head -20
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ curl -si -H "Host: 136.68.140.144" http://136.68.140.144/ai-test/health | head -20
 gcloud compute url-maps describe cm-staging-lb --global --format="yaml(hostRules,pathMatchers[].name)"
 gcloud compute backend-services get-health frontend-service --global
-```
+HTTP/1.1 302 Found
+location: https://136.68.140.144/ai-test/health
+x-goog-iap-generated-response: true
+content-type: text/html; charset=UTF-8
+Content-Length: 21
+via: 1.1 google
+date: Fri, 09 Oct 2026 08:25:24 GMT
 
-Wait 3-5 minutes after the import for propagation, then retry the `curl`. The first command shows whether the Host rule works.
+Redirecting to HTTPS.hostRules:
+- hosts:
+  - staging.careerdevelopmentnavigator.mer.pwc.com
+  pathMatcher: path-matcher-1
+- hosts:
+  - stagingapi.careerdevelopmentnavigator.mer.pwc.com
+  pathMatcher: path-matcher-2
+- hosts:
+  - 136.68.140.144
+  pathMatcher: path-matcher-ai-test
+pathMatchers:
+- name: path-matcher-1
+- name: path-matcher-2
+- name: path-matcher-ai-test
+---
+backend: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2/instanceGroups/cn-frontend-mig-regional
+status:
+  healthStatus:
+  - healthState: HEALTHY
+    instance: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/zones/me-central2-a/instances/cn-frontend-mig-regional-wdql
+    ipAddress: 10.216.0.11
+    port: 80
+  kind: compute#backendServiceGroupHealth
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ curl -ik https://136.68.140.144/ai-test/health
+HTTP/2 401 
+x-goog-iap-generated-response: true
+content-type: text/html; charset=UTF-8
+content-length: 120
+via: 1.1 google
+date: Fri, 09 Oct 2026 08:25:47 GMT
+alt-svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
 
-## Safe fallback: test over HTTPS now
-
-The HTTPS frontend uses the same URL map, so the rule is already live there. A cert mismatch is expected on a raw IP, so use `-k`:
-
-```bash
-curl -ik https://136.68.140.144/ai-test/health
-```
-Expected: 200 with `{"status":"healthy"}` and the headers from your test VM (`X-Powered-By: Express`, `Via: ... cn-staging-ai-staging`).
-
-## If the HTTP redirect persists
-
-The redirect is probably coming from the frontend VM's Apache (`Server: Apache`, `via: 1.1 google`), not the LB. Nothing needs changing on your test VM. For browser use over HTTPS on an IP, use `nip.io` with a cert later if the AI features need it.
-
-## Rollback
-```bash
-gcloud compute url-maps import cm-staging-lb --global --source=url-map-backup-2026-10-09.yaml
-```
-
-⚠️ Still pending: Cloud Armor allowlist on `ai-test-backend`. Confirm whether you attached one.
-
-Send the output of the 3 diagnosis commands and the `curl -ik` result.
+There was a problem with your request. Please reference https://cloud.google.com/iap/docs/faq#error_codes. Error code 52nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
