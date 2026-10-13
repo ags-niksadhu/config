@@ -1,52 +1,81 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ ls /var/www/
-careernavigator-backend  careernavigator-frontend  html
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo ss -tlnp | grep -E 'node|apache2'
-LISTEN 0      511          0.0.0.0:3024      0.0.0.0:*    users:(("node /var/www/c",pid=1146,fd=22))
-LISTEN 0      511                *:80              *:*    users:(("apache2",pid=22531,fd=4),("apache2",pid=22530,fd=4),("apache2",pid=986,fd=4))
-LISTEN 0      511                *:443             *:*    users:(("apache2",pid=22531,fd=6),("apache2",pid=22530,fd=6),("apache2",pid=986,fd=6))
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ cd /var/www/careernavigator-frontend/
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ ls -la
-total 220
-drwxr-xr-x 6 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com   4096 Oct  8 10:45 .
-drwxr-xr-x 5 root                    root                      4096 Oct  8 10:44 ..
--rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com   4048 Oct  8 10:45 cloudbuild.yaml
--rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com    170 Oct  8 10:45 ecosystem.config.js
-drwxrwxr-x 8 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com   4096 Oct  8 10:45 .git
--rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com    480 Oct  8 10:45 .gitignore
--rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com    658 Oct  8 10:45 next.config.ts
--rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com   1435 Oct  8 10:45 package.json
--rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com 166433 Oct  8 10:45 package-lock.json
-drwxrwxr-x 3 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com   4096 Oct  8 10:45 packer
--rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com     81 Oct  8 10:44 postcss.config.mjs
-drwxrwxr-x 6 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com   4096 Oct  8 10:45 public
--rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com   1453 Oct  8 10:45 README.md
-drwxrwxr-x 7 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com   4096 Oct  8 10:45 src
--rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com    805 Oct  8 10:45 tsconfig.json
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ cat ecosystem.config.js
-module.exports = {
-  apps: [
-    {
-      name: "careernavigator-frontend",
-      script: "npm",
-      args: "start",
-      env: {
-        PORT: 3027
-      }
-    }
-  ]
-};
 nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ pm2 list
-┌────┬────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
-│ id │ name                       │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
-├────┼────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
-│ 0  │ careernavigator-backend    │ default     │ 0.0.1   │ fork    │ 1146     │ 15h    │ 0    │ online    │ 0%       │ 193.7mb  │ nikul_s… │ disabled │
-└────┴────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
-host metrics | cpu: 0.3% | ram usage: 16.6% | disk: ⇓ 0mb/s ⇑ 0.001mb/s
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ npm i
-npm warn deprecated crypto@1.0.1: This package is no longer supported. It's now a built-in Node module. If you've depended on crypto, you should switch to the one that's built-in.
-npm warn deprecated uuid@8.3.2: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+┌────┬─────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                        │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼─────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ careernavigator-backend     │ default     │ 0.0.1   │ fork    │ 1146     │ 16h    │ 0    │ online    │ 0%       │ 193.7mb  │ nikul_s… │ disabled │
+│ 1  │ careernavigator-frontend    │ default     │ 0.40.3  │ fork    │ 35329    │ 22m    │ 0    │ online    │ 0%       │ 69.6mb   │ nikul_s… │ disabled │
+└────┴─────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 0.3% | ram usage: 21% | disk: ⇓ 0mb/s ⇑ 0mb/s
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ pm2 log 1
+[TAILING] Tailing last 15 lines for [1] process (change the value with --lines option)
+/home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-frontend-out.log last 15 lines:
+1|careerna |
+1|careerna | > my-app@0.1.0 start
+1|careerna | > next start
+1|careerna |
+1|careerna | ▲ Next.js 16.3.5
+1|careerna | - Local:         http://localhost:3027
+1|careerna | - Network:       http://10.216.15.218:3027
+1|careerna | ✓ Ready in 162ms
+1|careerna | ✓ Running next.config.ts took 57ms
 
-added 305 packages, and audited 306 packages in 25s
+/home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-frontend-error.log last 15 lines:
+1|careerna | ⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+
+^C
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ git branch
+  main
+* staging
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ git pull
+remote: Enumerating objects: 218, done.
+remote: Counting objects: 100% (218/218), done.
+remote: Compressing objects: 100% (49/49), done.
+remote: Total 137 (delta 88), reused 128 (delta 80), pack-reused 0 (from 0)
+Receiving objects: 100% (137/137), 29.35 KiB | 733.00 KiB/s, done.
+Resolving deltas: 100% (88/88), completed with 56 local objects.
+From github.com:pwc-me-adv-careernavigator/careernavigator-frontend
+   a81eb16..5021c13  staging          -> origin/staging
+ * [new branch]      ai-form-creation -> origin/ai-form-creation
+Updating a81eb16..5021c13
+Fast-forward
+ src/Components/Admin/CMS/CMSLandingPage/index.tsx                                 |   5 +++--
+ src/Components/Admin/Common/Dashboard/EmployeeDistributionByRoleChart.tsx         |   2 +-
+ src/Components/Admin/Common/Dashboard/OrganizationStatusChart.tsx                 |   2 +-
+ src/Components/Admin/Common/Dashboard/TrainingProgressChart.tsx                   |   2 +-
+ src/Components/Admin/FileManager/FileManagerDetail/index.tsx                      |   5 +++--
+ src/Components/Admin/FileManager/FileManagerTable.tsx                             |   5 +++--
+ src/Components/Admin/Functions/AddEditFunction/SubFunctionItem.tsx                |   2 +-
+ src/Components/Admin/Functions/AddEditFunction/SubFunctionTree.tsx                |   4 ++--
+ src/Components/Admin/Organization/AddEditOrganization/AddEditOrganizationForm.tsx |   4 +++-
+ src/Components/Common/ImageWithFallback.tsx                                       |  12 ++++++++++--
+ src/Components/Common/RoleDetailSidebar/index.tsx                                 |   5 ++++-
+ src/Components/Common/SignedLink.tsx                                              |  16 ++++++++++++++++
+ src/Components/LandingPage/index.tsx                                              |   6 ++++--
+ src/Layout/AdminLayout/Header/HeaderProfile.tsx                                   |   2 ++
+ src/Layout/AdminLayout/Sidebar/SidebarLogo.tsx                                    |   5 ++++-
+ src/Layout/AuthLayout/index.tsx                                                   |   6 +++---
+ src/Layout/LandingLayout/Header.tsx                                               |   5 ++---
+ src/Utils/APIRequest/Endpoints.tsx                                                |   1 +
+ src/Utils/Hooks/useSignedUrl.tsx                                                  | 140 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ src/proxy.ts                                                                      |  23 ++++++++++++++++++++++-
+ 20 files changed, 226 insertions(+), 26 deletions(-)
+ create mode 100644 src/Components/Common/SignedLink.tsx
+ create mode 100644 src/Utils/Hooks/useSignedUrl.tsx
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ git branch
+  main
+* staging
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ git checkout ai-form-creation
+branch 'ai-form-creation' set up to track 'origin/ai-form-creation'.
+Switched to a new branch 'ai-form-creation'
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ git branch
+* ai-form-creation
+  main
+  staging
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ git pull
+Already up to date.
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ npm i
+
+up to date, audited 306 packages in 8s
 
 61 packages are looking for funding
   run `npm fund` for details
@@ -66,19 +95,14 @@ nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$
 > next build
 
 ▲ Next.js 16.3.5 (Turbopack)
-✓ Running next.config.ts took 81ms
-Attention: Next.js now collects completely anonymous telemetry regarding usage.
-This information is used to shape Next.js' roadmap and prioritize features.
-You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
-https://nextjs.org/telemetry
-
+✓ Running next.config.ts took 289ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 41s
-✓ Finished TypeScript in 25.6s
-✓ Collecting page data using 1 worker in 1075ms
-✓ Generating static pages using 1 worker (48/48) in 1422ms
-✓ Finalizing page optimization in 1481ms
+✓ Compiled successfully in 2.0min
+✓ Finished TypeScript in 24.5s
+✓ Collecting page data using 1 worker in 2.8s
+✓ Generating static pages using 1 worker (48/48) in 1580ms
+✓ Finalizing page optimization in 7ms
 
 Route (app)
 ┌ ○ /
@@ -151,35 +175,76 @@ Route (app)
 ○  (Static)   prerendered as static content
 ƒ  (Dynamic)  server-rendered on demand
 
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ pm2 list
+┌────┬─────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                        │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼─────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ careernavigator-backend     │ default     │ 0.0.1   │ fork    │ 1146     │ 17h    │ 0    │ online    │ 0%       │ 193.7mb  │ nikul_s… │ disabled │
+│ 1  │ careernavigator-frontend    │ default     │ 0.40.3  │ fork    │ 35329    │ 118m   │ 0    │ online    │ 0%       │ 70.6mb   │ nikul_s… │ disabled │
+└────┴─────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 52.4% | ram usage: 20.6% | ens4: ⇓ 0.001mb/s ⇑ 0.001mb/s | disk: ⇓ 0.44mb/s ⇑ 1.414mb/s
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ pm2 stop 1
+[PM2] Applying action stopProcessId on app [1](ids: [ '1' ])
+[PM2] [careernavigator-frontend](1) ✓
+┌────┬─────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                        │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼─────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ careernavigator-backend     │ default     │ 0.0.1   │ fork    │ 1146     │ 17h    │ 0    │ online    │ 0%       │ 193.7mb  │ nikul_s… │ disabled │
+│ 1  │ careernavigator-frontend    │ default     │ 0.40.3  │ fork    │ 0        │ 0      │ 0    │ stopped   │ 0%       │ 0b       │ nikul_s… │ disabled │
+└────┴─────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 52.4% | ram usage: 20.6% | ens4: ⇓ 0.001mb/s ⇑ 0.001mb/s | disk: ⇓ 0.44mb/s ⇑ 1.414mb/s
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ pm2 delete 1
+[PM2] Applying action deleteProcessId on app [1](ids: [ '1' ])
+[PM2] [careernavigator-frontend](1) ✓
+┌────┬────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                       │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ careernavigator-backend    │ default     │ 0.0.1   │ fork    │ 1146     │ 17h    │ 0    │ online    │ 0%       │ 193.7mb  │ nikul_s… │ disabled │
+└────┴────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 1.6% | ram usage: 19.1% | disk: ⇓ 0.181mb/s ⇑ 0.104mb/s
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ cat ecosystem.config.js
+module.exports = {
+  apps: [
+    {
+      name: "careernavigator-frontend",
+      script: "npm",
+      args: "start",
+      env: {
+        PORT: 3027
+      }
+    }
+  ]
+};
 nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ pm2 start ecosystem.config.js
 [PM2][WARN] Applications careernavigator-frontend not running, starting...
 [PM2] App [careernavigator-frontend] launched (1 instances)
 ┌────┬─────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
 │ id │ name                        │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
 ├────┼─────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
-│ 0  │ careernavigator-backend     │ default     │ 0.0.1   │ fork    │ 1146     │ 15h    │ 0    │ online    │ 0%       │ 193.7mb  │ nikul_s… │ disabled │
-│ 1  │ careernavigator-frontend    │ default     │ 0.40.3  │ fork    │ 35329    │ 0s     │ 0    │ online    │ 0%       │ 52.2mb   │ nikul_s… │ disabled │
+│ 0  │ careernavigator-backend     │ default     │ 0.0.1   │ fork    │ 1146     │ 17h    │ 0    │ online    │ 0%       │ 193.7mb  │ nikul_s… │ disabled │
+│ 2  │ careernavigator-frontend    │ default     │ 0.40.3  │ fork    │ 39959    │ 0s     │ 0    │ online    │ 0%       │ 44.9mb   │ nikul_s… │ disabled │
 └────┴─────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
-host metrics | cpu: 80.3% | ram usage: 24.8% | ens4: ⇓ 0.001mb/s ⇑ 0.002mb/s | disk: ⇓ 2.118mb/s ⇑ 8.337mb/s
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ pm2 log 1
-[TAILING] Tailing last 15 lines for [1] process (change the value with --lines option)
-/home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-frontend-out.log last 15 lines:
-1|careerna |
-1|careerna | > my-app@0.1.0 start
-1|careerna | > next start
-1|careerna |
-1|careerna | ▲ Next.js 16.3.5
-1|careerna | - Local:         http://localhost:3027
-1|careerna | - Network:       http://10.216.15.218:3027
-1|careerna | ✓ Ready in 162ms
-1|careerna | ✓ Running next.config.ts took 57ms
-
+host metrics | cpu: 1.6% | ram usage: 19.1% | disk: ⇓ 0.181mb/s ⇑ 0.104mb/s
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ pm2 log 2
+[TAILING] Tailing last 15 lines for [2] process (change the value with --lines option)
 /home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-frontend-error.log last 15 lines:
-1|careerna | ⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+2|careerna | ⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
 
-^C
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ sudo ss -tlnp | grep -E 'node|apache2'
-LISTEN 0      511          0.0.0.0:3024      0.0.0.0:*    users:(("node /var/www/c",pid=1146,fd=22))
-LISTEN 0      511                *:80              *:*    users:(("apache2",pid=22531,fd=4),("apache2",pid=22530,fd=4),("apache2",pid=986,fd=4))
-LISTEN 0      511                *:443             *:*    users:(("apache2",pid=22531,fd=6),("apache2",pid=22530,fd=6),("apache2",pid=986,fd=6))
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$
+/home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-frontend-out.log last 15 lines:
+2|careerna |
+2|careerna | ▲ Next.js 16.3.5
+2|careerna | - Local:         http://localhost:3027
+2|careerna | - Network:       http://10.216.15.218:3027
+2|careerna | ✓ Ready in 162ms
+2|careerna | ✓ Running next.config.ts took 57ms
+2|careerna |
+2|careerna | > my-app@0.1.0 start
+2|careerna | > next start
+2|careerna |
+2|careerna | ▲ Next.js 16.3.5
+2|careerna | - Local:         http://localhost:3027
+2|careerna | - Network:       http://10.216.15.218:3027
+2|careerna | ✓ Ready in 181ms
+2|careerna | ✓ Running next.config.ts took 56ms
+
+
