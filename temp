@@ -1,164 +1,71 @@
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ cat next.config.ts
-import type { NextConfig } from "next";
+Understood: the dev owns the code changes, and you own hosting. I'll drop the `next.config.ts` and `proxy.ts` edits from my last message and give you only the infra steps, plus a handoff note for the dev.
 
-const nextConfig: NextConfig = {
-  distDir: "build",
-  reactStrictMode: false,
-  env: {
-    WEBSITE_URL: "https://staging.careerdevelopmentnavigator.mer.pwc.com/",
-    API_BASE_URL: "http://136.68.140.144/ai-test/v1/",
-    SOCKET_URL: "https://stagingapi.careerdevelopmentnavigator.mer.pwc.com",
-    SECRET_KEY: "12345678904634567890123456789012",
-  },
-  allowedDevOrigins: ["192.168.2.32"],
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "**",
-      },
-      {
-        protocol: "http",
-        hostname: "**",
-      },
-    ],
-  },
-};
+## Handoff note for the dev (the app must be served under `/ai-test-ui`)
 
-export default nextConfig;
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ ls -a | grep -i '^\.env'
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ grep -h "NEXT_PUBLIC" .env* 2>/dev/null | sed 's/=.*/=<hidden>/'
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ grep -rhn "baseURL\|BASE_URL\|API_URL" src/Utils/APIRequest | head -10
-2:export const BaseURL = process.env.API_BASE_URL
-7:    baseURL: BaseURL
-13:        instance.defaults.baseURL = customURL;
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ cat src/proxy.ts
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { getRequiredPermission, hasModulePermission } from "@/Utils/RoutePermissions";
-import {
-  getOrganizationSubdomainFromPath,
-  ORG_SUBDOMAIN_COOKIE,
-} from "@/Utils/organizationPath";
+1. `basePath: '/ai-test-ui'` in `next.config.ts`, set via an env var (e.g. `NEXT_BASE_PATH`) so staging is unaffected.
+2. `src/proxy.ts` redirects must keep the base path. `new URL("/login", request.url)` drops it, so use `request.nextUrl.clone()`.
+3. Keep `API_BASE_URL=http://136.68.140.144/ai-test/v1/`. It is same-origin, so no CORS or CSP change.
+4. Remove `SECRET_KEY` from the `env` block. That block is bundled into the browser, so the key is public.
+5. Confirm whether the AI features use `SOCKET_URL`. It points at the staging API, and the CSP blocks it.
+6. Use HTTP only. The API is `http://`, so HTTPS would cause mixed-content blocking.
 
-export function proxy(request: NextRequest) {
-  const pathName = request.nextUrl.pathname;
-  const token = request.cookies.get("user_token")?.value;
-  const userPermissionsCookie = request.cookies.get("user_permissions")?.value;
-  const userRoleCookie = request.cookies.get("user_role")?.value;
+Ask the dev to tell you the branch name and the exact build and start commands.
 
-  const isLoggedIn = !!token;
-  const isSuperSuperAdmin = userRoleCookie === "super_super_admin";
+## Your infra steps (do these now; they don't depend on the code)
 
-  // Landing opens only when logged in. Guests are redirected to login.
-  const orgSubdomain = getOrganizationSubdomainFromPath(pathName);
-  if (orgSubdomain) {
-    const orgSegments = pathName.split("/").filter(Boolean);
-    const isOrgLandingPage = orgSegments.length === 1;
+**1. Apache: route `/ai-test-ui` to port 3027, with no prefix stripping**
+```bash
+sudo cp /etc/apache2/sites-enabled/ai_test.conf ~/ai_test.conf.bak
+sudo sed -i '/ProxyPass \/ http:\/\/localhost:3024\//i ProxyPass /ai-test-ui http://localhost:3027/ai-test-ui\nProxyPassReverse /ai-test-ui http://localhost:3027/ai-test-ui' /etc/apache2/sites-enabled/ai_test.conf
+sudo apache2ctl configtest && sudo systemctl reload apache2
+grep -n "ProxyPass" /etc/apache2/sites-enabled/ai_test.conf
+```
+Expected: `Syntax OK`, and the `/ai-test-ui` lines listed before `ProxyPass /`.
 
-    if (isOrgLandingPage && !isLoggedIn) {
-      const url = new URL("/login", request.url);
-      const redirectResponse = NextResponse.redirect(url);
-      redirectResponse.cookies.set(ORG_SUBDOMAIN_COOKIE, orgSubdomain, {
-        path: "/",
-        sameSite: "lax",
-      });
-      return redirectResponse;
-    }
+**2. URL map (shared, so use the same backup, validate, import process)**
+```bash
+gcloud compute url-maps export cm-staging-lb --global --destination=url-map-backup-2026-10-13.yaml
+cp url-map-backup-2026-10-13.yaml url-map-ui.yaml
+tail -12 url-map-ui.yaml
+```
+Send me the `tail` output before continuing. The append below only works if `routeRules` is the last block in the file.
 
-    // Previously the org landing stayed open even when not logged in:
-    // const response = NextResponse.next();
-    // response.cookies.set(ORG_SUBDOMAIN_COOKIE, orgSubdomain, {
-    //   path: "/",
-    //   sameSite: "lax",
-    // });
-    // return response;
+```bash
+cat >> url-map-ui.yaml <<'EOF'
+  - priority: 2
+    matchRules:
+    - prefixMatch: /ai-test-ui
+    service: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/ai-test-backend
+EOF
+gcloud compute url-maps validate --source=url-map-ui.yaml --global
+```
+Import only if validate shows `loadSucceeded: true` and `testPassed: true`:
+```bash
+gcloud compute url-maps import cm-staging-lb --global --source=url-map-ui.yaml
+```
+The existing `/ai-test/` backend rule is unchanged (it has a trailing slash and a rewrite, so `/ai-test-ui` doesn't match it). The `ai-test-allowlist` applies automatically. Extra cost is $0.
 
-    const response = NextResponse.next();
-    response.cookies.set(ORG_SUBDOMAIN_COOKIE, orgSubdomain, {
-      path: "/",
-      sameSite: "lax",
-    });
-    return response;
-  }
+## When the dev delivers the code (deploy)
+```bash
+cd /var/www/careernavigator-frontend
+git fetch && git checkout <DEV_BRANCH> && git pull   # <DEV_BRANCH> ← required, from the dev
+npm i
+NEXT_BASE_PATH=/ai-test-ui npm run build             # use the env var name the dev tells you
+NEXT_BASE_PATH=/ai-test-ui pm2 restart careernavigator-frontend --update-env
+```
+⚠️ The build takes about 2 minutes and pushes CPU to 50-80%. The frontend restarts briefly, and the backend on 3024 is unaffected.
 
-  // Apex `/` → login (guests) or dashboard (logged in). Landing only via /{org}
-  if (pathName === "/") {
-    const url = new URL(isLoggedIn ? "/dashboard" : "/login", request.url);
-    return NextResponse.redirect(url);
-  }
+## Verify (wait 3-5 min, from your allowlisted laptop)
+```bash
+curl -sI http://localhost/ai-test-ui | grep -i -E "HTTP|location"   # on the VM, expect a redirect to /ai-test-ui/login
+curl -s -o /dev/null -w "%{http_code}\n" http://136.68.140.144/ai-test/health   # 200, backend still fine
+```
+Then open `http://136.68.140.144/ai-test-ui/`. From Cloud Shell it should return 403.
 
-  const authRoutes = ["/login", "/reset-password", "/set-password", "/verify-otp", "/forgot-password"];
-  const publicRoutes = ["/privacy-and-terms"];
+## Rollback
+```bash
+sudo cp ~/ai_test.conf.bak /etc/apache2/sites-enabled/ai_test.conf && sudo systemctl reload apache2
+gcloud compute url-maps import cm-staging-lb --global --source=url-map-backup-2026-10-13.yaml
+```
 
-  const isInPasswordResetFlow =
-    request.cookies.get("temp_reset_token")?.value ||
-    request.cookies.get("forgot_email")?.value;
-
-  // Logged-in users on auth pages → dashboard (except password-reset flow)
-  if (isLoggedIn && authRoutes.includes(pathName)) {
-    if (pathName === "/reset-password" && isInPasswordResetFlow) {
-      return NextResponse.next();
-    }
-    const url = new URL("/dashboard", request.url);
-    return NextResponse.redirect(url);
-  }
-
-  const isPublicPage = publicRoutes.includes(pathName) || authRoutes.includes(pathName);
-
-  // Protect admin/app routes if not logged in
-  if (!isLoggedIn && !isPublicPage) {
-    const url = new URL("/login", request.url);
-    return NextResponse.redirect(url);
-  }
-
-  // Permission checks for logged-in admin routes
-  if (isLoggedIn && !isPublicPage) {
-    if (isSuperSuperAdmin) {
-      return NextResponse.next();
-    }
-
-    const requiredPermission = getRequiredPermission(pathName);
-
-    if (requiredPermission !== null && requiredPermission !== "unknown") {
-      let userPermissions: any[] = [];
-      let hasValidPermissionsCookie = false;
-
-      if (userPermissionsCookie) {
-        try {
-          const parsed = JSON.parse(userPermissionsCookie);
-          if (Array.isArray(parsed)) {
-            userPermissions = parsed;
-            hasValidPermissionsCookie = true;
-          } else {
-            console.warn("Permissions cookie is not an array:", typeof parsed);
-            userPermissions = [];
-            hasValidPermissionsCookie = true;
-          }
-        } catch (e) {
-          console.error("Failed to parse user permissions cookie:", e);
-          userPermissions = [];
-        }
-      }
-
-      if (hasValidPermissionsCookie) {
-        if (!hasModulePermission(userPermissions, requiredPermission)) {
-          const url = new URL("/dashboard", request.url);
-          url.searchParams.set("error", "access_denied");
-          return NextResponse.redirect(url);
-        }
-      }
-    } else if (requiredPermission === "unknown") {
-      const url = new URL("/dashboard", request.url);
-      url.searchParams.set("error", "route_not_found");
-      return NextResponse.redirect(url);
-    }
-  }
-
-  return NextResponse.next();
-}
-
-export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|assets/images|favicon.ico).*)"],
-};
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$
+Send the `tail -12 url-map-ui.yaml` output and the Apache `grep` output.
