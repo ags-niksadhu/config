@@ -1,2 +1,39 @@
-ls /var/www/
-sudo ss -tlnp | grep -E 'node|apache2'
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ ls /var/www/
+careernavigator-backend  careernavigator-frontend  html
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ sudo ss -tlnp | grep -E 'node|apache2'
+LISTEN 0      511          0.0.0.0:3024      0.0.0.0:*    users:(("node /var/www/c",pid=1146,fd=22))
+LISTEN 0      511                *:80              *:*    users:(("apache2",pid=22531,fd=4),("apache2",pid=22530,fd=4),("apache2",pid=986,fd=4))
+LISTEN 0      511                *:443             *:*    users:(("apache2",pid=22531,fd=6),("apache2",pid=22530,fd=6),("apache2",pid=986,fd=6))
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ cd /var/www/careernavigator-frontend/
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ ls -la
+total 220
+drwxr-xr-x 6 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com   4096 Oct  8 10:45 .
+drwxr-xr-x 5 root                    root                      4096 Oct  8 10:44 ..
+-rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com   4048 Oct  8 10:45 cloudbuild.yaml
+-rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com    170 Oct  8 10:45 ecosystem.config.js
+drwxrwxr-x 8 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com   4096 Oct  8 10:45 .git
+-rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com    480 Oct  8 10:45 .gitignore
+-rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com    658 Oct  8 10:45 next.config.ts
+-rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com   1435 Oct  8 10:45 package.json
+-rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com 166433 Oct  8 10:45 package-lock.json
+drwxrwxr-x 3 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com   4096 Oct  8 10:45 packer
+-rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com     81 Oct  8 10:44 postcss.config.mjs
+drwxrwxr-x 6 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com   4096 Oct  8 10:45 public
+-rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com   1453 Oct  8 10:45 README.md
+drwxrwxr-x 7 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com   4096 Oct  8 10:45 src
+-rw-rw-r-- 1 nikul_sadhu_gcp_pwc_com nikul_sadhu_gcp_pwc_com    805 Oct  8 10:45 tsconfig.json
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ cat ecosystem.config.js
+module.exports = {
+  apps: [
+    {
+      name: "careernavigator-frontend",
+      script: "npm",
+      args: "start",
+      env: {
+        PORT: 3027
+      }
+    }
+  ]
+};
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$
+
