@@ -35,5 +35,151 @@ module.exports = {
     }
   ]
 };
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ pm2 list
+┌────┬────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                       │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ careernavigator-backend    │ default     │ 0.0.1   │ fork    │ 1146     │ 15h    │ 0    │ online    │ 0%       │ 193.7mb  │ nikul_s… │ disabled │
+└────┴────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 0.3% | ram usage: 16.6% | disk: ⇓ 0mb/s ⇑ 0.001mb/s
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ npm i
+npm warn deprecated crypto@1.0.1: This package is no longer supported. It's now a built-in Node module. If you've depended on crypto, you should switch to the one that's built-in.
+npm warn deprecated uuid@8.3.2: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
 
+added 305 packages, and audited 306 packages in 25s
+
+61 packages are looking for funding
+  run `npm fund` for details
+
+31 vulnerabilities (28 moderate, 2 high, 1 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ npm run build
+
+> my-app@0.1.0 build
+> next build
+
+▲ Next.js 16.3.5 (Turbopack)
+✓ Running next.config.ts took 81ms
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 41s
+✓ Finished TypeScript in 25.6s
+✓ Collecting page data using 1 worker in 1075ms
+✓ Generating static pages using 1 worker (48/48) in 1422ms
+✓ Finalizing page optimization in 1481ms
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /[orgSubdomain]
+├ ƒ /[orgSubdomain]/privacy-and-terms
+├ ○ /audit-logs
+├ ○ /career-path/designer
+├ ƒ /career-path/designer/[id]
+├ ○ /career-path/designer/create-career-path
+├ ○ /career-path/visualization
+├ ○ /cms
+├ ○ /cms/landing-page
+├ ○ /cms/privacy-policy-page
+├ ○ /cms/terms-and-conditions-page
+├ ○ /competencies
+├ ○ /competencies/categories
+├ ƒ /competencies/categories/[id]/[slug]
+├ ○ /competencies/categories/create-category
+├ ○ /competencies/list
+├ ƒ /competencies/list/[id]/[slug]
+├ ○ /competencies/list/create-competency
+├ ○ /competencies/proficiency-levels
+├ ƒ /competencies/proficiency-levels/[id]/[slug]
+├ ○ /dashboard
+├ ○ /define-employee-role-and-add-competency
+├ ƒ /define-employee-role-and-add-competency/[id]
+├ ○ /file-manager
+├ ƒ /file-manager/[id]
+├ ○ /forgot-password
+├ ○ /functions
+├ ƒ /functions/[id]/[slug]
+├ ○ /functions/create-function
+├ ○ /grades
+├ ƒ /grades/[id]/[slug]
+├ ○ /grades/create-grade
+├ ○ /job-families
+├ ƒ /job-families/[id]/[slug]
+├ ○ /job-families/create-job-family
+├ ○ /login
+├ ○ /notifications
+├ ○ /organization-chart
+├ ○ /organizations
+├ ƒ /organizations/[slug]
+├ ○ /organizations/create-organization
+├ ○ /privacy-and-terms
+├ ○ /profile
+├ ○ /reset-password
+├ ○ /roles
+├ ƒ /roles/[id]/[slug]
+├ ○ /roles/create-role
+├ ƒ /set-password
+├ ○ /training/categories
+├ ƒ /training/categories/[id]/[slug]
+├ ○ /training/categories/create-category
+├ ○ /training/library
+├ ƒ /training/library/[id]/[slug]
+├ ○ /training/library/create-training
+├ ○ /training/providers
+├ ƒ /training/providers/[id]/[slug]
+├ ○ /training/providers/create-provider
+├ ○ /users
+├ ƒ /users/[id]/[slug]
+├ ○ /users/create-user
+└ ○ /verify-otp
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ pm2 start ecosystem.config.js
+[PM2][WARN] Applications careernavigator-frontend not running, starting...
+[PM2] App [careernavigator-frontend] launched (1 instances)
+┌────┬─────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                        │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼─────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ careernavigator-backend     │ default     │ 0.0.1   │ fork    │ 1146     │ 15h    │ 0    │ online    │ 0%       │ 193.7mb  │ nikul_s… │ disabled │
+│ 1  │ careernavigator-frontend    │ default     │ 0.40.3  │ fork    │ 35329    │ 0s     │ 0    │ online    │ 0%       │ 52.2mb   │ nikul_s… │ disabled │
+└────┴─────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 80.3% | ram usage: 24.8% | ens4: ⇓ 0.001mb/s ⇑ 0.002mb/s | disk: ⇓ 2.118mb/s ⇑ 8.337mb/s
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ pm2 log 1
+[TAILING] Tailing last 15 lines for [1] process (change the value with --lines option)
+/home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-frontend-out.log last 15 lines:
+1|careerna |
+1|careerna | > my-app@0.1.0 start
+1|careerna | > next start
+1|careerna |
+1|careerna | ▲ Next.js 16.3.5
+1|careerna | - Local:         http://localhost:3027
+1|careerna | - Network:       http://10.216.15.218:3027
+1|careerna | ✓ Ready in 162ms
+1|careerna | ✓ Running next.config.ts took 57ms
+
+/home/nikul_sadhu_gcp_pwc_com/.pm2/logs/careernavigator-frontend-error.log last 15 lines:
+1|careerna | ⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+
+^C
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ sudo ss -tlnp | grep -E 'node|apache2'
+LISTEN 0      511          0.0.0.0:3024      0.0.0.0:*    users:(("node /var/www/c",pid=1146,fd=22))
+LISTEN 0      511                *:80              *:*    users:(("apache2",pid=22531,fd=4),("apache2",pid=22530,fd=4),("apache2",pid=986,fd=4))
+LISTEN 0      511                *:443             *:*    users:(("apache2",pid=22531,fd=6),("apache2",pid=22530,fd=6),("apache2",pid=986,fd=6))
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$
