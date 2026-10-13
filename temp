@@ -1,6 +1,164 @@
-cd /var/www/careernavigator-frontend
-cat next.config.ts
-ls -a | grep -i '^\.env'
-grep -h "NEXT_PUBLIC" .env* 2>/dev/null | sed 's/=.*/=<hidden>/'
-grep -rhn "baseURL\|BASE_URL\|API_URL" src/Utils/APIRequest | head -10
-cat src/proxy.ts
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ cat next.config.ts
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  distDir: "build",
+  reactStrictMode: false,
+  env: {
+    WEBSITE_URL: "https://staging.careerdevelopmentnavigator.mer.pwc.com/",
+    API_BASE_URL: "http://136.68.140.144/ai-test/v1/",
+    SOCKET_URL: "https://stagingapi.careerdevelopmentnavigator.mer.pwc.com",
+    SECRET_KEY: "12345678904634567890123456789012",
+  },
+  allowedDevOrigins: ["192.168.2.32"],
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+      {
+        protocol: "http",
+        hostname: "**",
+      },
+    ],
+  },
+};
+
+export default nextConfig;
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ ls -a | grep -i '^\.env'
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ grep -h "NEXT_PUBLIC" .env* 2>/dev/null | sed 's/=.*/=<hidden>/'
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ grep -rhn "baseURL\|BASE_URL\|API_URL" src/Utils/APIRequest | head -10
+2:export const BaseURL = process.env.API_BASE_URL
+7:    baseURL: BaseURL
+13:        instance.defaults.baseURL = customURL;
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ cat src/proxy.ts
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { getRequiredPermission, hasModulePermission } from "@/Utils/RoutePermissions";
+import {
+  getOrganizationSubdomainFromPath,
+  ORG_SUBDOMAIN_COOKIE,
+} from "@/Utils/organizationPath";
+
+export function proxy(request: NextRequest) {
+  const pathName = request.nextUrl.pathname;
+  const token = request.cookies.get("user_token")?.value;
+  const userPermissionsCookie = request.cookies.get("user_permissions")?.value;
+  const userRoleCookie = request.cookies.get("user_role")?.value;
+
+  const isLoggedIn = !!token;
+  const isSuperSuperAdmin = userRoleCookie === "super_super_admin";
+
+  // Landing opens only when logged in. Guests are redirected to login.
+  const orgSubdomain = getOrganizationSubdomainFromPath(pathName);
+  if (orgSubdomain) {
+    const orgSegments = pathName.split("/").filter(Boolean);
+    const isOrgLandingPage = orgSegments.length === 1;
+
+    if (isOrgLandingPage && !isLoggedIn) {
+      const url = new URL("/login", request.url);
+      const redirectResponse = NextResponse.redirect(url);
+      redirectResponse.cookies.set(ORG_SUBDOMAIN_COOKIE, orgSubdomain, {
+        path: "/",
+        sameSite: "lax",
+      });
+      return redirectResponse;
+    }
+
+    // Previously the org landing stayed open even when not logged in:
+    // const response = NextResponse.next();
+    // response.cookies.set(ORG_SUBDOMAIN_COOKIE, orgSubdomain, {
+    //   path: "/",
+    //   sameSite: "lax",
+    // });
+    // return response;
+
+    const response = NextResponse.next();
+    response.cookies.set(ORG_SUBDOMAIN_COOKIE, orgSubdomain, {
+      path: "/",
+      sameSite: "lax",
+    });
+    return response;
+  }
+
+  // Apex `/` → login (guests) or dashboard (logged in). Landing only via /{org}
+  if (pathName === "/") {
+    const url = new URL(isLoggedIn ? "/dashboard" : "/login", request.url);
+    return NextResponse.redirect(url);
+  }
+
+  const authRoutes = ["/login", "/reset-password", "/set-password", "/verify-otp", "/forgot-password"];
+  const publicRoutes = ["/privacy-and-terms"];
+
+  const isInPasswordResetFlow =
+    request.cookies.get("temp_reset_token")?.value ||
+    request.cookies.get("forgot_email")?.value;
+
+  // Logged-in users on auth pages → dashboard (except password-reset flow)
+  if (isLoggedIn && authRoutes.includes(pathName)) {
+    if (pathName === "/reset-password" && isInPasswordResetFlow) {
+      return NextResponse.next();
+    }
+    const url = new URL("/dashboard", request.url);
+    return NextResponse.redirect(url);
+  }
+
+  const isPublicPage = publicRoutes.includes(pathName) || authRoutes.includes(pathName);
+
+  // Protect admin/app routes if not logged in
+  if (!isLoggedIn && !isPublicPage) {
+    const url = new URL("/login", request.url);
+    return NextResponse.redirect(url);
+  }
+
+  // Permission checks for logged-in admin routes
+  if (isLoggedIn && !isPublicPage) {
+    if (isSuperSuperAdmin) {
+      return NextResponse.next();
+    }
+
+    const requiredPermission = getRequiredPermission(pathName);
+
+    if (requiredPermission !== null && requiredPermission !== "unknown") {
+      let userPermissions: any[] = [];
+      let hasValidPermissionsCookie = false;
+
+      if (userPermissionsCookie) {
+        try {
+          const parsed = JSON.parse(userPermissionsCookie);
+          if (Array.isArray(parsed)) {
+            userPermissions = parsed;
+            hasValidPermissionsCookie = true;
+          } else {
+            console.warn("Permissions cookie is not an array:", typeof parsed);
+            userPermissions = [];
+            hasValidPermissionsCookie = true;
+          }
+        } catch (e) {
+          console.error("Failed to parse user permissions cookie:", e);
+          userPermissions = [];
+        }
+      }
+
+      if (hasValidPermissionsCookie) {
+        if (!hasModulePermission(userPermissions, requiredPermission)) {
+          const url = new URL("/dashboard", request.url);
+          url.searchParams.set("error", "access_denied");
+          return NextResponse.redirect(url);
+        }
+      }
+    } else if (requiredPermission === "unknown") {
+      const url = new URL("/dashboard", request.url);
+      url.searchParams.set("error", "route_not_found");
+      return NextResponse.redirect(url);
+    }
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ["/((?!api|_next/static|_next/image|assets/images|favicon.ico).*)"],
+};
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$
