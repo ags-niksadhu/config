@@ -1,22 +1,2 @@
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute security-policies describe ai-test-allowlist --format="yaml(rules[].priority,rules[].action,rules[].match)"
-curl -s ifconfig.me
----
-rules:
-- action: allow
-  match:
-    config:
-      srcIpRanges:
-      - 110.227.205.102
-      - 14.99.145.222
-    versionedExpr: SRC_IPS_V1
-  priority: 1000
-- action: deny(403)
-  match:
-    config:
-      srcIpRanges:
-      - '*'
-    versionedExpr: SRC_IPS_V1
-  priority: 2147483647
-34.34.52.162nikul_sadhu@cloudshell:~ (pg-ae-n-acurl -s -o /dev/null -w "%{http_code}\n" http://136.68.140.144/ai-test/health-test/health
-403
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
+ls /var/www/
+sudo ss -tlnp | grep -E 'node|apache2'
