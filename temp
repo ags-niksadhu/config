@@ -1,71 +1,51 @@
-Understood: the dev owns the code changes, and you own hosting. I'll drop the `next.config.ts` and `proxy.ts` edits from my last message and give you only the infra steps, plus a handoff note for the dev.
-
-## Handoff note for the dev (the app must be served under `/ai-test-ui`)
-
-1. `basePath: '/ai-test-ui'` in `next.config.ts`, set via an env var (e.g. `NEXT_BASE_PATH`) so staging is unaffected.
-2. `src/proxy.ts` redirects must keep the base path. `new URL("/login", request.url)` drops it, so use `request.nextUrl.clone()`.
-3. Keep `API_BASE_URL=http://136.68.140.144/ai-test/v1/`. It is same-origin, so no CORS or CSP change.
-4. Remove `SECRET_KEY` from the `env` block. That block is bundled into the browser, so the key is public.
-5. Confirm whether the AI features use `SOCKET_URL`. It points at the staging API, and the CSP blocks it.
-6. Use HTTP only. The API is `http://`, so HTTPS would cause mixed-content blocking.
-
-Ask the dev to tell you the branch name and the exact build and start commands.
-
-## Your infra steps (do these now; they don't depend on the code)
-
-**1. Apache: route `/ai-test-ui` to port 3027, with no prefix stripping**
-```bash
-sudo cp /etc/apache2/sites-enabled/ai_test.conf ~/ai_test.conf.bak
-sudo sed -i '/ProxyPass \/ http:\/\/localhost:3024\//i ProxyPass /ai-test-ui http://localhost:3027/ai-test-ui\nProxyPassReverse /ai-test-ui http://localhost:3027/ai-test-ui' /etc/apache2/sites-enabled/ai_test.conf
-sudo apache2ctl configtest && sudo systemctl reload apache2
-grep -n "ProxyPass" /etc/apache2/sites-enabled/ai_test.conf
-```
-Expected: `Syntax OK`, and the `/ai-test-ui` lines listed before `ProxyPass /`.
-
-**2. URL map (shared, so use the same backup, validate, import process)**
-```bash
-gcloud compute url-maps export cm-staging-lb --global --destination=url-map-backup-2026-10-13.yaml
-cp url-map-backup-2026-10-13.yaml url-map-ui.yaml
-tail -12 url-map-ui.yaml
-```
-Send me the `tail` output before continuing. The append below only works if `routeRules` is the last block in the file.
-
-```bash
-cat >> url-map-ui.yaml <<'EOF'
-  - priority: 2
-    matchRules:
-    - prefixMatch: /ai-test-ui
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ sudo cp /etc/apache2/sites-enabled/ai_test.conf ~/ai_test.conf.bak
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ sudo sed -i '/ProxyPass \/ http:\/\/localhost:3024\//i ProxyPass /ai-test-ui http://localhost:3027/ai-test-ui\nProxyPassReverse /ai-test-ui http://localhost:3027/ai-test-ui' /etc/apache2/sites-enabled/ai_test.conf
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ sudo apache2ctl configtest && sudo systemctl reload apache2
+Syntax OK
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ grep -n "ProxyPass" /etc/apache2/sites-enabled/ai_test.conf
+105:ProxyPass /ai-test-ui http://localhost:3027/ai-test-ui
+106:ProxyPassReverse /ai-test-ui http://localhost:3027/ai-test-ui
+107:    ProxyPass / http://localhost:3024/
+108:    ProxyPassReverse / http://localhost:3024/
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ gcloud compute url-maps export cm-staging-lb --global --destination=url-map-backup-2026-10-13.yaml
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ cp url-map-backup-2026-10-13.yaml url-map-ui.yaml
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ tail -12 url-map-ui.yaml
+- defaultService: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/app-backend-service
+  name: path-matcher-2
+- defaultService: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/frontend-service
+  name: path-matcher-ai-test
+  routeRules:
+  - matchRules:
+    - prefixMatch: /ai-test/
+    priority: 1
+    routeAction:
+      urlRewrite:
+        pathPrefixRewrite: /
     service: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/ai-test-backend
-EOF
-gcloud compute url-maps validate --source=url-map-ui.yaml --global
-```
-Import only if validate shows `loadSucceeded: true` and `testPassed: true`:
-```bash
-gcloud compute url-maps import cm-staging-lb --global --source=url-map-ui.yaml
-```
-The existing `/ai-test/` backend rule is unchanged (it has a trailing slash and a rewrite, so `/ai-test-ui` doesn't match it). The `ai-test-allowlist` applies automatically. Extra cost is $0.
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ cat >> url-map-ui.yaml <<'EOF'
+>   - priority: 2
+>     matchRules:
+>     - prefixMatch: /ai-test-ui
+>     service: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/ai-test-backend
+> EOF
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ gcloud compute url-maps validate --source=url-map-ui.yaml --global
+result:
+  loadSucceeded: true
+  testPassed: true
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ gcloud compute url-maps import cm-staging-lb --global --source=url-map-ui.yaml
+Url Map [cm-staging-lb] will be overwritten.
 
-## When the dev delivers the code (deploy)
-```bash
-cd /var/www/careernavigator-frontend
-git fetch && git checkout <DEV_BRANCH> && git pull   # <DEV_BRANCH> ← required, from the dev
-npm i
-NEXT_BASE_PATH=/ai-test-ui npm run build             # use the env var name the dev tells you
-NEXT_BASE_PATH=/ai-test-ui pm2 restart careernavigator-frontend --update-env
-```
-⚠️ The build takes about 2 minutes and pushes CPU to 50-80%. The frontend restarts briefly, and the backend on 3024 is unaffected.
+Do you want to continue (Y/n)?  Y
 
-## Verify (wait 3-5 min, from your allowlisted laptop)
-```bash
-curl -sI http://localhost/ai-test-ui | grep -i -E "HTTP|location"   # on the VM, expect a redirect to /ai-test-ui/login
-curl -s -o /dev/null -w "%{http_code}\n" http://136.68.140.144/ai-test/health   # 200, backend still fine
-```
-Then open `http://136.68.140.144/ai-test-ui/`. From Cloud Shell it should return 403.
+WARNING: An up-to-date fingerprint must be provided to update the Url Map. Future versions of gcloud will fail with an error '412 conditionNotMet'
+Updating URL map...done.
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ curl -sI http://localhost/ai-test-ui | grep -i -E "HTTP|location"   # on the VM, expect a redirect to /ai-test-ui/login
+HTTP/1.1 307 Temporary Redirect
+Permissions-Policy: geolocation=(), microphone=(), camera=()
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';
+location: /login
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$ curl -s -o /dev/null -w "%{http_code}\n" http://136.68.140.144/ai-test/health   # 200, backend still fine
+403
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-frontend$
 
-## Rollback
-```bash
-sudo cp ~/ai_test.conf.bak /etc/apache2/sites-enabled/ai_test.conf && sudo systemctl reload apache2
-gcloud compute url-maps import cm-staging-lb --global --source=url-map-backup-2026-10-13.yaml
-```
 
-Send the `tail -12 url-map-ui.yaml` output and the Apache `grep` output.
