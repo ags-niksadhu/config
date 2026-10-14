@@ -1,2 +1,30 @@
-curl -si "http://localhost:3024/v1/organization?subdomain=master" | head -15
-curl -si "http://localhost:3024/v1/organization/subdomain/master" | head -15
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -si "http://localhost:3024/v1/organization?subdomain=master" | head -15
+HTTP/1.1 401 Unauthorized
+X-Powered-By: Express
+Access-Control-Allow-Origin: *
+X-RateLimit-Limit: 180
+X-RateLimit-Remaining: 179
+Date: Wed, 14 Oct 2026 06:51:31 GMT
+X-RateLimit-Reset: 1791960752
+Content-Type: application/json; charset=utf-8
+Content-Length: 55
+ETag: W/"37-6HaSRUtjbA+I38hg/TxWjfEA8MI"
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"statusCode":401,"message":"Invalid or expired token"}nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -si "http://localhost:3024/v1/organization/subdomain/master" | head -15
+HTTP/1.1 401 Unauthorized
+X-Powered-By: Express
+Access-Control-Allow-Origin: *
+X-RateLimit-Limit: 180
+X-RateLimit-Remaining: 178
+Date: Wed, 14 Oct 2026 06:51:33 GMT
+X-RateLimit-Reset: 1791960752
+Content-Type: application/json; charset=utf-8
+Content-Length: 55
+ETag: W/"37-6HaSRUtjbA+I38hg/TxWjfEA8MI"
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"statusCode":401,"message":"Invalid or expired token"}nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$
+
