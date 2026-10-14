@@ -1,311 +1,56 @@
-Domain: stagingapi.careerdevelopmentnavigator.mer.pwc.com
-IP: 136.68.140.144
-Vulnerabilities: Multiple CVEs detected (See this link)
+## What the report says
 
-Recommendations: 
-If external access is not required, please restrict it and allow access only from the required IPs. 
-If the Asset URL is still in use, please patch the listed CVEs to resolve the issue.
-According to the official Apache website, the latest available version of Apache HTTP Server is 2.4.69. Please upgrade the server to the latest version to remediate the identified issues.
+It's a version-based scan of Apache httpd (ports 80/443) on `136.68.140.144`. It flags ~60 CVEs and asks us to either restrict access or upgrade to 2.4.69.
 
+I can't confirm these CVE IDs or the 2.4.69 release from my side, so verify the latest version at httpd.apache.org before acting.
 
-Destination IP Address	Destination Port	CVE	Vulnerability Description
-136.68.140.144	80	CVE-2026-33007	"A NULL pointer dereference in the mod_authn_socache in Apache HTTP Server 2.4.66 and earlier allows an unauthenticated remote user to crash a child process in a caching forward proxy configuration.
+## What needs diagnosing first
 
-Users are recommended to upgrade to version 2.4.67, which fixes this issue."
-136.68.140.144	80	CVE-2026-33523	"HTTP response splitting vulnerability in multiple Apache HTTP Server modules with untrusted or compromised backend servers.
+I won't guess the cause yet. The scanner may be matching a banner rather than the real package, and many of these CVEs only apply if specific modules or configs are active:
 
-This issue affects Apache HTTP Server: from through 2.4.66.
+| Group | Applies only if |
+|---|---|
+| Windows-only (CVE-2026-59685, 2024-38472, 2025-59775) | Host is Windows. Not applicable on Ubuntu. |
+| mod_proxy_ftp, mod_dav/dav_fs/dav_lock, mod_ldap, mod_md, mod_proxy_ajp, mod_userdir, mod_vhost_alias, mod_auth_digest | That module is loaded and configured. |
+| Core/mod_rewrite/mod_proxy (2024-38xxx) | Version <2.4.60, or an unsafe RewriteRule. |
 
-Users are recommended to upgrade to version 2.4.67, which fixes the issue."
-136.68.140.144	80	CVE-2026-33006	"A timing attack against mod_auth_digest in Apache HTTP Server 2.4.66 allows a bypass of Digest authentication by a remote attacker.
+Ubuntu also backports security fixes without bumping the upstream version, so the banner can look vulnerable when the package is already patched.
 
-Users are recommended to upgrade to version 2.4.67, which fixes this issue."
-136.68.140.144	80	CVE-2024-36387	Serving WebSocket protocol upgrades over a HTTP/2 connection could result in a Null Pointer dereference, leading to a crash of the server process, degrading performance.
-136.68.140.144	80	CVE-2026-33857	"Out-of-bounds Read vulnerability in mod_proxy_ajp of
+## Please run and paste the output
 
-Apache HTTP Server.
+**1. What owns the IP (GCP):**
+```bash
+gcloud compute addresses list --filter="address=136.68.140.144"
+gcloud compute forwarding-rules list --filter="IPAddress=136.68.140.144"
+```
 
-This issue affects Apache HTTP Server: through 2.4.66.
+**2. What the scanner sees:**
+```bash
+curl -sI http://stagingapi.careerdevelopmentnavigator.mer.pwc.com | grep -iE 'server|via|x-powered'
+curl -sI https://stagingapi.careerdevelopmentnavigator.mer.pwc.com | grep -iE 'server|via|x-powered'
+```
 
-Users are recommended to upgrade to version 2.4.67, which fixes the issue."
-136.68.140.144	80	CVE-2026-44119	"Improper Privilege Management vulnerability in Apache HTTP Server 2.4.67 and earlier allows local .htaccess authors to read files with the privileges of the httpd user.
+**3. On the backend VM running Apache:**
+```bash
+sudo ss -tlnp | grep -E ':80|:443'
+apache2 -v
+apt-cache policy apache2
+apt list --upgradable 2>/dev/null | grep -i apache2
+sudo apache2ctl -M | sort
+apt changelog apache2 2>/dev/null | grep -oE 'CVE-20[0-9]{2}-[0-9]+' | sort -u | wc -l
+```
 
-This issue affects Apache HTTP Server: from through 2.4.67.
+**4. Current firewall rules:**
+```bash
+gcloud compute firewall-rules list --format="table(name,direction,sourceRanges.list(),allowed[].map().firewall_rule().list(),targetTags.list())"
+```
 
-Users are recommended to upgrade to version 2.4.68, which fixes the issue."
-136.68.140.144	80	CVE-2025-65082	"Improper Neutralization of Escape, Meta, or Control Sequences vulnerability in Apache HTTP Server through environment variables set via the Apache configuration unexpectedly superseding variables calculated by the server for CGI programs.
+## Likely outcomes (pending your output)
 
-This issue affects Apache HTTP Server from 2.4.0 through 2.4.65.
+| Option | Cost | Complexity | Downtime |
+|---|---|---|---|
+| Restrict 80/443 to PwC/required IPs | none | low | none |
+| `apt upgrade apache2` and rebuild the Packer golden image | none | medium | none with a rolling MIG update |
+| Remove unused modules | none | low | brief reload |
 
-Users are recommended to upgrade to version 2.4.66 which fixes the issue."
-136.68.140.144	80	CVE-2026-29170	"A cross-site scripting vulnerability exists in mod_proxy_ftp's HTML directory list generation in Apache HTTP Server 2.4.67 and earlier when listing FTP directory contents either via forward or reverse proxy configuration.
-
-Users are recommended to upgrade to version 2.4.68, which fixes this issue."
-136.68.140.144	80	CVE-2026-58415	"Internal state files accessible to external parties in mod_dav_fs in Apache Software Foundation Apache HTTP Server before 2.4.69 on all platforms allows a remote client to read WebDAV dead properties of resources it cannot author via a GET request for the .DAV state directory
-
-
-
-This issue affects Apache HTTP Server: from 2.4.0 through 2.4.68."
-136.68.140.144	80	CVE-2026-34032	"Improper Null Termination, Out-of-bounds Read vulnerability in Apache HTTP Server.
-
-This issue affects Apache HTTP Server: through 2.4.66.
-
-Users are recommended to upgrade to version 2.4.67, which fixes the issue."
-136.68.140.144	80	CVE-2026-79768	"Path equivalence: '/./' (single dot directory) vulnerability in Apache HTTP Server's mod_userdir module when configured with\xC2\xA0absolute non-wildcard UserDir directive (the 2nd form in\xC2\xA0https://httpd.apache.org/docs/2.4/mod/mod_userdir.html#userdir)
-
-
-
-This issue affects Apache HTTP Server: from 2.4.0 through 2.4.68."
-136.68.140.144	80	CVE-2024-24795	"HTTP Response splitting in multiple modules in Apache HTTP Server allows an attacker that can inject malicious response headers into backend applications to cause an HTTP desynchronization attack.
-
-Users are recommended to upgrade to version 2.4.59, which fixes this issue."
-136.68.140.144	80	CVE-2025-66200	"mod_userdir+suexec bypass via AllowOverride FileInfo vulnerability in Apache HTTP Server. Users with access to use the RequestHeader directive in htaccess can cause some CGI scripts to run under an unexpected userid.
-
-This issue affects Apache HTTP Server: from 2.4.7 through 2.4.65.
-
-Users are recommended to upgrade to version 2.4.66, which fixes the issue."
-136.68.140.144	80	CVE-2026-43951	"Out-of-bounds Read vulnerability in Apache HTTP Server with mod_headers and mod_mime and multiple response languages.
-
-This issue affects Apache HTTP Server: from 2.4.0 through 2.4.67."
-136.68.140.144	80	CVE-2025-53020	"Late Release of Memory after Effective Lifetime vulnerability in Apache HTTP Server.
-
-This issue affects Apache HTTP Server: from 2.4.17 up to 2.4.63.
-
-Users are recommended to upgrade to version 2.4.64, which fixes the issue."
-136.68.140.144	80	CVE-2026-59685	"Out-of-bounds Write vulnerability in Apache HTTP Server on Windows while processing paths with 8.3 names that may grow when expanded.
-
-
-
-This issue affects Apache HTTP Server: from 2.4.0 through 2.4.68."
-136.68.140.144	80	CVE-2026-34059	"Buffer Over-read vulnerability in Apache HTTP Server.
-
-This issue affects Apache HTTP Server: through 2.4.66.
-
-Users are recommended to upgrade to version 2.4.67, which fixes the issue."
-136.68.140.144	80	CVE-2025-49812	"In some mod_ssl configurations on Apache HTTP Server versions through to 2.4.63, an HTTP desynchronisation attack allows a man-in-the-middle attacker to hijack an HTTP session via a TLS upgrade.
-
-Only configurations using ""SSLEngine optional"" to enable TLS upgrades are affected. Users are recommended to upgrade to version 2.4.64, which removes support for TLS upgrade."
-136.68.140.144	80	CVE-2025-49630	"In certain proxy configurations, a denial of service attack against\xC2\xA0Apache HTTP Server versions 2.4.26 through to 2.4.63 can be triggered by untrusted clients causing an assertion in mod_proxy_http2.
-
-Configurations affected are a reverse proxy is configured for an HTTP/2 backend, with ProxyPreserveHost set to ""on""."
-136.68.140.144	80	CVE-2026-73636	"Authentication bypass by capture-replay in mod_auth_digest in Apache Software Foundation Apache HTTP Server 2.4.x on all platforms allows a man-in-the-middle (MITM) attacker to replay captured digest authentication credentials via crafted requests that trigger garbage collection of the client's shared memory entry when AuthDigestNonceLifetime is set to 0.
-
-Users are recommended to upgrade to version 2.4.69, which fixes this issue."
-136.68.140.144	80	CVE-2024-38473	"Encoding problem in mod_proxy in Apache HTTP Server 2.4.59 and earlier allows request URLs with incorrect encoding to be sent to backend services, potentially bypassing authentication via crafted requests.
-Users are recommended to upgrade to version 2.4.60, which fixes this issue."
-136.68.140.144	80	CVE-2026-73637	"Use after free in mod_auth_digest in Apache Software Foundation Apache HTTP Server before 2.4.69 on all platforms allows an unauthenticated remote client to cause authentication state corruption via concurrent Digest authentication requests when AuthDigestNcCheck is enabled or AuthDigestNonceLifetime is set to 0.
-
-Users are recommended to upgrade to version 2.4.69, which fixes this issue."
-136.68.140.144	80	CVE-2024-38472	"SSRF in Apache HTTP Server on Windows allows to potentially leak NTLM hashes to a malicious server via SSRF and\xC2\xA0malicious requests or content
-Users are recommended to upgrade to version 2.4.60 which fixes this issue.\xC2\xA0 Note: Existing configurations that access UNC paths will have to configure new directive ""UNCList"" to allow access during request processing."
-136.68.140.144	80	CVE-2026-34355	"A buffer overflow in mod_proxy_html in Apache HTTP Server 2.4.67 and earlier allows an attack by an untrusted backend.
-Users are recommended to upgrade to version 2.4.68, which fixes this issue."
-136.68.140.144	80	CVE-2026-48005	"Missing authentication checks in mod_auth_digest in Apache Software Foundation Apache HTTP Server before 2.4.69 on all platforms allows an unauthenticated remote client to cause a denial of service (forced re-authentication) via forged Authorization headers when Digest authentication is enabled with AuthDigestNcCheck .
-
-Users are recommended to upgrade to version 2.4.69, which fixes this issue."
-136.68.140.144	80	CVE-2026-29169	"A NULL pointer dereference in mod_dav_lock in Apache HTTP Server 2.4.66 and earlier may allow an attacker to crash the server with a malicious request.mod_dav_lock is not used internally by mod_dav or mod_dav_fs.
-
-The only known use-case for mod_dav_lock was mod_dav_svn from Apache Subversion earlier than version 1.2.0.
-
-Users are recommended to upgrade to version 2.4.66, which fixes this issue, or remove mod_dav_lock."
-136.68.140.144	80	CVE-2023-38709	"Faulty input validation in the core of Apache allows malicious or exploitable backend/content generators to split HTTP responses.
-
-This issue affects Apache HTTP Server: through 2.4.58."
-136.68.140.144	80	CVE-2026-63718	"Inconsistent Interpretation of HTTP Requests ('HTTP Request/Response Smuggling') response smuggling vulnerability in Apache HTTP Server via mod_proxy_uwsgi and a crafted uwsgi response with Transfer-Encoding.
-
-
-
-This issue affects Apache HTTP Server: from 2.4.30 through 2.4.68."
-136.68.140.144	80	CVE-2024-27316	HTTP/2 incoming headers exceeding the limit are temporarily buffered in nghttp2 in order to generate an informative HTTP 413 response. If a client does not stop sending headers, this leads to memory exhaustion.
-136.68.140.144	80	CVE-2026-48913	"Use After Free vulnerability in Apache HTTP Server module mod_http2 when file handles are already exhausted.
-
-This issue affects Apache HTTP Server: from 2.4.55 through 2.4.67."
-136.68.140.144	80	CVE-2026-63292	"Stack-based buffer overflow in mod_vhost_alias in Apache Software Foundation Apache HTTP Server through 2.4.68 on all platforms allows a remote client to cause a denial of service or potentially execute arbitrary code via an HTTP request with a Host header exceeding 8192 bytes when VirtualDocumentRoot uses a hostname format specifier and LimitRequestFieldSize is raised above the default.
-
-Users are recommended to upgrade to version 2.4.69, which fixes this issue."
-136.68.140.144	80	CVE-2026-29168	"Allocation of Resources Without Limits or Throttling vulnerability in Apache HTTP Server's\xC2\xA0 mod_md via OCSP response data.
-
-This issue affects Apache HTTP Server: from 2.4.30 through 2.4.66.
-
-Users are recommended to upgrade to version 2.4.67, which fixes the issue."
-136.68.140.144	80	CVE-2024-39573	"Potential SSRF in mod_rewrite in Apache HTTP Server 2.4.59 and earlier allows an attacker to cause unsafe RewriteRules to unexpectedly setup URL's to be handled by mod_proxy.
-Users are recommended to upgrade to version 2.4.60, which fixes this issue."
-136.68.140.144	80	CVE-2025-55753	"An integer overflow in the case of failed ACME certificate renewal leads, after a number of failures (~30 days in default configurations), to the backoff timer becoming 0. Attempts to renew the certificate then are repeated without delays until it succeeds.
-
-This issue affects Apache HTTP Server: from 2.4.30 before 2.4.66.
-
-
-Users are recommended to upgrade to version 2.4.66, which fixes the issue."
-136.68.140.144	80	CVE-2024-38477	"null pointer dereference in mod_proxy in Apache HTTP Server 2.4.59 and earlier allows an attacker to crash the server via a malicious request.
-Users are recommended to upgrade to version 2.4.60, which fixes this issue."
-136.68.140.144	80	CVE-2024-42516	"HTTP response splitting in the core of Apache HTTP Server allows an attacker who can manipulate the Content-Type response headers of applications hosted or proxied by the server can split the HTTP response.
-
-This vulnerability was described as CVE-2023-38709 but the patch included in Apache HTTP Server 2.4.59 did not address the issue.
-
-Users are recommended to upgrade to version 2.4.64, which fixes this issue."
-136.68.140.144	80	CVE-2026-34356	"Heap-based Buffer Overflow vulnerability in Apache HTTP Server with malicious backend servers and ProxyPassReverseCookie*
-
-This issue affects Apache HTTP Server: from 2.4.0 through 2.4.67.
-
-Users are recommended to upgrade to version 2.4.68, which fixes the issue."
-136.68.140.144	80	CVE-2026-63686	"A NULL pointer dereference in mod_xml2enc in Apache Software Foundation Apache HTTP Server before 2.4.69 on all platforms allows an untrusted backend server to cause a denial of service via a proxied response with a charset whose conversion partially succeeds then fails.
-
-Users are recommended to upgrade to version 2.4.69, which fixes this issue."
-136.68.140.144	80	CVE-2025-59775	"Server-Side Request Forgery (SSRF) vulnerability
-
-\xC2\xA0in Apache HTTP Server on Windows
-
-with AllowEncodedSlashes On\xC2\xA0and MergeSlashes Off\xC2\xA0 allows to potentially leak NTLM
-hashes to a malicious server via SSRF and malicious requests or content
-
-Users are recommended to upgrade to version 2.4.66, which fixes the issue."
-136.68.140.144	80	CVE-2026-63045	"Improper validation of FTP PASV reply address in mod_proxy_ftp in Apache Software Foundation Apache HTTP Server through 2.4.68 on all platforms allows, in forward proxy configurations, an untrusted FTP server to cause the proxy to open a data connection to an arbitrary third-party host via a crafted PASV response.
-
-Users are recommended to upgrade to version 2.4.69, which fixes this issue."
-136.68.140.144	80	CVE-2026-42536	"Heap-based Buffer Overflow vulnerability in Apache HTTP Server with\xC2\xA0mod_xml2enc, xml2StartParse, and untrusted content
-
-This issue affects Apache HTTP Server: from 2.4.0 through 2.4.67.
-
-Users are recommended to upgrade to version 2.4.68, which fixes the issue."
-136.68.140.144	80	CVE-2026-49975	"Memory Allocation with Excessive Size Value vulnerability in Apache HTTP Server's mod_http leads to denial of service via malicious HTTP requests.
-
-This issue affects Apache HTTP Server: from 2.4.17 through 2.4.67."
-136.68.140.144	80	CVE-2026-93546	Integer overflow in mod_dav_fs in Apache HTTP Server through 2.4.68 allows an authenticated WebDAV client with write access to crash worker processes and persistently corrupt a directory's property database via PROPPATCH requests declaring many XML namespaces.
-136.68.140.144	80	CVE-2026-56153	"Out-of-bounds Write vulnerability in Apache HTTP Server's mod_charset_lite.
-
-
-
-This issue affects Apache HTTP Server: from 2.4.0 through 2.4.68."
-136.68.140.144	80	CVE-2026-24072	"An escalation of privilege bug in various modules in Apache HTTP 2.4.66 and earlier allows local .htaccess authors to read files with the privileges of the httpd user.
-
-Users are recommended to upgrade to version 2.4.67, which fixes this issue."
-136.68.140.144	80	CVE-2026-44186	"Loop with Unreachable Exit Condition ('Infinite Loop') vulnerability in the mod_proxy_ftp module in Apache HTTP Server with an attacker controlled backend FTP server.
-
-This issue affects undefined: from 2.4.0 through 2.4.67.
-
-Users are recommended to upgrade to version 2.4.68, which fixes the issue."
-136.68.140.144	80	CVE-2024-47252	"Insufficient escaping of user-supplied data in mod_ssl in Apache HTTP Server 2.4.63 and earlier allows an untrusted SSL/TLS client to insert escape characters into log files in some configurations.
-
-In a logging configuration where CustomLog is used with ""%{varname}x"" or ""%{varname}c"" to log variables provided by mod_ssl such as SSL_TLS_SNI, no escaping is performed by either mod_log_config or mod_ssl and unsanitized data provided by the client may appear in log files."
-136.68.140.144	80	CVE-2024-43204	"SSRF in Apache HTTP Server with mod_proxy loaded allows an attacker to send outbound proxy requests to a URL controlled by the attacker.\xC2\xA0 Requires an unlikely configuration where mod_headers is configured to modify the Content-Type request or response header with a value provided in the HTTP request.
-
-Users are recommended to upgrade to version 2.4.64 which fixes this issue."
-136.68.140.144	80	CVE-2026-56449	"Out-of-bounds Write vulnerability in Apache HTTP Server's mod_proxy_html with crafted HTTP response bodies.
-
-
-
-This issue affects Apache HTTP Server: from 2.4.0 through 2.4.68."
-136.68.140.144	80	CVE-2025-58098	"Apache HTTP Server 2.4.65 and earlier with Server Side Includes (SSI) enabled and mod_cgid (but not mod_cgi) passes the shell-escaped query string to #exec cmd=""..."" directives.
-
-This issue affects Apache HTTP Server before 2.4.66.
-
-Users are recommended to upgrade to version 2.4.66, which fixes the issue."
-136.68.140.144	80	CVE-2026-44185	"Buffer Over-read vulnerability in Apache HTTP Server via outbound OCSP requests to an attacker controlled OCSP server
-
-This issue affects Apache HTTP Server: from 2.4.0 through 2.4.67.
-
-Users are recommended to upgrade to version 2.4.68, which fixes the issue."
-136.68.140.144	443	CVE-2025-53020	"Late Release of Memory after Effective Lifetime vulnerability in Apache HTTP Server.
-
-This issue affects Apache HTTP Server: from 2.4.17 up to 2.4.63.
-
-Users are recommended to upgrade to version 2.4.64, which fixes the issue."
-136.68.140.144	443	CVE-2024-38473	"Encoding problem in mod_proxy in Apache HTTP Server 2.4.59 and earlier allows request URLs with incorrect encoding to be sent to backend services, potentially bypassing authentication via crafted requests.
-Users are recommended to upgrade to version 2.4.60, which fixes this issue."
-136.68.140.144	443	CVE-2024-38477	"null pointer dereference in mod_proxy in Apache HTTP Server 2.4.59 and earlier allows an attacker to crash the server via a malicious request.
-Users are recommended to upgrade to version 2.4.60, which fixes this issue."
-136.68.140.144	443	CVE-2026-49975	"Memory Allocation with Excessive Size Value vulnerability in Apache HTTP Server's mod_http leads to denial of service via malicious HTTP requests.
-
-This issue affects Apache HTTP Server: from 2.4.17 through 2.4.67."
-136.68.140.144	80	CVE-2024-38476	"Vulnerability in core of Apache HTTP Server 2.4.59 and earlier are vulnerably to information disclosure, SSRF or local script execution via\xC2\xA0backend applications whose response headers are malicious or exploitable.
-
-Users are recommended to upgrade to version 2.4.60, which fixes this issue."
-136.68.140.144	80	CVE-2026-29167	"Use After Free vulnerability in Apache HTTP Server with mod_ldap in per-directory configuration
-
-This issue affects Apache HTTP Server: from 2.4.0 through 2.4.67.
-
-Users are recommended to upgrade to version 2.4.68, which fixes the issue."
-136.68.140.144	80	CVE-2024-38475	"Improper escaping of output in mod_rewrite in Apache HTTP Server 2.4.59 and earlier allows an attacker to map URLs to filesystem locations that are\xC2\xA0permitted to be served by the server but are not intentionally/directly reachable by any URL, resulting in code execution or source code disclosure.
-
-Substitutions in\xC2\xA0server context that use a backreferences or variables as the first segment of the substitution are affected.\xC2\xA0 Some unsafe RewiteRules will be broken by this change and the rewrite flag ""UnsafePrefixStat"" can be used to opt back in once ensuring the substitution is appropriately constrained."
-136.68.140.144	80	CVE-2026-28780	"Heap-based Buffer Overflow vulnerability in mod_proxy_ajp of Apache HTTP Server.
-If mod_proxy_ajp connects to a malicious AJP server this AJP server can send a malicious AJP message back to mod_proxy_ajp and cause it to write 4 attacker controlled bytes after the end of a heap based buffer.
-
-This issue affects Apache HTTP Server: through 2.4.66.
-
-Users are recommended to upgrade to version 2.4.67, which fixes the issue."
-136.68.140.144	80	CVE-2026-44631	"Buffer Underwrite vulnerability in Apache HTTP Server on crafted regular expressions in the configuration.
-
-This issue affects Apache HTTP Server: from 2.4.0 through 2.4.67.
-
-Users are recommended to upgrade to version 2.4.68, which fixes the issue."
-136.68.140.144	80	CVE-2026-42535	"A path handling issue in mod_dav_fs in Apache 2.4.67 and earlier\xC2\xA0allows a WebDAV content author to directly manipulate trusted DAV property databases, potentially causing child process crashes.
-
-Users are recommended to upgrade to version 2.4.68, which fixes this issue."
-136.68.140.144	80	CVE-2025-23048	"In some mod_ssl configurations on Apache HTTP Server 2.4.35 through to 2.4.63, an access control bypass by trusted clients is possible using TLS 1.3 session resumption.
-
-Configurations are affected when mod_ssl is configured for multiple virtual hosts, with each restricted to a different set of trusted client certificates (for example with a different SSLCACertificateFile/Path setting). In such a case, a client trusted to access one virtual host may be able to access another virtual host, if SSLStrictSNIVHostCheck is not enabled in either virtual host."
-136.68.140.144	80	CVE-2024-38474	"Substitution encoding issue in mod_rewrite in Apache HTTP Server 2.4.59 and earlier allows attacker to execute scripts in
-directories permitted by the configuration but not directly reachable by any\xC2\xA0URL or source disclosure of scripts meant to only to be executed as CGI.
-
-Users are recommended to upgrade to version 2.4.60, which fixes this issue.
-
-Some RewriteRules that capture and substitute unsafely will now fail unless rewrite flag ""UnsafeAllow3F"" is specified."
-136.68.140.144	443	CVE-2024-38475	"Improper escaping of output in mod_rewrite in Apache HTTP Server 2.4.59 and earlier allows an attacker to map URLs to filesystem locations that are\xC2\xA0permitted to be served by the server but are not intentionally/directly reachable by any URL, resulting in code execution or source code disclosure.
-
-Substitutions in\xC2\xA0server context that use a backreferences or variables as the first segment of the substitution are affected.\xC2\xA0 Some unsafe RewiteRules will be broken by this change and the rewrite flag ""UnsafePrefixStat"" can be used to opt back in once ensuring the substitution is appropriately constrained."
-136.68.140.144	80	CVE-2026-28780	"Heap-based Buffer Overflow vulnerability in mod_proxy_ajp of Apache HTTP Server.
-If mod_proxy_ajp connects to a malicious AJP server this AJP server can send a malicious AJP message back to mod_proxy_ajp and cause it to write 4 attacker controlled bytes after the end of a heap based buffer.
-
-This issue affects Apache HTTP Server: through 2.4.66.
-
-Users are recommended to upgrade to version 2.4.67, which fixes the issue."
-136.68.140.144	80	CVE-2026-44631	"Buffer Underwrite vulnerability in Apache HTTP Server on crafted regular expressions in the configuration.
-
-This issue affects Apache HTTP Server: from 2.4.0 through 2.4.67.
-
-Users are recommended to upgrade to version 2.4.68, which fixes the issue."
-136.68.140.144	80	CVE-2026-42535	"A path handling issue in mod_dav_fs in Apache 2.4.67 and earlier\xC2\xA0allows a WebDAV content author to directly manipulate trusted DAV property databases, potentially causing child process crashes.
-
-Users are recommended to upgrade to version 2.4.68, which fixes this issue."
-136.68.140.144	80	CVE-2024-38474	"Substitution encoding issue in mod_rewrite in Apache HTTP Server 2.4.59 and earlier allows attacker to execute scripts in
-directories permitted by the configuration but not directly reachable by any\xC2\xA0URL or source disclosure of scripts meant to only to be executed as CGI.
-
-Users are recommended to upgrade to version 2.4.60, which fixes this issue.
-
-Some RewriteRules that capture and substitute unsafely will now fail unless rewrite flag ""UnsafeAllow3F"" is specified."
-136.68.140.144	80	CVE-2024-38475	"Improper escaping of output in mod_rewrite in Apache HTTP Server 2.4.59 and earlier allows an attacker to map URLs to filesystem locations that are\xC2\xA0permitted to be served by the server but are not intentionally/directly reachable by any URL, resulting in code execution or source code disclosure.
-
-Substitutions in\xC2\xA0server context that use a backreferences or variables as the first segment of the substitution are affected.\xC2\xA0 Some unsafe RewiteRules will be broken by this change and the rewrite flag ""UnsafePrefixStat"" can be used to opt back in once ensuring the substitution is appropriately constrained."
-136.68.140.144	80	CVE-2025-23048	"In some mod_ssl configurations on Apache HTTP Server 2.4.35 through to 2.4.63, an access control bypass by trusted clients is possible using TLS 1.3 session resumption.
-
-Configurations are affected when mod_ssl is configured for multiple virtual hosts, with each restricted to a different set of trusted client certificates (for example with a different SSLCACertificateFile/Path setting). In such a case, a client trusted to access one virtual host may be able to access another virtual host, if SSLStrictSNIVHostCheck is not enabled in either virtual host."
-136.68.140.144	80	CVE-2026-29167	"Use After Free vulnerability in Apache HTTP Server with mod_ldap in per-directory configuration
-
-This issue affects Apache HTTP Server: from 2.4.0 through 2.4.67.
-
-Users are recommended to upgrade to version 2.4.68, which fixes the issue."
-136.68.140.144	80	CVE-2026-57941	"Use After Free vulnerability in Apache HTTP Server's mod_http2\xC2\xA0via shared session->bbtmp re-entrancy
-
-
-
-This issue affects Apache HTTP Server: from 2.4.0 through 2.4.68."
-136.68.140.144	80	CVE-2026-56154	"Use After Free vulnerability in Apache HTTP Server's mod_rewrite when using lookahead (%{LA-U:HTTP:...})
-
-
-
-This issue affects Apache HTTP Server: from 2.4.0 through 2.4.68."
-136.68.140.144	80	CVE-2026-59797	"Improper Privilege Management vulnerability in Apache HTTP Server's mod_ssl via SSLRequire and file-related expressions.
-
-
-
-This issue affects Apache HTTP Server: from 2.4.0 through 2.4.68."
-136.68.140.144	80	CVE-2024-38476	"Vulnerability in core of Apache HTTP Server 2.4.59 and earlier are vulnerably to information disclosure, SSRF or local script execution via\xC2\xA0backend applications whose response headers are malicious or exploitable.
-
-Users are recommended to upgrade to version 2.4.60, which fixes this issue."
-136.68.140.144	443	CVE-2024-38475	"Improper escaping of output in mod_rewrite in Apache HTTP Server 2.4.59 and earlier allows an attacker to map URLs to filesystem locations that are\xC2\xA0permitted to be served by the server but are not intentionally/directly reachable by any URL, resulting in code execution or source code disclosure.
-
-Substitutions in\xC2\xA0server context that use a backreferences or variables as the first segment of the substitution are affected.\xC2\xA0 Some unsafe RewiteRules will be broken by this change and the rewrite flag ""UnsafePrefixStat"" can be used to opt back in once ensuring the substitution is appropriately constrained."
-136.68.140.144	443	CVE-2024-38476	"Vulnerability in core of Apache HTTP Server 2.4.59 and earlier are vulnerably to information disclosure, SSRF or local script execution via\xC2\xA0backend applications whose response headers are malicious or exploitable.
-
-Users are recommended to upgrade to version 2.4.60, which fixes this issue."
+My expected recommendation for a staging API is to restrict access first, then patch via the golden image. I'll confirm once I see the output.
