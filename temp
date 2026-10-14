@@ -1,15 +1,49 @@
-for c in CVE-2026-34356 CVE-2026-44185; do
-  grep -q "$c" /tmp/apache2.changelog && echo "FIXED  $c" || echo "MISSING $c"
-done
-
-
-
-
-
-
-
-
-sudo grep -rnE 'SSLEngine +optional|AllowOverride|UserDir|ProxyPassReverseCookie|RewriteRule|SSLOCSP|SSLUseStapling' /etc/apache2 --include=*.conf --include=*.load
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ for c in CVE-2026-34356 CVE-2026-44185; do
+>   grep -q "$c" /tmp/apache2.changelog && echo "FIXED  $c" || echo "MISSING $c"
+> done
+FIXED  CVE-2026-34356
+FIXED  CVE-2026-44185
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ sudo grep -rnE 'SSLEngine +optional|AllowOverride|UserDir|ProxyPassReverseCookie|RewriteRule|SSLOCSP|SSLUseStapling' /etc/apache2 --include=*.conf --include=*.load
 sudo apache2ctl -M | grep -E 'http2|ssl|proxy'
 apt list --upgradable 2>/dev/null
-cat /var/run/reboot-required.pkgs 2>/dev/null
+cat /var/run/reboot-required.pkgs 2>/dev/null/etc/apache2/sites-available/careernavigator-frontend.conf:22:  #  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+/etc/apache2/sites-available/careernavigator-frontend.conf:27:RewriteRule ^ - [L]
+/etc/apache2/sites-available/careernavigator-frontend.conf:30:RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+/etc/apache2/sites-available/careernavigator-frontend.conf:38:        AllowOverride All
+/etc/apache2/sites-available/careernavigator-frontend.conf:49:        AllowOverride All
+/etc/apache2/apache2.conf:161:  AllowOverride None
+/etc/apache2/apache2.conf:166:  AllowOverride None
+/etc/apache2/apache2.conf:172:  AllowOverride None
+/etc/apache2/apache2.conf:178:# AllowOverride None
+/etc/apache2/apache2.conf:186:# for additional configuration directives.  See also the AllowOverride
+/etc/apache2/mods-available/alias.conf:17:      AllowOverride None
+/etc/apache2/mods-available/userdir.conf:1:UserDir public_html
+/etc/apache2/mods-available/userdir.conf:2:UserDir disabled root
+/etc/apache2/mods-available/userdir.conf:5:     AllowOverride FileInfo AuthConfig Limit Indexes
+/etc/apache2/conf-available/serve-cgi-bin.conf:13:                      AllowOverride None
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$
+
+
+
+
+
+
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$ sudo grep -rnE 'SSLEngine +optional|AllowOverride|UserDir|ProxyPassReverseCookie|RewriteRule|SSLOCSP|SSLUseStapling' /etc/apache2 --include=*.conf --include=*.load
+sudo apache2ctl -M | grep -E 'http2|ssl|proxy'
+apt list --upgradable 2>/dev/null
+cat /var/run/reboot-required.pkgs 2>/dev/null/etc/apache2/sites-available/careernavigator-backend.conf:20: #   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+/etc/apache2/sites-available/careernavigator-backend.conf:25:RewriteRule ^ - [L]
+/etc/apache2/sites-available/careernavigator-backend.conf:28:RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+/etc/apache2/sites-available/careernavigator-backend.conf:36:        AllowOverride All
+/etc/apache2/sites-available/careernavigator-backend.conf:47:        AllowOverride All
+/etc/apache2/apache2.conf:161:  AllowOverride None
+/etc/apache2/apache2.conf:166:  AllowOverride None
+/etc/apache2/apache2.conf:172:  AllowOverride None
+/etc/apache2/apache2.conf:178:# AllowOverride None
+/etc/apache2/apache2.conf:186:# for additional configuration directives.  See also the AllowOverride
+/etc/apache2/mods-available/alias.conf:17:      AllowOverride None
+/etc/apache2/mods-available/userdir.conf:1:UserDir public_html
+/etc/apache2/mods-available/userdir.conf:2:UserDir disabled root
+/etc/apache2/mods-available/userdir.conf:5:     AllowOverride FileInfo AuthConfig Limit Indexes
+/etc/apache2/conf-available/serve-cgi-bin.conf:13:                      AllowOverride None
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$
