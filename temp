@@ -1,40 +1,42 @@
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ sudo apache2ctl -M | grep -E 'http2|ssl|proxy'
- http2_module (shared)
- proxy_module (shared)
- proxy_http_module (shared)
- ssl_module (shared)
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ apt list --upgradable 2>/dev/null
-Listing... Done
-apparmor/noble-updates 4.0.1really4.0.1-0ubuntu0.24.04.9 amd64 [upgradable from: 4.0.1really4.0.1-0ubuntu0.24.04.8]
-libapparmor1/noble-updates 4.0.1really4.0.1-0ubuntu0.24.04.9 amd64 [upgradable from: 4.0.1really4.0.1-0ubuntu0.24.04.8]
-libopeniscsiusr/noble-updates 2.1.9-3ubuntu5.5 amd64 [upgradable from: 2.1.9-3ubuntu5.4]
-open-iscsi/noble-updates 2.1.9-3ubuntu5.5 amd64 [upgradable from: 2.1.9-3ubuntu5.4]
-open-vm-tools/noble-updates 2:13.0.10-0ubuntu0.24.04.2 amd64 [upgradable from: 2:13.0.10-0ubuntu0.24.04.1]
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ cat /var/run/reboot-required.pkgs
-linux-image-7.0.0-1014-gcp
-linux-base
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ sudo find /var/www /srv /opt -name .htaccess 2>/dev/null
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$
+## Remaining assumptions in the draft
 
+| Claim in draft | Status | How to close |
+|---|---|---|
+| "Each CVE ID was found in the changelog" | True, but 31 of ~60 CVEs were checked. The rest were put in "not loaded / Windows" by module name, not by an individual check. | Optional: run the loop below. |
+| "FIXED" = actually patched | Changelog text match only. A CVE ID can appear in a changelog as "not affected" or "ignored". | Spot-check 2 or 3 on ubuntu.com/security/CVE-xxxx. |
+| Scanner matches the banner | Likely, not confirmed by PwC. The draft says "appears". | None needed. |
+| 136.68.140.144 serves only these two MIGs | **Unverified.** You lack LB permissions. | Ask the PwC admin, or check from a VM (below). |
+| No `.htaccess` anywhere | Searched only `/var/www`, `/srv`, `/opt`. | DocumentRoot grep (below). |
+| `AllowOverride All` is the only override risk | Checked only the 2 vhost files. | Covered by the earlier grep over `/etc/apache2`. |
+| Both VMs represent every instance in the MIGs | Only 1 VM per MIG checked. Instances come from one golden image, so they are likely identical. | Check the image name per instance (below). |
+| Zero-downtime rolling replacement | MIG size and update policy unseen. | Ask the PwC admin, or soften the wording. |
+| Dates and "Planned" items | Not agreed internally. | Agree first, or delete the rows. |
 
+## Run these
 
+On either VM:
+```bash
+sudo grep -rn DocumentRoot /etc/apache2/sites-available/
+sudo find / -xdev -name .htaccess 2>/dev/null
+curl -s -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/image
+curl -s -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/attributes/created-by
+```
 
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$ sudo apache2ctl -M | grep -E 'http2|ssl|proxy'
- http2_module (shared)
- proxy_module (shared)
- proxy_http_module (shared)
- ssl_module (shared)
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$ apt list --upgradable 2>/dev/null
-Listing... Done
-apparmor/noble-updates 4.0.1really4.0.1-0ubuntu0.24.04.9 amd64 [upgradable from: 4.0.1really4.0.1-0ubuntu0.24.04.8]
-libapparmor1/noble-updates 4.0.1really4.0.1-0ubuntu0.24.04.9 amd64 [upgradable from: 4.0.1really4.0.1-0ubuntu0.24.04.8]
-libopeniscsiusr/noble-updates 2.1.9-3ubuntu5.5 amd64 [upgradable from: 2.1.9-3ubuntu5.4]
-open-iscsi/noble-updates 2.1.9-3ubuntu5.5 amd64 [upgradable from: 2.1.9-3ubuntu5.4]
-open-vm-tools/noble-updates 2:13.0.10-0ubuntu0.24.04.2 amd64 [upgradable from: 2:13.0.10-0ubuntu0.24.04.1]
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$ cat /var/run/reboot-required.pkgs
-linux-image-7.0.0-1014-gcp
-linux-base
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$ sudo find /var/www /srv /opt -name .htaccess 2>/dev/null
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$
+The metadata calls show the image and MIG each VM came from. If both VMs show the same image family, "same Apache version across instances" is well supported.
 
+Optional full check of every non-Windows CVE in the report, on the frontend:
+```bash
+for c in CVE-2026-33007 CVE-2026-33006 CVE-2026-33857 CVE-2026-58415 CVE-2026-79768 CVE-2026-29170 CVE-2026-43951 CVE-2025-65082 CVE-2026-63718 CVE-2026-63292 CVE-2026-29168 CVE-2026-63045 CVE-2026-42536 CVE-2026-93546 CVE-2026-56153 CVE-2026-44186 CVE-2026-56449 CVE-2025-58098 CVE-2026-28780 CVE-2026-42535 CVE-2026-29167 CVE-2026-29169 CVE-2026-73636 CVE-2026-73637 CVE-2026-48005 CVE-2026-63686 CVE-2025-55753 CVE-2025-49630; do
+  grep -q "$c" /tmp/apache2.changelog && echo "IN-LOG $c" || echo "NOT-IN-LOG $c"
+done
+```
+`NOT-IN-LOG` is expected for CVEs in unloaded modules. It is only a problem if the CVE's module is loaded (core, ssl, proxy, proxy_http, http2, rewrite, headers, mime, env).
 
+## Edits to make the draft safe
+
+- Change "Each CVE ID was found in the changelog" to "The relevant CVE IDs were found in the changelog".
+- Change "Instances verified" to "one instance per tier verified; both are built from the same image" only if the metadata output confirms it.
+- Remove the zero-downtime wording unless you confirm the MIG size.
+- Don't claim the IP serves only these MIGs. Say "verified the frontend and backend instances".
+
+Once the DocumentRoot grep, image check and `.htaccess` find are clean, the draft is safe to send.
