@@ -1,20 +1,4 @@
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ for c in CVE-2026-34032 CVE-2026-34059 CVE-2026-24072 CVE-2026-44119; do
->   grep -q "$c" /tmp/apache2.changelog && echo "FIXED  $c" || echo "MISSING $c"
-> done
-FIXED  CVE-2026-34032
-FIXED  CVE-2026-34059
-FIXED  CVE-2026-24072
-FIXED  CVE-2026-44119
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ hostname
-cn-frontend-mig-regional-wdql.c.pg-ae-n-app-125609.internal
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ gcloud compute instance-groups managed list --format="table(name,region,targetSize)"
-WARNING: Some requests did not succeed.
- - Required 'compute.instanceGroupManagers.list' permission for 'projects/pg-ae-n-app-125609'
-
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ apache2 -v | head -1
-Server version: Apache/2.4.58 (Ubuntu)
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ dpkg -s apache2 | grep -E '^Version'
-Version: 2.4.58-1ubuntu8.16
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ apt list --upgradable 2>/dev/null | grep -i apache2
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ sudo apache2ctl -M | grep -E 'dav|ldap|md_|ajp|ftp|userdir|vhost|digest|xml2enc|charset|include|http2|uwsgi'
- http2_module (shared)
+hostname
+dpkg -s apache2 | grep -E '^Version'
+apt list --upgradable 2>/dev/null | grep -i apache2
+sudo apache2ctl -M | grep -E 'dav|ldap|md_|ajp|ftp|userdir|vhost|digest|xml2enc|charset|include|uwsgi'
