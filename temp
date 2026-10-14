@@ -1,56 +1,81 @@
-## What the report says
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ gcloud compute addresses list --filter="address=136.68.140.144"
+WARNING: Some requests did not succeed.
+ - Required 'compute.addresses.list' permission for 'projects/pg-ae-n-app-125609'
 
-It's a version-based scan of Apache httpd (ports 80/443) on `136.68.140.144`. It flags ~60 CVEs and asks us to either restrict access or upgrade to 2.4.69.
+WARNING: The following filter keys were not present in any resource : address
+Listed 0 items.
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ gcloud compute forwarding-rules list --filter="IPAddress=136.68.140.144"
+WARNING: Some requests did not succeed.
+ - Required 'compute.forwardingRules.list' permission for 'projects/pg-ae-n-app-125609'
 
-I can't confirm these CVE IDs or the 2.4.69 release from my side, so verify the latest version at httpd.apache.org before acting.
+WARNING: The following filter keys were not present in any resource : IPAddress
+Listed 0 items.
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ curl -sI http://stagingapi.careerdevelopmentnavigator.mer.pwc.com | grep -iE 'server|via|x-powered'
+server: Apache/2.4.58 (Ubuntu)
+via: 1.1 google
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ curl -sI https://stagingapi.careerdevelopmentnavigator.mer.pwc.com | grep -iE 'server|via|x-powered'
+server: Apache/2.4.58 (Ubuntu)
+x-powered-by: Express
+via: 1.1 stagingapi.careerdevelopmentnavigator.mer.pwc.com (Apache/2.4.58), 1.1 google
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ sudo ss -tlnp | grep -E ':80|:443'
+LISTEN 0      511                *:443              *:*    users:(("apache2",pid=308036,fd=6),("apache2",pid=308035,fd=6),("apache2",pid=1043,fd=6))
+LISTEN 0      511                *:80               *:*    users:(("apache2",pid=308036,fd=4),("apache2",pid=308035,fd=4),("apache2",pid=1043,fd=4))
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ apache2 -v
+Server version: Apache/2.4.58 (Ubuntu)
+Server built:   2026-10-05T17:25:07
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ apt-cache policy apache2
+apache2:
+  Installed: 2.4.58-1ubuntu8.16
+  Candidate: 2.4.58-1ubuntu8.16
+  Version table:
+ *** 2.4.58-1ubuntu8.16 500
+        500 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages
+        500 http://security.ubuntu.com/ubuntu noble-security/main amd64 Packages
+        100 /var/lib/dpkg/status
+     2.4.58-1ubuntu8 500
+        500 http://me-central2-a.gce.clouds.archive.ubuntu.com/ubuntu noble/main amd64 Packages
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ apt list --upgradable 2>/dev/null | grep -i apache2
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ sudo apache2ctl -M | sort
+ access_compat_module (shared)
+ alias_module (shared)
+ auth_basic_module (shared)
+ authn_core_module (shared)
+ authn_file_module (shared)
+ authz_core_module (shared)
+ authz_host_module (shared)
+ authz_user_module (shared)
+ autoindex_module (shared)
+ core_module (static)
+ deflate_module (shared)
+ dir_module (shared)
+ env_module (shared)
+ filter_module (shared)
+ headers_module (shared)
+ http2_module (shared)
+ http_module (static)
+Loaded Modules:
+ log_config_module (static)
+ logio_module (static)
+ mime_module (shared)
+ mpm_event_module (shared)
+ negotiation_module (shared)
+ proxy_http_module (shared)
+ proxy_module (shared)
+ remoteip_module (shared)
+ reqtimeout_module (shared)
+ rewrite_module (shared)
+ setenvif_module (shared)
+ socache_shmcb_module (shared)
+ so_module (static)
+ ssl_module (shared)
+ status_module (shared)
+ unixd_module (static)
+ version_module (static)
+ watchdog_module (static)
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ apt changelog apache2 2>/dev/null | grep -oE 'CVE-20[0-9]{2}-[0-9]+' | sort -u | wc -l
+194
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ gcloud compute firewall-rules list --format="table(name,direction,sourceRanges.list(),allowed[].map().firewall_rule().list(),targetTags.list())"
+ERROR: (gcloud.compute.firewall-rules.list) Some requests did not succeed:
+ - Required 'compute.firewalls.list' permission for 'projects/pg-ae-n-app-125609'
 
-## What needs diagnosing first
-
-I won't guess the cause yet. The scanner may be matching a banner rather than the real package, and many of these CVEs only apply if specific modules or configs are active:
-
-| Group | Applies only if |
-|---|---|
-| Windows-only (CVE-2026-59685, 2024-38472, 2025-59775) | Host is Windows. Not applicable on Ubuntu. |
-| mod_proxy_ftp, mod_dav/dav_fs/dav_lock, mod_ldap, mod_md, mod_proxy_ajp, mod_userdir, mod_vhost_alias, mod_auth_digest | That module is loaded and configured. |
-| Core/mod_rewrite/mod_proxy (2024-38xxx) | Version <2.4.60, or an unsafe RewriteRule. |
-
-Ubuntu also backports security fixes without bumping the upstream version, so the banner can look vulnerable when the package is already patched.
-
-## Please run and paste the output
-
-**1. What owns the IP (GCP):**
-```bash
-gcloud compute addresses list --filter="address=136.68.140.144"
-gcloud compute forwarding-rules list --filter="IPAddress=136.68.140.144"
-```
-
-**2. What the scanner sees:**
-```bash
-curl -sI http://stagingapi.careerdevelopmentnavigator.mer.pwc.com | grep -iE 'server|via|x-powered'
-curl -sI https://stagingapi.careerdevelopmentnavigator.mer.pwc.com | grep -iE 'server|via|x-powered'
-```
-
-**3. On the backend VM running Apache:**
-```bash
-sudo ss -tlnp | grep -E ':80|:443'
-apache2 -v
-apt-cache policy apache2
-apt list --upgradable 2>/dev/null | grep -i apache2
-sudo apache2ctl -M | sort
-apt changelog apache2 2>/dev/null | grep -oE 'CVE-20[0-9]{2}-[0-9]+' | sort -u | wc -l
-```
-
-**4. Current firewall rules:**
-```bash
-gcloud compute firewall-rules list --format="table(name,direction,sourceRanges.list(),allowed[].map().firewall_rule().list(),targetTags.list())"
-```
-
-## Likely outcomes (pending your output)
-
-| Option | Cost | Complexity | Downtime |
-|---|---|---|---|
-| Restrict 80/443 to PwC/required IPs | none | low | none |
-| `apt upgrade apache2` and rebuild the Packer golden image | none | medium | none with a rolling MIG update |
-| Remove unused modules | none | low | brief reload |
-
-My expected recommendation for a staging API is to restrict access first, then patch via the golden image. I'll confirm once I see the output.
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$
