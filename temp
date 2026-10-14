@@ -1,55 +1,108 @@
-Yes, bundle them. Both changes go into **one new golden image and one rolling MIG update**. You get a single change window and a single rollback point. It also clears the kernel reboot, because new instances boot on the already-installed newer kernel.
+See https://ubuntu.com/esm or run: sudo pro status
 
-## Plan
+New release '26.04.1 LTS' available.
+Run 'do-release-upgrade' to upgrade to it.
 
-| Step | What | Where |
-|---|---|---|
-| 1 | Set `AllowOverride None` in both vhost files | Packer repo, config copied into the image |
-| 2 | Make sure the Packer build runs `apt-get update && apt-get -y upgrade` | Packer provisioner |
-| 3 | Build new frontend and backend images | Your existing Cloud Build pipeline |
-| 4 | Create new instance templates pointing to the new images | Console |
-| 5 | Rolling update on each MIG | Console |
-| 6 | Verify | VM and curl |
 
-⚠️ **Downtime:** none only if each MIG has more than 1 instance and the update policy keeps capacity (max unavailable = 0). With a single instance, the replacement causes a brief outage. I haven't seen your MIG settings, so run this first, or ask the admin:
 
-```bash
-gcloud compute instance-groups managed describe cn-frontend-mig-regional --region=me-central2 --format="yaml(targetSize,updatePolicy,versions)"
-gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --format="yaml(targetSize,updatePolicy,versions)"
-```
+The programs included with the Ubuntu system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
 
-You may get a permission error on these. Your account lacked `compute.instanceGroupManagers.list`, so someone with access must run them or grant you read access. The MIG names and region are my assumption from the hostnames, so confirm them.
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
 
-## Console steps (needs a user with edit rights)
 
-1. **Cloud Build → Triggers**: run the frontend and backend image triggers after the vhost change is merged. Wait until the new image shows in **Compute Engine → Images**.
-2. **Compute Engine → Instance templates**: open the current template, then **Create similar**. Change only the boot disk image to the new one and save.
-3. **Compute Engine → Instance groups → [MIG] → Update VMs**: choose the new template, **Update type: Automatic (rolling)**, max surge ≥ 1, **max unavailable 0**, then **Start**.
-4. Do the **backend first, verify, then the frontend**.
+The programs included with the Ubuntu system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
 
-## Verify on a new instance
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
 
-```bash
-dpkg -s apache2 | grep -E '^Version'
-uname -r
-test -f /var/run/reboot-required && echo "REBOOT PENDING" || echo "clean"
-sudo apache2ctl -S | head -5
-sudo grep -rn AllowOverride /etc/apache2/sites-available/careernavigator-*.conf
-curl -sI https://stagingapi.careerdevelopmentnavigator.mer.pwc.com | head -3
-```
+Creating directory '/home/nikul_sadhu_gcp_pwc_com'.
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-mr9x:~$ dpkg -s apache2 | grep -E '^Version'
+Version: 2.4.58-1ubuntu8.16
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-mr9x:~$ uname -r
+7.0.0-1014-gcp
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-mr9x:~$ test -f /var/run/reboot-required && echo "REBOOT PENDING" || echo "clean"
+clean
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-mr9x:~$ sudo apache2ctl -S | head -5
+VirtualHost configuration:
+*:80                   staging.careerdevelopmentnavigator.mer.pwc.com (/etc/apache2/sites-enabled/careernavigator-frontend.conf:1)
+ServerRoot: "/etc/apache2"
+Main DocumentRoot: "/var/www/html"
+Main ErrorLog: "/var/log/apache2/error.log"
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-mr9x:~$ sudo grep -rn AllowOverride /etc/apache2/sites-available/careernavigator-*.conf
+curl -sI https://stagingapi.careerdevelopmentnavigator.mer.pwc.com | head -338:        AllowOverride None
+49:        AllowOverride None
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-mr9x:~$
 
-Expect `uname -r` to be 7.0.0-1014-gcp or newer, "clean", and `AllowOverride None` in both vhosts.
 
-## Rollback
 
-In the MIG, run **Update VMs** again with the previous instance template. Keep the old template and images until the new ones are verified.
 
-## Draft email update
 
-Merge the two "Planned" rows into one:
+elcome to Ubuntu 24.04.5 LTS (GNU/Linux 7.0.0-1014-gcp x86_64)
 
-| Action | Status | Reason / Plan |
-|---|---|---|
-| Image rebuild with pending OS updates, kernel update and `AllowOverride None` hardening | **Planned** | Single rolling replacement, target `<DD-MMM-YYYY>`. Not required to resolve the Apache findings. |
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
 
-If you want, tell me the output of the MIG `describe` commands and I'll confirm whether it's truly zero-downtime.
+ System information as of Wed Oct 14 12:19:41 UTC 2026
+
+  System load:  0.08              Processes:             123
+  Usage of /:   5.8% of 95.82GB   Users logged in:       0
+  Memory usage: 13%               IPv4 address for ens4: 10.216.0.23
+  Swap usage:   0%
+
+
+Expanded Security Maintenance for Applications is not enabled.
+
+0 updates can be applied immediately.
+
+Enable ESM Apps to receive additional future security updates.
+See https://ubuntu.com/esm or run: sudo pro status
+
+New release '26.04.1 LTS' available.
+Run 'do-release-upgrade' to upgrade to it.
+
+
+
+The programs included with the Ubuntu system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
+
+
+The programs included with the Ubuntu system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
+
+Creating directory '/home/nikul_sadhu_gcp_pwc_com'.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-bgd4:~$ gcloud compute instance-groups managed describe cn-frontend-mig-regional --region=me-central2 --format="yaml(targetSize,updatePolicy,versions)"
+ERROR: (gcloud.compute.instance-groups.managed.describe) HTTPError 403: Required 'compute.instanceGroupManagers.get' permission for 'projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-frontend-mig-regional'. This command is authenticated as sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-bgd4:~$ gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --format="yaml(targetSize,updatePolicy,versions)"
+ERROR: (gcloud.compute.instance-groups.managed.describe) HTTPError 403: Required 'compute.instanceGroupManagers.get' permission for 'projects/pg-ae-n-app-125609/regions/me-central2/instanceGroupManagers/cn-backend-mig-regional'. This command is authenticated as sa-cn-backend@pg-ae-n-app-125609.iam.gserviceaccount.com which is the active account specified by the [core/account] property
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-bgd4:~$ dpkg -s apache2 | grep -E '^Version'
+Version: 2.4.58-1ubuntu8.16
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-bgd4:~$ uname -r
+7.0.0-1014-gcp
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-bgd4:~$ test -f /var/run/reboot-required && echo "REBOOT PENDING" || echo "clean"
+clean
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-bgd4:~$ sudo apache2ctl -S | head -5
+VirtualHost configuration:
+*:80                   stagingapi.careerdevelopmentnavigator.mer.pwc.com (/etc/apache2/sites-enabled/careernavigator-backend.conf:1)
+ServerRoot: "/etc/apache2"
+Main DocumentRoot: "/var/www/html"
+Main ErrorLog: "/var/log/apache2/error.log"
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-bgd4:~$ sudo grep -rn AllowOverride /etc/apache2/sites-available/careernavigator-*.conf
+curl -sI https://stagingapi.careerdevelopmentnavigator.mer.pwc.com | head -336:        AllowOverride None
+47:        AllowOverride None
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-bgd4:~$
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-bgd4:~$
+
