@@ -1,4 +1,55 @@
-hostname
-dpkg -s apache2 | grep -E '^Version'
-apt list --upgradable 2>/dev/null | grep -i apache2
-sudo apache2ctl -M | grep -E 'dav|ldap|md_|ajp|ftp|userdir|vhost|digest|xml2enc|charset|include|uwsgi'
+Welcome to Ubuntu 24.04.5 LTS (GNU/Linux 7.0.0-1013-gcp x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Wed Oct 14 10:28:39 UTC 2026
+
+  System load:  0.12              Processes:             122
+  Usage of /:   5.7% of 95.82GB   Users logged in:       0
+  Memory usage: 15%               IPv4 address for ens4: 10.216.0.21
+  Swap usage:   0%
+
+ * Canonical Workshop gives developers fast, composable, reproducible, and
+   secure developer environments that are perfect for agentic workflows.
+
+   https://ubuntu.com/workshop
+
+Expanded Security Maintenance for Applications is not enabled.
+
+2 updates can be applied immediately.
+To see these additional updates run: apt list --upgradable
+
+Enable ESM Apps to receive additional future security updates.
+See https://ubuntu.com/esm or run: sudo pro status
+
+
+*** System restart required ***
+
+The programs included with the Ubuntu system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
+
+
+The programs included with the Ubuntu system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
+
+Creating directory '/home/nikul_sadhu_gcp_pwc_com'.
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$ hostname
+cn-backend-mig-regional-plzr.c.pg-ae-n-app-125609.internal
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$ dpkg -s apache2 | grep -E '^Version'
+Version: 2.4.58-1ubuntu8.16
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$ apt list --upgradable 2>/dev/null | grep -i apache2
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$ sudo apache2ctl -M | grep -E 'dav|ldap|md_|ajp|ftp|userdir|vhost|digest|xml2enc|charset|include|uwsgi'
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$
+
+
+
