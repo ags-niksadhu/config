@@ -1,37 +1,36 @@
-## Findings so far
+ikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ apt changelog apache2 2>/dev/null > /tmp/apache2.changelog
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ for c in CVE-2024-27316 CVE-2024-36387 CVE-2026-48913 CVE-2026-57941 CVE-2024-38474 CVE-2024-38475 CVE-2024-39573 CVE-2026-56154 CVE-2024-38473 CVE-2024-38477 CVE-2024-43204 CVE-2024-38476 CVE-2023-38709 CVE-2024-42516 CVE-2024-24795 CVE-2026-33523 CVE-2026-49975 CVE-2025-53020 CVE-2024-47252 CVE-2025-23048 CVE-2025-49812 CVE-2026-59797 CVE-2026-43951 CVE-2025-65082 CVE-2026-44631; do
+>   grep -q "$c" /tmp/apache2.changelog && echo "FIXED  $c" || echo "MISSING $c"
+> done
+FIXED  CVE-2024-27316
+FIXED  CVE-2024-36387
+FIXED  CVE-2026-48913
+FIXED  CVE-2026-57941
+FIXED  CVE-2024-38474
+FIXED  CVE-2024-38475
+FIXED  CVE-2024-39573
+FIXED  CVE-2026-56154
+FIXED  CVE-2024-38473
+FIXED  CVE-2024-38477
+FIXED  CVE-2024-43204
+FIXED  CVE-2024-38476
+FIXED  CVE-2023-38709
+FIXED  CVE-2024-42516
+FIXED  CVE-2024-24795
+FIXED  CVE-2026-33523
+FIXED  CVE-2026-49975
+FIXED  CVE-2025-53020
+FIXED  CVE-2024-47252
+FIXED  CVE-2025-23048
+FIXED  CVE-2025-49812
+FIXED  CVE-2026-59797
+FIXED  CVE-2026-43951
+FIXED  CVE-2025-65082
+FIXED  CVE-2026-44631
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ sudo grep -rnE 'SSLEngine +optional|AllowOverride|UserDir|ProxyPassReverseCookie|RewriteRule' /etc/apache2/sites-enabled /etc/apache2/conf-enabled
+hostname; gcloud compute instance-groups managed list --format="table(name,region,targetSize)"nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$
 
-- **Apache is fully patched for Ubuntu 24.04.** `2.4.58-1ubuntu8.16` is installed, the candidate version is the same, nothing is upgradable, and it was built 2026-10-05. Ubuntu backports fixes without changing the `2.4.58` banner, so the scanner is matching the banner and not the real patch level.
-- **Most listed CVEs don't apply because the modules aren't loaded.** Not loaded here: `dav`, `dav_fs`, `dav_lock`, `ldap`, `md`, `proxy_ajp`, `proxy_ftp`, `proxy_html`, `xml2enc`, `charset_lite`, `userdir`, `vhost_alias`, `auth_digest`, `authn_socache`, `proxy_http2`, `proxy_uwsgi`, `include`. The 3 Windows-only CVEs don't apply on Ubuntu either.
-- **Still to verify:** the CVEs in modules that are loaded: `http2`, `rewrite`, `proxy`, `ssl`, `headers`, `mime`, `env` and core.
-- **Check which VM you ran this on.** You ran the commands on `cn-frontend-mig-regional-wdql`. The `via: ... (Apache/2.4.58)` header shows Apache proxying to Express for `stagingapi`. Confirm that the backend MIG VMs have the same package version, since they may differ.
-- **Your account lacks GCP permissions.** You're missing `compute.addresses.list`, `compute.forwardingRules.list` and `compute.firewalls.list`. You'll need a PwC admin to run those or grant you read access.
 
-## Next: check the loaded-module CVEs against Ubuntu's changelog
 
-Run this on each frontend and backend VM:
 
-```bash
-apt changelog apache2 2>/dev/null > /tmp/apache2.changelog
-for c in CVE-2024-27316 CVE-2024-36387 CVE-2026-48913 CVE-2026-57941 CVE-2024-38474 CVE-2024-38475 CVE-2024-39573 CVE-2026-56154 CVE-2024-38473 CVE-2024-38477 CVE-2024-43204 CVE-2024-38476 CVE-2023-38709 CVE-2024-42516 CVE-2024-24795 CVE-2026-33523 CVE-2026-49975 CVE-2025-53020 CVE-2024-47252 CVE-2025-23048 CVE-2025-49812 CVE-2026-59797 CVE-2026-43951 CVE-2025-65082 CVE-2026-44631; do
-  grep -q "$c" /tmp/apache2.changelog && echo "FIXED  $c" || echo "MISSING $c"
-done
-```
-
-Also run these to confirm exposure:
-
-```bash
-sudo grep -rnE 'SSLEngine +optional|AllowOverride|UserDir|ProxyPassReverseCookie|RewriteRule' /etc/apache2/sites-enabled /etc/apache2/conf-enabled
-hostname; gcloud compute instance-groups managed list --format="table(name,region,targetSize)"
-```
-
-## Expected outcome
-
-| Option | Cost | Complexity | Downtime |
-|---|---|---|---|
-| Reply to PwC with evidence (distro-patched, modules not loaded) | none | low | none |
-| Restrict 80/443 to required IPs (Cloud Armor or firewall) | Cloud Armor adds a recurring policy and rule charge; firewall rules are free | medium | none |
-| Third-party Apache build (e.g. ondrej PPA) to reach 2.4.69 | none | high, since it leaves the Ubuntu support channel | rolling MIG update |
-
-**Recommendation for production:** send PwC the evidence that the package is up to date, apply access restriction if external access isn't needed, and don't move off Ubuntu's package. Scanners that read the version banner will keep flagging it. Any `MISSING` CVEs in loaded modules need a check on `ubuntu.com/security/CVE-xxxx` for noble status. I can't verify the 2026 CVE IDs from here.
-
-Paste the loop output and I'll give you the GUI steps for any change and a draft reply to PwC.
