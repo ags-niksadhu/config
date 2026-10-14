@@ -1,34 +1,6 @@
-## Diagnosis
-
-Confirmed: both endpoints return **401 `Invalid or expired token` even with no token, directly on port 3024**. This bypasses Apache, the LB, Cloud Armor and the frontend, so it is **not a hosting problem**. The `JwtAuthGuard` on this backend build protects `/v1/organization` and `/v1/organization/subdomain/:name`.
-
-The frontend calls them before login, so the login page can't resolve the `master` org. I haven't confirmed what the real staging backend does, but one of these must be true:
-1. **The dev's AI branch of the backend has a guard that staging's version doesn't** (e.g. the endpoints lost their `@Public()` decorator). Most likely, since this VM runs a different backend branch.
-2. The endpoints were meant to be protected and the frontend flow changed.
-
-## Check (read-only, 2 min)
-
-On the VM, to see which backend branch is running and compare with staging:
-```bash
-cd /var/www/careernavigator-backend && git branch --show-current && git log -1 --oneline
-```
-From your laptop (allowlist not needed for the real staging API):
-```bash
-curl -s -o /dev/null -w "%{http_code}\n" "https://stagingapi.careerdevelopmentnavigator.mer.pwc.com/v1/organization?subdomain=master"
-```
-- **Staging returns 200:** this VM's backend branch regressed. Dev fix: restore the public decorator on those two org endpoints.
-- **Staging also returns 401:** it's existing app behaviour. The dev must decide how the login page resolves the org.
-
-## Message for the dev
-
-> `GET /v1/organization?subdomain=master` and `GET /v1/organization/subdomain/master` return 401 "Invalid or expired token" with no token, directly on the backend (`localhost:3024`). The login page calls them before authentication. Please make them public (e.g. `@Public()` / skip `JwtAuthGuard`) on the `ai-test` backend branch, or tell us the intended flow.
-
-## Infra status
-
-Nothing to change. The routing, Cloud Armor, CSP and HTTP origin all work: frontend at `http://136.68.140.144/ai-test-ui/`, backend at `http://136.68.140.144/ai-test/`. Once the dev pushes a fix, deploy with:
-```bash
-cd /var/www/careernavigator-backend && git pull && npm i && npm run build && pm2 restart careernavigator-backend
-```
-Use the dev's exact build commands. ⚠️ The backend restarts briefly, and the frontend's `ai-test-ui` login stays down meanwhile. **Rollback:** `git checkout <previous-commit>`, then rebuild and restart.
-
-Send the branch name and the staging `curl` result.
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ cd /var/www/careernavigator-backend && git branch --show-current && git log -1 --oneline
+AI-Assistant
+2b29069 (HEAD -> AI-Assistant, origin/AI-Assistant) upload
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-backend$ curl -s -o /dev/null -w "%{http_code}\n" "https://stagingapi.careerdevelopmentnavigator.mer.pwc.com/v1/organization?subdomain=master"
+401
+nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:/var/www/careernavigator-backend$
