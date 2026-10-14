@@ -1,1 +1,11 @@
-curl -sS -w '\nHTTP %{http_code}\n' -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/image
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$ curl -sS -w '\nHTTP %{http_code}\n' -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/image
+projects/pg-ae-n-app-125609/global/images/cn-backend-image-c8c59c7
+HTTP 200
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$
+
+
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ curl -sS -w '\nHTTP %{http_code}\n' -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/image
+projects/pg-ae-n-app-125609/global/images/cn-frontend-image-5021c13
+HTTP 200
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$
+
