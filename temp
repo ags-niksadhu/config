@@ -1,4 +1,40 @@
-sudo apache2ctl -M | grep -E 'http2|ssl|proxy'
-apt list --upgradable 2>/dev/null
-cat /var/run/reboot-required.pkgs
-sudo find /var/www /srv /opt -name .htaccess 2>/dev/null
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ sudo apache2ctl -M | grep -E 'http2|ssl|proxy'
+ http2_module (shared)
+ proxy_module (shared)
+ proxy_http_module (shared)
+ ssl_module (shared)
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ apt list --upgradable 2>/dev/null
+Listing... Done
+apparmor/noble-updates 4.0.1really4.0.1-0ubuntu0.24.04.9 amd64 [upgradable from: 4.0.1really4.0.1-0ubuntu0.24.04.8]
+libapparmor1/noble-updates 4.0.1really4.0.1-0ubuntu0.24.04.9 amd64 [upgradable from: 4.0.1really4.0.1-0ubuntu0.24.04.8]
+libopeniscsiusr/noble-updates 2.1.9-3ubuntu5.5 amd64 [upgradable from: 2.1.9-3ubuntu5.4]
+open-iscsi/noble-updates 2.1.9-3ubuntu5.5 amd64 [upgradable from: 2.1.9-3ubuntu5.4]
+open-vm-tools/noble-updates 2:13.0.10-0ubuntu0.24.04.2 amd64 [upgradable from: 2:13.0.10-0ubuntu0.24.04.1]
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ cat /var/run/reboot-required.pkgs
+linux-image-7.0.0-1014-gcp
+linux-base
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ sudo find /var/www /srv /opt -name .htaccess 2>/dev/null
+nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$
+
+
+
+
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$ sudo apache2ctl -M | grep -E 'http2|ssl|proxy'
+ http2_module (shared)
+ proxy_module (shared)
+ proxy_http_module (shared)
+ ssl_module (shared)
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$ apt list --upgradable 2>/dev/null
+Listing... Done
+apparmor/noble-updates 4.0.1really4.0.1-0ubuntu0.24.04.9 amd64 [upgradable from: 4.0.1really4.0.1-0ubuntu0.24.04.8]
+libapparmor1/noble-updates 4.0.1really4.0.1-0ubuntu0.24.04.9 amd64 [upgradable from: 4.0.1really4.0.1-0ubuntu0.24.04.8]
+libopeniscsiusr/noble-updates 2.1.9-3ubuntu5.5 amd64 [upgradable from: 2.1.9-3ubuntu5.4]
+open-iscsi/noble-updates 2.1.9-3ubuntu5.5 amd64 [upgradable from: 2.1.9-3ubuntu5.4]
+open-vm-tools/noble-updates 2:13.0.10-0ubuntu0.24.04.2 amd64 [upgradable from: 2:13.0.10-0ubuntu0.24.04.1]
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$ cat /var/run/reboot-required.pkgs
+linux-image-7.0.0-1014-gcp
+linux-base
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$ sudo find /var/www /srv /opt -name .htaccess 2>/dev/null
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$
+
+
