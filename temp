@@ -1,11 +1,55 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$ curl -sS -w '\nHTTP %{http_code}\n' -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/image
-projects/pg-ae-n-app-125609/global/images/cn-backend-image-c8c59c7
-HTTP 200
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-plzr:~$
+Yes, bundle them. Both changes go into **one new golden image and one rolling MIG update**. You get a single change window and a single rollback point. It also clears the kernel reboot, because new instances boot on the already-installed newer kernel.
 
+## Plan
 
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$ curl -sS -w '\nHTTP %{http_code}\n' -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/image
-projects/pg-ae-n-app-125609/global/images/cn-frontend-image-5021c13
-HTTP 200
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-wdql:~$
+| Step | What | Where |
+|---|---|---|
+| 1 | Set `AllowOverride None` in both vhost files | Packer repo, config copied into the image |
+| 2 | Make sure the Packer build runs `apt-get update && apt-get -y upgrade` | Packer provisioner |
+| 3 | Build new frontend and backend images | Your existing Cloud Build pipeline |
+| 4 | Create new instance templates pointing to the new images | Console |
+| 5 | Rolling update on each MIG | Console |
+| 6 | Verify | VM and curl |
 
+⚠️ **Downtime:** none only if each MIG has more than 1 instance and the update policy keeps capacity (max unavailable = 0). With a single instance, the replacement causes a brief outage. I haven't seen your MIG settings, so run this first, or ask the admin:
+
+```bash
+gcloud compute instance-groups managed describe cn-frontend-mig-regional --region=me-central2 --format="yaml(targetSize,updatePolicy,versions)"
+gcloud compute instance-groups managed describe cn-backend-mig-regional --region=me-central2 --format="yaml(targetSize,updatePolicy,versions)"
+```
+
+You may get a permission error on these. Your account lacked `compute.instanceGroupManagers.list`, so someone with access must run them or grant you read access. The MIG names and region are my assumption from the hostnames, so confirm them.
+
+## Console steps (needs a user with edit rights)
+
+1. **Cloud Build → Triggers**: run the frontend and backend image triggers after the vhost change is merged. Wait until the new image shows in **Compute Engine → Images**.
+2. **Compute Engine → Instance templates**: open the current template, then **Create similar**. Change only the boot disk image to the new one and save.
+3. **Compute Engine → Instance groups → [MIG] → Update VMs**: choose the new template, **Update type: Automatic (rolling)**, max surge ≥ 1, **max unavailable 0**, then **Start**.
+4. Do the **backend first, verify, then the frontend**.
+
+## Verify on a new instance
+
+```bash
+dpkg -s apache2 | grep -E '^Version'
+uname -r
+test -f /var/run/reboot-required && echo "REBOOT PENDING" || echo "clean"
+sudo apache2ctl -S | head -5
+sudo grep -rn AllowOverride /etc/apache2/sites-available/careernavigator-*.conf
+curl -sI https://stagingapi.careerdevelopmentnavigator.mer.pwc.com | head -3
+```
+
+Expect `uname -r` to be 7.0.0-1014-gcp or newer, "clean", and `AllowOverride None` in both vhosts.
+
+## Rollback
+
+In the MIG, run **Update VMs** again with the previous instance template. Keep the old template and images until the new ones are verified.
+
+## Draft email update
+
+Merge the two "Planned" rows into one:
+
+| Action | Status | Reason / Plan |
+|---|---|---|
+| Image rebuild with pending OS updates, kernel update and `AllowOverride None` hardening | **Planned** | Single rolling replacement, target `<DD-MMM-YYYY>`. Not required to resolve the Apache findings. |
+
+If you want, tell me the output of the MIG `describe` commands and I'll confirm whether it's truly zero-downtime.
