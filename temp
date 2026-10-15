@@ -1,1 +1,5 @@
-   sudo apache2ctl -M | grep -E 'auth_digest|charset_lite|proxy_html'
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$    sudo apache2ctl -M | grep -E 'auth_digest|charset_lite|proxy_html'
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$    sudo apache2ctl -M | grep -E 'auth_digest|charset_lite|proxy_html'
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$
+
+
