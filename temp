@@ -1,5 +1,1 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$ dpkg -s apache2 | grep -E '^Version'; sudo grep -rn AllowOverride /etc/apache2/sites-available/careernavigator-backend.conf
-Version: 2.4.58-1ubuntu8.17
-36:        AllowOverride None
-47:        AllowOverride None
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$
+  apt changelog apache2 2>/dev/null | head -40
