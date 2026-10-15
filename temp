@@ -1,5 +1,1 @@
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$ curl -sI https://stagingapi.careerdevelopmentnavigator.mer.pwc.com | head -3
-HTTP/2 200
-date: Thu, 15 Oct 2026 07:24:39 GMT
-server: Apache/2.4.58 (Ubuntu)
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$
+dpkg -s apache2 | grep -E '^Version'; sudo grep -rn AllowOverride /etc/apache2/sites-available/careernavigator-backend.conf
