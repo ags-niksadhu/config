@@ -1,6 +1,4 @@
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-2ppw:~$ sudo apache2ctl -M | grep -E 'auth_digest|charset_lite|proxy_html'
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-2ppw:~$
-
-
-
-
+gcloud compute instance-groups managed list-instances
+apache2ctl -M
+sudo apache2ctl -M | grep -E 'dav|ldap|md_|ajp|ftp|userdir|vhost|digest|xml2enc|charset|include|uwsgi|proxy_html'
+sudo find / -xdev -name .htaccess 2>/dev/null
