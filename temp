@@ -1,3 +1,1 @@
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-2ppw:~$ dpkg -s apache2 | grep '^Version'
-Version: 2.4.58-1ubuntu8.17
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-2ppw:~$
+sudo apache2ctl -M | grep -E 'auth_digest|charset_lite|proxy_html'
