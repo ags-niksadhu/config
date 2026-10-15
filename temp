@@ -1,1 +1,4 @@
-   dpkg -s apache2 | grep '^Version'
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$    dpkg -s apache2 | grep '^Version'
+Version: 2.4.58-1ubuntu8.17
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$
+
