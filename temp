@@ -1,6 +1,49 @@
-dpkg -s apache2 | grep '^Version'
-sudo apache2ctl -M | grep -E 'auth_digest|charset_lite|proxy_html'
-apt changelog apache2 2>/dev/null | grep -c 'SECURITY UPDATE'\
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$ dpkg -s apache2 | grep '^Version'
+Version: 2.4.58-1ubuntu8.17
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$ sudo apache2ctl -M | grep -E 'auth_digest|charset_lite|proxy_html'
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$ apt changelog apache2 2>/dev/null | grep -c 'SECURITY UPDATE'\
+> grep -B8 -E 'CVE-2026-(33007|44119|63718)' /tmp/apache2.changelog | head -60
+grep: CVE-2026-(33007|44119|63718): No such file or directory
+/tmp/apache2.changelog:0
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$ grep -B8 -E 'CVE-2026-(33007|44119|63718)' /tmp/apache2.changelog | head -60
+    - debian/patches/CVE-2026-63292.patch: Harden vhost_alias in
+      modules/mappers/mod_vhost_alias.c
+    - CVE-2026-63292
+  * SECURITY UPDATE: NULL pointer dereference in mod_xml2enc
+    - debian/patches/CVE-2026-63686.patch: Handle incomplete input in
+      modules/filters/mod_xml2enc.c
+    - CVE-2026-63686
+  * SECURITY UPDATE: Inconsistent interpretation of HTTP Requests
+    - debian/patches/CVE-2026-63718.patch: Drop hop-by-hop headers from
+      UWSGI in modules/proxy/mod_proxy_uwsgi.c,
+      test/modules/proxy/test_03_uwsgi.py, and
+      test/modules/proxy/uwsgi_faker.py
+    - CVE-2026-63718
+--
+      modules/filters/mod_xml2enc.c.
+    - CVE-2026-42536
+  * SECURITY UPDATE: OOB Read in 'merge_response_headers' can cause crash
+    - debian/patches/CVE-2026-43951.patch: fix lang iteration in
+      modules/http/http_filters.c, modules/http2/h2_c2_filter.c.
+    - CVE-2026-43951
+  * SECURITY UPDATE: escalation of privilege through expressions in .htaccess
+    in multiple modules
+    - debian/patches/CVE-2026-44119.patch: restrict per-dir file funcs
+      centrally in include/ap_expr.h, modules/mappers/mod_rewrite.c,
+      modules/metadata/mod_setenvif.c, modules/proxy/mod_proxy_fcgi.c,
+      server/util_expr_eval.c.
+    - CVE-2026-44119
+--
+    - debian/patches/CVE-2026-33006-1.patch: use apr_crypto_equals in
+      configure.in, modules/aaa/mod_auth_digest.c.
+    - debian/patches/CVE-2026-33006-2.patch: add ap_*_timingsafe() constant-
+      time comparison functions in configure.in, include/httpd.h,
+      modules/aaa/mod_auth_digest.c, modules/session/mod_session_crypto.c,
+      server/util.c.
+    - CVE-2026-33006
+  * SECURITY UPDATE: mod_authn_socache crash
+    - debian/patches/CVE-2026-33007.patch: validate URL earlier in
+      modules/aaa/mod_authn_socache.c.
+    - CVE-2026-33007
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$
 
-
-   grep -B8 -E 'CVE-2026-(33007|44119|63718)' /tmp/apache2.changelog | head -60
