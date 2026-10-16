@@ -1,1 +1,17 @@
-grep -n -B6 -E 'CVE-2024-38475|CVE-2024-39573' /tmp/apache2.changelog | head -40
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$ grep -n -B6 -E 'CVE-2024-38475|CVE-2024-39573' /tmp/apache2.changelog | head -40
+332-  * SECURITY UPDATE: Substitution encoding issue in mod_rewrite
+333-    - debian/patches/CVE-2024-38474_5.patch: tighten up prefix_stat and %3f
+334-      handling in modules/mappers/mod_rewrite.c.
+335-    - CVE-2024-38474
+336-  * SECURITY UPDATE: Improper escaping of output in mod_rewrite
+337-    - Included in CVE-2024-38474_5.patch.
+338:    - CVE-2024-38475
+--
+348-  * SECURITY UPDATE: null pointer dereference in mod_proxy
+349-    - debian/patches/CVE-2024-38477.patch: validate hostname in
+350-      modules/proxy/proxy_util.c.
+351-    - CVE-2024-38477
+352-  * SECURITY UPDATE: Potential SSRF in mod_rewrite
+353-    - Fixed by patches in previous CVEs.
+354:    - CVE-2024-39573
+nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$
