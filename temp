@@ -1,13 +1,1 @@
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute backend-services describe app-backend-service --global --format="yaml(name,securityPolicy,edgeSecurityPolicy,enableCDN)"
-gcloud compute backend-services describe frontend-service --global --format="yaml(name,securityPolicy,edgeSecurityPolicy,enableCDN)"
-gcloud compute security-policies describe cnstaging-waf-policy-v2 --format="yaml(name,type,adaptiveProtectionConfig)"
-enableCDN: false
-name: app-backend-service
-securityPolicy: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/securityPolicies/cnstaging-waf-policy-v2
-enableCDN: false
-name: frontend-service
-securityPolicy: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/securityPolicies/cnstaging-waf-policy-v2
----
-name: cnstaging-waf-policy-v2
-type: CLOUD_ARMOR
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
+gcloud compute security-policies rules list cnstaging-waf-policy-v2 --format="table(priority,action,match.config.srcIpRanges.list(),preview)" | head -40
