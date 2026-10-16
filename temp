@@ -1,1 +1,5 @@
-gcloud compute security-policies describe cnstaging-waf-policy-v2 --format="table(rules.priority,rules.action,rules.preview)"
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute security-policies describe cnstaging-waf-policy-v2 --format="table(rules.priority,rules.action,rules.preview)"
+PRIORITY: [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2147483647, 898, 899, 900, 901, 902, 903, 904, 905, 906, 907, 908, 990]
+ACTION: ['rate_based_ban', 'deny(403)', 'deny(403)', 'deny(403)', 'deny(403)', 'deny(403)', 'deny(403)', 'deny(403)', 'deny(403)', 'deny(403)', 'deny(403)', 'allow', 'allow', 'allow', 'allow', 'allow', 'allow', 'allow', 'allow', 'allow', 'allow', 'allow', 'deny(403)']
+PREVIEW: [False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False]
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
