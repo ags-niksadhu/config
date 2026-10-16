@@ -1,1 +1,286 @@
-gcloud compute security-policies describe cnstaging-waf-policy-v2 --format="yaml(rules)"
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute security-policies describe cnstaging-waf-policy-v2 --format="yaml(rules)"
+---
+rules:
+- action: rate_based_ban
+  description: Rate limit and IP ban
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - '*'
+    versionedExpr: SRC_IPS_V1
+  preview: false
+  priority: 1000
+  rateLimitOptions:
+    banDurationSec: 600
+    banThreshold:
+      count: 1000
+      intervalSec: 300
+    conformAction: allow
+    enforceOnKey: IP
+    exceedAction: deny(429)
+    rateLimitThreshold:
+      count: 300
+      intervalSec: 60
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('sqli-v33-stable')
+  preview: false
+  priority: 1100
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('xss-v33-stable')
+  preview: false
+  priority: 1200
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('lfi-v33-stable')
+  preview: false
+  priority: 1300
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('rfi-v33-stable')
+  preview: false
+  priority: 1400
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('rce-v33-stable')
+  preview: false
+  priority: 1500
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('scannerdetection-v33-stable')
+  preview: false
+  priority: 1600
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('protocolattack-v33-stable')
+  preview: false
+  priority: 1700
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('sessionfixation-v33-stable')
+  preview: false
+  priority: 1800
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('nodejs-v33-stable')
+  preview: false
+  priority: 1900
+- action: deny(403)
+  description: default rule
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - '*'
+    versionedExpr: SRC_IPS_V1
+  preview: false
+  priority: 2147483647
+- action: allow
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - 34.166.214.83/32
+    versionedExpr: SRC_IPS_V1
+  preview: false
+  priority: 898
+- action: allow
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+    versionedExpr: SRC_IPS_V1
+  preview: false
+  priority: 899
+- action: allow
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - 169.224.190.34/32
+      - 169.224.190.29/32
+      - 169.224.190.30/32
+      - 169.224.190.31/32
+      - 134.238.121.136/32
+    versionedExpr: SRC_IPS_V1
+  preview: false
+  priority: 900
+- action: allow
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - 134.238.121.176/32
+      - 134.238.121.177/32
+      - 134.238.121.209/32
+      - 134.238.121.210/32
+      - 134.238.122.116/32
+      - 134.238.122.117/32
+      - 134.238.122.120/32
+      - 134.238.122.125/32
+      - 134.238.122.126/32
+      - 134.238.122.13/32
+    versionedExpr: SRC_IPS_V1
+  preview: false
+  priority: 901
+- action: allow
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - 134.238.122.130/32
+      - 134.238.122.131/32
+      - 134.238.122.139/32
+      - 134.238.122.14/32
+      - 134.238.122.140/32
+      - 134.238.122.141/32
+      - 134.238.122.155/32
+      - 134.238.122.164/32
+      - 134.238.122.170/32
+      - 134.238.122.176/32
+    versionedExpr: SRC_IPS_V1
+  preview: false
+  priority: 902
+- action: allow
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - 134.238.122.177/32
+      - 134.238.122.178/32
+      - 134.238.122.181/32
+      - 134.238.122.182/32
+      - 134.238.122.187/32
+      - 134.238.122.197/32
+      - 134.238.122.198/32
+      - 134.238.222.150/32
+      - 134.238.222.151/32
+      - 169.224.190.25/32
+    versionedExpr: SRC_IPS_V1
+  preview: false
+  priority: 903
+- action: allow
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - 169.224.190.26/32
+      - 169.224.190.27/32
+      - 169.224.190.28/32
+      - 169.224.190.32/32
+      - 169.224.190.33/32
+      - 208.127.249.118/32
+      - 208.127.62.175/32
+      - 34.103.196.73/32
+      - 34.103.243.44/32
+      - 34.103.243.45/32
+    versionedExpr: SRC_IPS_V1
+  preview: false
+  priority: 904
+- action: allow
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - 34.99.180.111/32
+      - 34.99.180.112/32
+      - 34.99.252.212/32
+      - 34.99.252.213/32
+      - 34.99.252.240/32
+      - 34.99.252.42/32
+      - 34.99.252.43/32
+      - 34.99.252.57/32
+      - 34.99.252.58/32
+      - 34.99.252.69/32
+    versionedExpr: SRC_IPS_V1
+  preview: false
+  priority: 905
+- action: allow
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - 34.99.252.8/32
+      - 34.99.252.80/32
+      - 34.99.252.83/32
+      - 34.99.252.84/32
+      - 34.99.253.123/32
+      - 34.99.253.193/32
+      - 34.99.253.214/32
+      - 34.99.253.29/32
+      - 34.99.253.3/32
+      - 34.99.253.37/32
+    versionedExpr: SRC_IPS_V1
+  preview: false
+  priority: 906
+- action: allow
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - 34.99.253.48/32
+      - 34.99.253.49/32
+      - 34.99.253.57/32
+      - 34.99.253.84/32
+      - 34.99.253.85/32
+      - 128.77.91.205/32
+      - 128.77.91.6/32
+      - 169.224.190.12/32
+      - 169.224.190.13/32
+    versionedExpr: SRC_IPS_V1
+  preview: false
+  priority: 907
+- action: allow
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - 110.227.205.102/32
+      - 14.99.145.222/32
+    versionedExpr: SRC_IPS_V1
+  preview: false
+  priority: 908
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
