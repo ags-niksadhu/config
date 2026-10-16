@@ -1,51 +1,155 @@
-## Result
-
-Both new instances (`2ppw` frontend, `thpp` backend) are clean:
-- None of the risky modules are loaded.
-- No `.htaccess` files exist anywhere on the filesystem.
-
-That closes the "newest instances" gap. Now use your Cloud Shell access to close the MIG and LB gaps.
-
-## 1. All instances in both MIGs (version check)
-
-The command needs the MIG name and region. Names and region are from the hostnames, so confirm them in the output.
-
-```bash
-gcloud compute instance-groups managed list --format="table(name,region,targetSize)"
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute instance-groups managed list --format="table(name,region,targetSize)"
 gcloud compute instance-groups managed list-instances cn-backend-mig-regional --region=me-central2 --format="table(name,status,instanceStatus,version.instanceTemplate.basename())"
 gcloud compute instance-groups managed list-instances cn-frontend-mig-regional --region=me-central2 --format="table(name,status,instanceStatus,version.instanceTemplate.basename())"
-```
+NAME: cn-backend-mig-regional
+REGION: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2
+TARGET_SIZE: 1
 
-All instances should show the same template. If two templates appear, a rollout is incomplete.
-
-## 2. What sits behind 136.68.140.144 (LB side)
-
-```bash
-gcloud compute addresses list --filter="address=136.68.140.144"
+NAME: cn-frontend-mig-regional
+REGION: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/regions/me-central2
+TARGET_SIZE: 1
+NAME: cn-backend-mig-regional-thpp
+STATUS: 
+STATUS: RUNNING
+INSTANCE_TEMPLATE: cn-backend-template-7809deb
+NAME: cn-frontend-mig-regional-2ppw
+STATUS: 
+STATUS: RUNNING
+INSTANCE_TEMPLATE: cn-frontend-template-1bfdc85
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute addresses list --filter="address=136.68.140.144"
 gcloud compute forwarding-rules list --filter="IPAddress=136.68.140.144" --format="yaml(name,target,loadBalancingScheme,portRange,region)"
 gcloud compute url-maps list
 gcloud compute backend-services list --format="table(name,backends[].group.basename(),securityPolicy.basename(),region)"
-```
+NAME: cn-staging-static-ip
+ADDRESS/RANGE: 136.68.140.144
+TYPE: EXTERNAL
+PURPOSE: 
+NETWORK: 
+REGION: 
+SUBNET: 
+STATUS: IN_USE
+---
+loadBalancingScheme: EXTERNAL_MANAGED
+name: app-lb-frontend-https
+portRange: 443-443
+target: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/targetHttpsProxies/cm-staging-lb-https-proxy
+---
+loadBalancingScheme: EXTERNAL_MANAGED
+name: app-lb-frontend2
+portRange: 80-80
+target: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/targetHttpProxies/cm-staging-lb-target-proxy-2
+NAME: cm-staging-lb
+DEFAULT_SERVICE: backendServices/frontend-service
+NAME: ai-test-backend
+BACKENDS: ['ai-test-ig']
+SECURITY_POLICY: ai-test-allowlist
+REGION: 
 
-Then, for the url-map and backend services found above, show the host and path routing:
-```bash
-gcloud compute url-maps describe <URL_MAP_NAME> --format="yaml(hostRules,pathMatchers,defaultService)"   # substitute the name from url-maps list
-```
+NAME: app-backend-service
+BACKENDS: ['cn-backend-mig-regional']
+SECURITY_POLICY: cnstaging-waf-policy-v2
+REGION: 
 
-This shows which backends serve `stagingapi`. It also shows whether other services, such as the AI test VM from your earlier path-routing setup, sit behind the same IP.
-
-## 3. Current access restriction (firewall and Cloud Armor)
-
-```bash
-gcloud compute firewall-rules list --format="table(name,direction,sourceRanges.list(),allowed[].map().firewall_rule().list(),targetTags.list(),disabled)"
+NAME: frontend-service
+BACKENDS: ['cn-frontend-mig-regional']
+SECURITY_POLICY: cnstaging-waf-policy-v2
+REGION: 
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute url-maps describe <URL_MAP_NAME> --format="yaml(hostRules,pathMatchers,defaultService)"   # substitute the name from url-maps list
+-bash: URL_MAP_NAME: No such file or directory
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute firewall-rules list --format="table(name,direction,sourceRanges.list(),allowed[].map().firewall_rule().list(),targetTags.list(),disabled)"
 gcloud compute security-policies list
-```
+NAME: allow-iap-ssh
+DIRECTION: INGRESS
+SOURCE_RANGES: 35.235.240.0/20
+ALLOW: tcp:22
+TARGET_TAGS: 
+DISABLED: False
 
-The first command shows whether 80/443 is open to `0.0.0.0/0`. The second shows whether Cloud Armor exists.
+NAME: allow-lb-health-check-cn-backend
+DIRECTION: INGRESS
+SOURCE_RANGES: 130.211.0.0/22,35.191.0.0/16
+ALLOW: tcp:3024
+TARGET_TAGS: cn-backend
+DISABLED: False
 
-Paste the output of all three. That tells us:
-- whether every instance is on `8.17`
-- what else the scanned IP serves
-- how to restrict access, which is the one real item left in PwC's email
+NAME: allow-lb-to-vm
+DIRECTION: INGRESS
+SOURCE_RANGES: 130.211.0.0/22,35.191.0.0/16
+ALLOW: tcp:80
+TARGET_TAGS: 
+DISABLED: False
 
-⚠️ Read-only commands only so far. Restricting access comes after, with GUI steps and a rollback, since a wrong rule can block real users.
+NAME: allow-ssh-from-cn-backend-pool
+DIRECTION: INGRESS
+SOURCE_RANGES: 10.58.0.0/24
+ALLOW: tcp:22
+TARGET_TAGS: packer-build-temp
+DISABLED: False
+
+NAME: default-allow-health-check
+DIRECTION: INGRESS
+SOURCE_RANGES: 35.191.0.0/16,130.211.0.0/22,209.85.152.0/22,209.85.204.0/22
+ALLOW: tcp
+TARGET_TAGS: lb-health-check
+DISABLED: False
+
+NAME: default-allow-health-check-ipv6
+DIRECTION: INGRESS
+SOURCE_RANGES: 2600:1901:8001::/48,2600:2d00:1:b029::/64
+ALLOW: tcp
+TARGET_TAGS: lb-health-check
+DISABLED: False
+
+NAME: default-allow-http
+DIRECTION: INGRESS
+SOURCE_RANGES: 0.0.0.0/0
+ALLOW: tcp:80
+TARGET_TAGS: http-server
+DISABLED: False
+
+NAME: default-allow-icmp
+DIRECTION: INGRESS
+SOURCE_RANGES: 0.0.0.0/0
+ALLOW: icmp
+TARGET_TAGS: 
+DISABLED: False
+
+NAME: default-allow-internal
+DIRECTION: INGRESS
+SOURCE_RANGES: 10.128.0.0/9
+ALLOW: tcp:0-65535,udp:0-65535,icmp
+TARGET_TAGS: 
+DISABLED: False
+
+NAME: default-allow-rdp
+DIRECTION: INGRESS
+SOURCE_RANGES: 35.235.240.0/20
+ALLOW: tcp:3389
+TARGET_TAGS: 
+DISABLED: False
+
+NAME: default-allow-ssh
+DIRECTION: INGRESS
+SOURCE_RANGES: 35.235.240.0/20
+ALLOW: tcp:22
+TARGET_TAGS: 
+DISABLED: False
+
+NAME: temp-testing-cn
+DIRECTION: INGRESS
+SOURCE_RANGES: 110.227.205.102,14.99.145.222
+ALLOW: tcp:3024
+TARGET_TAGS: 
+DISABLED: False
+NAME: ai-test-allowlist
+REGION: 
+
+NAME: cnstaging-waf-policy
+REGION: 
+
+NAME: cnstaging-waf-policy-v2
+REGION: 
+
+NAME: default-security-policy-for-backend-service-app-backend-service
+REGION: 
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
