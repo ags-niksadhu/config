@@ -1,1 +1,17 @@
-gcloud compute security-policies rules list cnstaging-waf-policy-v2 --format="table(priority,action,match.config.srcIpRanges.list(),preview)" | head -40
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute security-policies rules list cnstaging-waf-policy-v2 --format="table(priority,action,match.config.srcIpRanges.list(),preview)" | head -40
+ERROR: (gcloud.compute.security-policies.rules) Invalid choice: 'list'.
+Maybe you meant:
+  gcloud compute security-policies rules add-preconfig-waf-exclusion
+  gcloud compute security-policies rules create
+  gcloud compute security-policies rules delete
+  gcloud compute security-policies rules describe
+  gcloud compute security-policies rules remove-preconfig-waf-exclusion
+  gcloud compute security-policies rules update
+  gcloud compute security-policies list
+  gcloud compute security-policies list-preconfigured-expression-sets
+  gcloud compute org-security-policies list-rules
+  gcloud compute firewall-rules list
+
+To search the help text of gcloud commands, run:
+  gcloud help -- SEARCH_TERMS
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
