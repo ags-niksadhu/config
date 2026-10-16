@@ -1,1 +1,27 @@
-gcloud compute security-policies describe ai-test-allowlist --format="yaml(rules)"
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute security-policies describe ai-test-allowlist --format="yaml(rules)"
+---
+rules:
+- action: allow
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - 110.227.205.102
+      - 14.99.145.222
+    versionedExpr: SRC_IPS_V1
+  preconfiguredWafConfig: {}
+  preview: false
+  priority: 1000
+- action: deny(403)
+  description: Default rule, higher priority overrides it
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - '*'
+    versionedExpr: SRC_IPS_V1
+  preconfiguredWafConfig: {}
+  preview: false
+  priority: 2147483647
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
