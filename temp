@@ -1,4 +1,30 @@
-gcloud compute instance-groups managed list-instances
-apache2ctl -M
+## Why each one is unverified
+
+| Assumption | Why it's unverified | Can you close it? |
+|---|---|---|
+| "Fixed" = patched (57 CVEs) | We only text-matched the CVE ID in the changelog. Checking each on Ubuntu's tracker means opening 57 pages. | Yes, but slow. Spot-check 3 or 4 instead. |
+| Scanner is banner-based | Only PwC knows how their scanner works. | Only PwC can confirm. |
+| Every MIG instance is on `8.17` | We logged into one VM per tier. Listing all instances needs MIG access, which you lack. | Yes: ask an admin, or run `gcloud compute instance-groups managed list-instances` from an account with access. |
+| Scan hit only these two MIGs | You can't view the LB, forwarding rules or backends (permission errors). | Only a PwC admin with LB access. |
+| Module list and `.htaccess` on the newest instances | We checked them on the 14 Oct instances, then re-checked only 3 modules on the new ones. | Yes, 2 commands per tier (below). |
+| Unloaded = not exploitable | `apache2ctl -M` shows the current state. A later config change could load them. | Yes, same check. |
+| Windows-only CVEs don't apply | I reasoned from the CVE text (Windows) plus your Ubuntu OS. Nothing scanned them. | Not needed. The OS proves it. |
+| Upstream 2.4.69 exists | It appears only in PwC's email. I can't verify releases. | Check httpd.apache.org. |
+| Express app has no CVEs | Out of scope, and you didn't ask for it. | Separate check. |
+
+In short: some gaps are **permissions** (LB, MIG), some are **PwC's knowledge** (scanner method), and some are **time** (we stopped at one VM per tier). The last group is quick to close.
+
+## Close the quick ones
+
+On both a frontend and a backend VM:
+```bash
 sudo apache2ctl -M | grep -E 'dav|ldap|md_|ajp|ftp|userdir|vhost|digest|xml2enc|charset|include|uwsgi|proxy_html'
 sudo find / -xdev -name .htaccess 2>/dev/null
+```
+Both should print nothing.
+
+Spot-check a few CVEs on Ubuntu's tracker, such as `ubuntu.com/security/CVE-2026-33007`, and read the noble status ("Released" with `8.x`).
+
+For the permission gaps, send your PwC admin this ask: *"Please run `gcloud compute instance-groups managed list-instances` for both MIGs and share the backend services behind 136.68.140.144."*
+
+None of these block sending. The email's wording ("one instance per tier verified", "appears") already stays inside what you proved.
