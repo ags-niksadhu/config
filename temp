@@ -1,27 +1,6 @@
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute security-policies describe ai-test-allowlist --format="yaml(rules)"
----
-rules:
-- action: allow
-  description: ''
-  kind: compute#securityPolicyRule
-  match:
-    config:
-      srcIpRanges:
-      - 110.227.205.102
-      - 14.99.145.222
-    versionedExpr: SRC_IPS_V1
-  preconfiguredWafConfig: {}
-  preview: false
-  priority: 1000
-- action: deny(403)
-  description: Default rule, higher priority overrides it
-  kind: compute#securityPolicyRule
-  match:
-    config:
-      srcIpRanges:
-      - '*'
-    versionedExpr: SRC_IPS_V1
-  preconfiguredWafConfig: {}
-  preview: false
-  priority: 2147483647
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
+dpkg -s apache2 | grep '^Version'
+sudo apache2ctl -M | grep -E 'auth_digest|charset_lite|proxy_html'
+apt changelog apache2 2>/dev/null | grep -c 'SECURITY UPDATE'\
+
+
+   grep -B8 -E 'CVE-2026-(33007|44119|63718)' /tmp/apache2.changelog | head -60
