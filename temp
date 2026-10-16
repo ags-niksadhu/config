@@ -1,4 +1,155 @@
-gcloud compute security-policies describe cnstaging-waf-policy-v2 --format="yaml(rules)"
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute security-policies describe cnstaging-waf-policy-v2 --format="yaml(rules)"
 gcloud compute instances describe cn-backend-mig-regional-thpp --zone=<ZONE> --format="yaml(tags.items,networkInterfaces[].accessConfigs)"   # ZONE: me-central2-a/b/c, from the instances list
 gcloud compute instances list --format="table(name,zone.basename(),tags.items.list(),networkInterfaces[0].accessConfigs[0].natIP)"
 gcloud compute url-maps describe cm-staging-lb --format="yaml(hostRules,pathMatchers,defaultService)"
+---
+rules:
+- action: rate_based_ban
+  description: Rate limit and IP ban
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - '*'
+    versionedExpr: SRC_IPS_V1
+  preview: false
+  priority: 1000
+  rateLimitOptions:
+    banDurationSec: 600
+    banThreshold:
+      count: 1000
+      intervalSec: 300
+    conformAction: allow
+    enforceOnKey: IP
+    exceedAction: deny(429)
+    rateLimitThreshold:
+      count: 300
+      intervalSec: 60
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('sqli-v33-stable')
+  preview: false
+  priority: 1100
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('xss-v33-stable')
+  preview: false
+  priority: 1200
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('lfi-v33-stable')
+  preview: false
+  priority: 1300
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('rfi-v33-stable')
+  preview: false
+  priority: 1400
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('rce-v33-stable')
+  preview: false
+  priority: 1500
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('scannerdetection-v33-stable')
+  preview: false
+  priority: 1600
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('protocolattack-v33-stable')
+  preview: false
+  priority: 1700
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('sessionfixation-v33-stable')
+  preview: false
+  priority: 1800
+- action: deny(403)
+  description: ''
+  kind: compute#securityPolicyRule
+  match:
+    expr:
+      expression: evaluatePreconfiguredWaf('nodejs-v33-stable')
+  preview: false
+  priority: 1900
+- action: allow
+  description: default rule
+  kind: compute#securityPolicyRule
+  match:
+    config:
+      srcIpRanges:
+      - '*'
+    versionedExpr: SRC_IPS_V1
+  preview: false
+  priority: 2147483647
+-bash: ZONE: No such file or directory
+NAME: cn-backend-mig-regional-thpp
+ZONE: me-central2-c
+ITEMS: cn-backend
+NAT_IP: 
+
+NAME: cn-frontend-mig-regional-2ppw
+ZONE: me-central2-c
+ITEMS: cn-frontend
+NAT_IP: 
+
+NAME: cn-staging-ai-staging
+ZONE: me-central2-a
+ITEMS: http-server,lb-health-check
+NAT_IP: 
+defaultService: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/frontend-service
+hostRules:
+- hosts:
+  - staging.careerdevelopmentnavigator.mer.pwc.com
+  pathMatcher: path-matcher-1
+- hosts:
+  - stagingapi.careerdevelopmentnavigator.mer.pwc.com
+  pathMatcher: path-matcher-2
+- hosts:
+  - 136.68.140.144
+  pathMatcher: path-matcher-ai-test
+pathMatchers:
+- defaultService: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/frontend-service
+  name: path-matcher-1
+- defaultService: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/app-backend-service
+  name: path-matcher-2
+- defaultService: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/frontend-service
+  name: path-matcher-ai-test
+  routeRules:
+  - matchRules:
+    - prefixMatch: /ai-test/
+    priority: 1
+    routeAction:
+      urlRewrite:
+        pathPrefixRewrite: /
+    service: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/ai-test-backend
+  - matchRules:
+    - prefixMatch: /ai-test-ui
+    priority: 2
+    service: https://www.googleapis.com/compute/v1/projects/pg-ae-n-app-125609/global/backendServices/ai-test-backend
+nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
