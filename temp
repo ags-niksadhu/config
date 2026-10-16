@@ -1,19 +1,51 @@
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-2ppw:~$ sudo apache2ctl -M | grep -E 'dav|ldap|md_|ajp|ftp|userdir|vhost|digest|xml2enc|charset|include|uwsgi|proxy_html'
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-2ppw:~$ sudo find / -xdev -name .htaccess 2>/dev/null
-nikul_sadhu_gcp_pwc_com@cn-frontend-mig-regional-2ppw:~$
+## Result
 
+Both new instances (`2ppw` frontend, `thpp` backend) are clean:
+- None of the risky modules are loaded.
+- No `.htaccess` files exist anywhere on the filesystem.
 
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$ sudo apache2ctl -M | grep -E 'dav|ldap|md_|ajp|ftp|userdir|vhost|digest|xml2enc|charset|include|uwsgi|proxy_html'
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$ sudo find / -xdev -name .htaccess 2>/dev/null
-nikul_sadhu_gcp_pwc_com@cn-backend-mig-regional-thpp:~$
+That closes the "newest instances" gap. Now use your Cloud Shell access to close the MIG and LB gaps.
 
+## 1. All instances in both MIGs (version check)
 
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute instance-groups managed list-instances
-ERROR: (gcloud.compute.instance-groups.managed.list-instances) argument NAME: Must be specified.
-Usage: gcloud compute instance-groups managed list-instances NAME [optional flags]
-  optional flags may be  --filter | --help | --limit | --page-size | --region |
-                         --sort-by | --uri | --zone
+The command needs the MIG name and region. Names and region are from the hostnames, so confirm them in the output.
 
-For detailed information on this command and its flags, run:
-  gcloud compute instance-groups managed list-instances --help
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
+```bash
+gcloud compute instance-groups managed list --format="table(name,region,targetSize)"
+gcloud compute instance-groups managed list-instances cn-backend-mig-regional --region=me-central2 --format="table(name,status,instanceStatus,version.instanceTemplate.basename())"
+gcloud compute instance-groups managed list-instances cn-frontend-mig-regional --region=me-central2 --format="table(name,status,instanceStatus,version.instanceTemplate.basename())"
+```
+
+All instances should show the same template. If two templates appear, a rollout is incomplete.
+
+## 2. What sits behind 136.68.140.144 (LB side)
+
+```bash
+gcloud compute addresses list --filter="address=136.68.140.144"
+gcloud compute forwarding-rules list --filter="IPAddress=136.68.140.144" --format="yaml(name,target,loadBalancingScheme,portRange,region)"
+gcloud compute url-maps list
+gcloud compute backend-services list --format="table(name,backends[].group.basename(),securityPolicy.basename(),region)"
+```
+
+Then, for the url-map and backend services found above, show the host and path routing:
+```bash
+gcloud compute url-maps describe <URL_MAP_NAME> --format="yaml(hostRules,pathMatchers,defaultService)"   # substitute the name from url-maps list
+```
+
+This shows which backends serve `stagingapi`. It also shows whether other services, such as the AI test VM from your earlier path-routing setup, sit behind the same IP.
+
+## 3. Current access restriction (firewall and Cloud Armor)
+
+```bash
+gcloud compute firewall-rules list --format="table(name,direction,sourceRanges.list(),allowed[].map().firewall_rule().list(),targetTags.list(),disabled)"
+gcloud compute security-policies list
+```
+
+The first command shows whether 80/443 is open to `0.0.0.0/0`. The second shows whether Cloud Armor exists.
+
+Paste the output of all three. That tells us:
+- whether every instance is on `8.17`
+- what else the scanned IP serves
+- how to restrict access, which is the one real item left in PwC's email
+
+⚠️ Read-only commands only so far. Restricting access comes after, with GUI steps and a rollback, since a wrong rule can block real users.
