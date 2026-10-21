@@ -1,91 +1,60 @@
-nikul [ ~ ]$ az keyvault create -g PZI-GX-P-RGP-MDCL-P002 -n kv-cn-stg-uae -l uaenorth \
-  --enable-rbac-authorization true \
-  --enable-purge-protection true \
-  --retention-days 90 \
-  --default-action Deny \
-  --bypass AzureServices
-{
-  "id": "/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae",
-  "location": "uaenorth",
-  "name": "kv-cn-stg-uae",
-  "properties": {
-    "accessPolicies": [],
-    "createMode": null,
-    "enablePurgeProtection": true,
-    "enableRbacAuthorization": true,
-    "enableSoftDelete": true,
-    "enabledForDeployment": false,
-    "enabledForDiskEncryption": false,
-    "enabledForTemplateDeployment": false,
-    "hsmPoolResourceId": null,
-    "networkAcls": {
-      "bypass": "AzureServices",
-      "defaultAction": "Deny",
-      "ipRules": [],
-      "virtualNetworkRules": []
-    },
-    "privateEndpointConnections": null,
-    "provisioningState": "Succeeded",
-    "publicNetworkAccess": "Enabled",
-    "sku": {
-      "family": "A",
-      "name": "standard"
-    },
-    "softDeleteRetentionInDays": 90,
-    "tenantId": "513294a0-3e20-41b2-a970-6d30bf1546fa",
-    "vaultUri": "https://kv-cn-stg-uae.vault.azure.net/"
-  },
-  "resourceGroup": "PZI-GX-P-RGP-MDCL-P002",
-  "systemData": {
-    "createdAt": "2026-10-21T18:02:56.898000+00:00",
-    "createdBy": "nikul.sadhu@admin.pwc.com",
-    "createdByType": "User",
-    "lastModifiedAt": "2026-10-21T18:02:56.898000+00:00",
-    "lastModifiedBy": "nikul.sadhu@admin.pwc.com",
-    "lastModifiedByType": "User"
-  },
-  "tags": {
-    "ghs-appid": "d39e6c2c-834b-a07d-5b28-a7e7b4a08e4a",
-    "ghs-apptioid": "middleeast4908",
-    "ghs-compliance": "none",
-    "ghs-dataclassification": "confidential",
-    "ghs-envid": "da116ebf-6fc1-45c8-be5b-c19af4afd62a",
-    "ghs-environment": "Career-Navigator-LZN",
-    "ghs-environmenttype": "staging",
-    "ghs-managed": "none",
-    "ghs-owner": "RL5CR-STG001-owner",
-    "ghs-serviceoffering": "scni_base",
-    "ghs-solution": "CI158943713 - Career Navigator",
-    "ghs-tariff": "zcm",
-    "ghs-territory": "x1"
-  },
-  "type": "Microsoft.KeyVault/vaults"
-}
-nikul [ ~ ]$ az policy definition show --name az-207-enforce-applicationgateway-private-only --management-group MG-01-0023 --query "{rule:policyRule,desc:description}" -o json
-{
-  "desc": "(az-207) Ensures that Application Gateways are configured without a public frontend IP address. Its purpose is to enforce the use of private-only Application Gateways, enhancing network security by preventing exposure to the public internet.",
-  "rule": {
-    "if": {
-      "allOf": [
-        {
-          "equals": "Microsoft.Network/applicationGateways",
-          "field": "type"
-        },
-        {
-          "count": {
-            "field": "Microsoft.Network/applicationGateways/frontendIPConfigurations[*]",
-            "where": {
-              "exists": true,
-              "field": "Microsoft.Network/applicationGateways/frontendIPConfigurations[*].publicIPAddress.id"
-            }
-          },
-          "greater": 0
-        }
-      ]
-    },
-    "then": {
-      "effect": "[parameters('effect')]"
-    }
-  }
-}
-nikul [ ~ ]$ 
+**Result:** Key Vault `kv-cn-stg-uae` is created. `defaultAction: Deny`, purge protection on, RBAC on, and the `ghs-*` tags are inherited. The policy read also confirmed my worry: az-207 denies any Application Gateway with a public frontend IP (the effect parameter is `Deny` in the assignment).
+
+⚠️ **Design consequence:** the gateway must be **private-only**. That changes the plan, because a private-only v2 gateway needs private frontend IP support. Check whether it needs a preview-feature registration (it did when private-only gateways were introduced, so I won't assume it's still required). Your role blocks `Microsoft.Features/.../register`. The registration check is read-only:
+```bash
+az feature list --namespace Microsoft.Network --query "[?contains(name,'EnableApplicationGatewayNetworkIsolation')].{n:name,s:properties.state}" -o table
+```
+Paste the result, even if it's empty.
+
+**Next commands (Gallery, then roles):**
+
+```bash
+az sig create -g PZI-GX-P-RGP-MDCL-P002 -r gal_cn_stg -l uaenorth
+for a in cn-backend cn-frontend; do
+  az sig image-definition create -g PZI-GX-P-RGP-MDCL-P002 -r gal_cn_stg -i $a \
+    --publisher auxano --offer $a --sku ubuntu2404 \
+    --os-type Linux --os-state Generalized --hyper-v-generation V2
+done
+```
+
+```bash
+KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
+ME=$(az ad signed-in-user show --query id -o tsv)
+for i in id-cn-backend id-cn-frontend id-cn-appgw; do
+  P=$(az identity show -g PZI-GX-P-RGP-MDCL-P002 -n $i --query principalId -o tsv)
+  az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "Key Vault Secrets User" --scope $KV
+done
+P=$(az identity show -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-appgw --query principalId -o tsv)
+az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "Key Vault Certificates User" --scope $KV
+az role assignment create --assignee-object-id $ME --assignee-principal-type User --role "Key Vault Secrets Officer" --scope $KV
+```
+
+If a role assignment is denied, paste the error. It would be an `AuthorizationFailed` on `roleAssignments/write`, which goes in the SR.
+
+**Verify:**
+```bash
+az sig image-definition list -g PZI-GX-P-RGP-MDCL-P002 -r gal_cn_stg --query "[].{n:name,os:osType,gen:hyperVGeneration}" -o table
+az role assignment list --scope $KV --query "[].{role:roleDefinitionName,who:principalId}" -o table
+```
+Expect both definitions `V2` and 5 assignments.
+
+⚠️ **Key Vault data-plane warning:** with `Deny` and no IP rules, you can't create or read secrets from Cloud Shell. You'll see a `Forbidden` / network-rule error, and that is expected, not a permission problem. Don't store secrets yet.
+
+**The SR now needs a decision from PwC, not just permissions.** Questions to put in it:
+1. How does a user reach the staging app if the gateway is private-only? Via the PwC network or VPN, or is there a PwC-managed edge (hub firewall or Front Door)? How was GCP staging exposed?
+2. Is the private-only Application Gateway feature enabled for this subscription (register it if not), and does `az-218` (load balancer private-only) apply to the same plan?
+3. Key Vault: private endpoint plus `privatelink.vaultcore.azure.net` DNS zone, or a `Microsoft.KeyVault` service endpoint on `snet-app`.
+4. The earlier items: VNet, subnets, NSGs, NAT, Azure DevOps org and GitHub App, outbound path for agents.
+
+**Decision (trade-offs, since the policy forces this):**
+
+| Option | Cost | Complexity | Note |
+|---|---|---|---|
+| Private Application Gateway v2 in UAE North | Same fixed cost, no public IP cost | Medium | Matches policy and the earlier L7 choice |
+| Internal Standard Load Balancer (L4) | Lower | Low | Meets az-218, but no host routing or TLS offload, so two apps and TLS become harder |
+
+**Recommendation:** private Application Gateway, since you have two hostnames and TLS. Confirm the exposure path with PwC first, because a private gateway nobody can reach is not useful.
+
+**Denial log update:** Key Vault default-allow is fixed; public IP on App Gateway is a policy block that forces private-only, a design question for PwC.
+
+Run the Gallery and role commands, paste the output and the feature check, and say whether the SR has been raised. I'll draft the final SR with all five items.
