@@ -1,5 +1,43 @@
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute security-policies describe cnstaging-waf-policy-v2 --format="table(rules.priority,rules.action,rules.preview)"
-PRIORITY: [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2147483647, 898, 899, 900, 901, 902, 903, 904, 905, 906, 907, 908, 990]
-ACTION: ['rate_based_ban', 'deny(403)', 'deny(403)', 'deny(403)', 'deny(403)', 'deny(403)', 'deny(403)', 'deny(403)', 'deny(403)', 'deny(403)', 'deny(403)', 'allow', 'allow', 'allow', 'allow', 'allow', 'allow', 'allow', 'allow', 'allow', 'allow', 'allow', 'deny(403)']
-PREVIEW: [False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False]
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
+Don't change anything yet. The timeout can sit in several layers, and the fix depends on which one cuts the request.
+
+**Likely layers, in request order**
+
+| Layer | Default | Where |
+|---|---|---|
+| Dev's client (axios/fetch) | varies | Dev's code |
+| GCP LB backend service | 30s | Console |
+| LB URL map route timeout | inherits backend | Console |
+| Nginx on the VM | 60s (`proxy_read_timeout`) | VM |
+| App server (gunicorn/uvicorn/php-fpm) | 30s (gunicorn) | VM |
+
+**Run these (read-only) and send me the output**
+
+1. Time the failing call. Replace `<endpoint>` with the one the dev is hitting:
+```bash
+curl -s -o /dev/null -w "%{http_code} %{time_total}s\n" http://136.68.140.144/ai-test/<endpoint>
+```
+A 504 at about 30s points to the LB. A 502 or a different duration points to the VM.
+
+2. Check the LB backend timeouts:
+```bash
+gcloud compute backend-services list --format="table(name,region,timeoutSec)"
+```
+
+3. Find which backend service the `/ai-test/` path uses:
+```bash
+gcloud compute url-maps list
+```
+Then describe the staging one with `gcloud compute url-maps describe <name> [--region=me-central2]` and send me the `/ai-test/*` pathMatcher section.
+
+4. Check the VM, on cn-staging-ai-staging:
+```bash
+grep -rniE "timeout" /etc/nginx/ 2>/dev/null; ps aux | grep -E "gunicorn|uvicorn|php-fpm|node" | head
+```
+
+**Also ask the dev for**
+- The exact error text or status code (504, 502, or a client-side "timeout of Xms exceeded").
+- How long the AI call normally takes.
+
+**Heads-up**
+- ⚠️ The staging LB is shared. If `/ai-test/` doesn't have its own backend service, changing the timeout affects all staging paths.
+- Raising timeouts is only a quick patch. For slow AI calls, the right fix is async (return a job ID and poll, or stream the response). Long synchronous calls are fragile behind an LB. I'll give the GUI steps for whichever layer the output points to.
