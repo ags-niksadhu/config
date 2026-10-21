@@ -1,87 +1,55 @@
-Welcome to Ubuntu 24.04.5 LTS (GNU/Linux 7.0.0-1014-gcp x86_64)
+**What the output shows**
 
- * Documentation:  https://help.ubuntu.com
- * Management:     https://landscape.canonical.com
- * Support:        https://ubuntu.com/pro
+- Request path: LB `cm-staging-lb` → `ai-test-backend` (timeout **30s**) → Apache on the VM (`Timeout 60` in `ai_test.conf`) → Node (`/var/www/careernavigator-backend/dist/main.js`).
+- Any call longer than 30s will be cut by the LB first, with a 504. Apache's 60s is the next limit.
+- `ai-test-backend` is dedicated to this path, so changing it doesn't affect the other staging services.
+- I haven't confirmed that this is the failing layer. Your curl ran with the literal `<endpoint>`, so it never made a real request.
 
- System information as of Wed Oct 21 10:29:06 UTC 2026
+**Confirm first (2 inputs)**
 
-  System load:  0.03              Processes:             130
-  Usage of /:   8.3% of 95.82GB   Users logged in:       1
-  Memory usage: 19%               IPv4 address for ens4: 10.216.15.218
-  Swap usage:   0%
+1. Run the curl with the real path the dev calls, from Cloud Shell:
+```bash
+curl -s -o /dev/null -w "%{http_code} %{time_total}s\n" -m 120 http://136.68.140.144/ai-test/<real-path>
+```
+A 504 at about 30s confirms the LB.
 
- * Canonical Workshop gives developers fast, composable, reproducible, and
-   secure developer environments that are perfect for agentic workflows.
+2. Check how Apache proxies to Node (ProxyTimeout, if set):
+```bash
+grep -nE "Proxy|Timeout" /etc/apache2/sites-enabled/ai_test.conf
+```
+Also ask the dev how long the AI call takes and for the exact error text.
 
-   https://ubuntu.com/workshop
+**Fix 1: LB timeout (GUI)**
 
-Expanded Security Maintenance for Applications is not enabled.
+1. In the Console, go to Network services → Load balancing → `cm-staging-lb`.
+2. Click Edit → Backend configuration → `ai-test-backend` → Edit.
+3. Set Timeout to `300` seconds (adjust if the call takes longer), then click Update and Save.
 
-7 updates can be applied immediately.
-To see these additional updates run: apt list --upgradable
+- It takes about 1–2 minutes to propagate. There is no downtime.
+- Rollback: set it back to 30.
 
-2 additional security updates can be applied with ESM Apps.
-Learn more about enabling ESM Apps service at https://ubuntu.com/esm
+**Fix 2: Apache, only needed if calls can exceed 60s**
 
-New release '26.04.1 LTS' available.
-Run 'do-release-upgrade' to upgrade to it.
+The VM has no GUI, so this is an edit over SSH:
 
+1. Open the config:
+```bash
+sudo nano /etc/apache2/sites-available/ai_test.conf
+```
+2. Change `Timeout 60` to `Timeout 300`. If a `ProxyTimeout` line exists, set it to `300` too. Keep the numbers at or below the LB value.
+3. Validate and reload (graceful, no downtime):
+```bash
+sudo apache2ctl configtest && sudo systemctl reload apache2
+```
+Rollback: restore the old values and reload again.
 
-Last login: Wed Oct 14 06:50:11 2026 from 35.235.244.169
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ curl -s -o /dev/null -w "%{http_code} %{time_total}s\n" http://136.68.140.144/ai-test/<endpoint>
--bash: syntax error near unexpected token `newline'
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ grep -rniE "timeout" /etc/nginx/ 2>/dev/null; ps aux | grep -E "gunicorn|uvicorn|php-fpm|node" | head
-nikul_s+  429571  0.8  5.4 11923964 219092 ?     Ssl  07:54   1:16 node /var/www/careernavigator-backend/dist/main.js
-nikul_s+  435169  0.0  0.0   6692  2364 pts/2    S+   10:29   0:00 grep --color=auto -E gunicorn|uvicorn|php-fpm|node
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$ grep -rniE "timeout" /etc/apache2/ 2>/dev/null; ps aux | grep -E "gunicorn|uvicorn|php-fpm|node" | head
-/etc/apache2/sites-available/ai_test.conf:79:    # ── Timeout & Connection Settings ────────────────────────
-/etc/apache2/sites-available/ai_test.conf:80:    Timeout 60
-/etc/apache2/sites-available/ai_test.conf:82:    KeepAliveTimeout 15
-/etc/apache2/apache2.conf:90:# Timeout: The number of seconds before receives and sends time out.
-/etc/apache2/apache2.conf:92:Timeout 300
-/etc/apache2/apache2.conf:108:# KeepAliveTimeout: Number of seconds to wait for the next request from the
-/etc/apache2/apache2.conf:111:KeepAliveTimeout 5
-/etc/apache2/mods-available/reqtimeout.load:1:LoadModule reqtimeout_module /usr/lib/apache2/modules/mod_reqtimeout.so
-/etc/apache2/mods-available/ssl.conf:38:#   to use and second the expiring timeout (in seconds).
-/etc/apache2/mods-available/ssl.conf:42:SSLSessionCacheTimeout  300
-/etc/apache2/mods-available/reqtimeout.conf:1:# mod_reqtimeout limits the time waiting on the client to prevent an
-/etc/apache2/mods-available/reqtimeout.conf:4:# configuration, but it may be necessary to tune the timeout values to
-/etc/apache2/mods-available/reqtimeout.conf:6:# mod_reqtimeout per virtual host.
-/etc/apache2/mods-available/reqtimeout.conf:12:# Note: Lower timeouts may make sense on non-ssl virtual hosts but can
-/etc/apache2/mods-available/reqtimeout.conf:13:# cause problem with ssl enabled virtual hosts: This timeout includes
-/etc/apache2/mods-available/reqtimeout.conf:17:RequestReadTimeout header=20-40,minrate=500
-/etc/apache2/mods-available/reqtimeout.conf:21:RequestReadTimeout body=10,minrate=500
-/etc/apache2/sites-enabled/ai_test.conf:79:    # ── Timeout & Connection Settings ────────────────────────
-/etc/apache2/sites-enabled/ai_test.conf:80:    Timeout 60
-/etc/apache2/sites-enabled/ai_test.conf:82:    KeepAliveTimeout 15
-nikul_s+  429571  0.8  5.4 11923964 219092 ?     Ssl  07:54   1:16 node /var/www/careernavigator-backend/dist/main.js
-nikul_s+  435173  0.0  0.0   6692  2368 pts/2    S+   10:29   0:00 grep --color=auto -E gunicorn|uvicorn|php-fpm|node
-nikul_sadhu_gcp_pwc_com@cn-staging-ai-staging:~$
+**Verify**
 
+Re-run the timed curl. A call that previously returned 504 at 30s should now complete or fail at the new limit.
 
+**Quick patch vs long-term fix**
 
+- Quick patch: raise the timeouts as above.
+- Long-term (recommended for prod): make long AI calls async. Return a job ID right away and have the client poll, or stream the response. Long synchronous calls behind an LB are fragile and tie up Node workers.
 
-
-
-
-
-
-
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute backend-services list --format="table(name,region,timeoutSec)"
-NAME: ai-test-backend
-REGION: 
-TIMEOUT_SEC: 30
-
-NAME: app-backend-service
-REGION: 
-TIMEOUT_SEC: 30
-
-NAME: frontend-service
-REGION: 
-TIMEOUT_SEC: 30
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ gcloud compute url-maps list
-NAME: cm-staging-lb
-DEFAULT_SERVICE: backendServices/frontend-service
-nikul_sadhu@cloudshell:~ (pg-ae-n-app-125609)$ 
-
+Send me the curl result and the grep output if it still times out.
