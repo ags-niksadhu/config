@@ -1,11 +1,9 @@
-**Diagnosis:** this isn't a permission problem and doesn't need an SR. Policy `az-671` (Deny, set at management group level) requires every Log Analytics workspace to have `disableLocalAuth = true`, which means Azure AD-only ingestion. The Portal's create form has no field for it, so the form can never pass. A template deployment can set it.
+**Yes.** The CLI shortcut for this setting isn't reliable across `az` versions, so use a template deployment from Cloud Shell. It is the same thing as the Portal custom template, so the policy passes.
 
-**Fix (GUI): deploy a custom template**
-1. Portal → search **Deploy a custom template** → **Build your own template in the editor**.
-2. Paste the JSON below → **Save**.
-3. Subscription `pzi-gxx1-rl5cr-stg001`, Resource group `PZI-GX-P-RGP-MDCL-P002` → **Review + create** → **Create**.
+```bash
+az account set --subscription 494e3888-fedb-4a07-96a6-65408b12c0ea
 
-```json
+cat > law.json <<'EOF'
 {
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
@@ -24,10 +22,16 @@
     }
   ]
 }
+EOF
+
+az deployment group create \
+  --subscription 494e3888-fedb-4a07-96a6-65408b12c0ea \
+  -g PZI-GX-P-RGP-MDCL-P002 \
+  -n law-deploy \
+  --template-file law.json
 ```
-Two values to confirm before you deploy:
-- `retentionInDays`: I put 30 as a placeholder, not the GCP compliance value. Replace it with the retention PwC requires.
-- `dailyQuotaGb`: 1 is a cost cap. Raise it if you expect more ingestion.
+
+`retentionInDays` (30) is a placeholder, not the GCP compliance value, so replace it before running. `dailyQuotaGb` (1) is a cost cap.
 
 **Verify:**
 ```bash
@@ -35,15 +39,8 @@ az monitor log-analytics workspace show -g PZI-GX-P-RGP-MDCL-P002 -n log-cn-stg-
 ```
 Expect `uaenorth`, `Succeeded`, `true`, and `ghs-*` tags.
 
-**Consequence for later:** AD-only ingestion means VMs must send logs with **Azure Monitor Agent + managed identity** (what I planned). The legacy Log Analytics agent with a workspace key will be rejected.
+If it fails, paste the full error, since it will name the policy.
 
-⚠️ **Expect more policies like this.** This one comes from a PwC logging policy set that probably also covers Key Vault, Storage and PostgreSQL (for example no shared-key access, or required diagnostic settings). Each failed create gives a full error, so paste each one. If it names a property, we fix it in the template, not with an SR. Only `AuthorizationFailed` or an exemption need PwC.
+**Rollback:** `az monitor log-analytics workspace delete -g PZI-GX-P-RGP-MDCL-P002 -n log-cn-stg-uaenorth --yes` (soft-deleted for 14 days).
 
-**Denial log so far:**
-
-| Item | Cause | Action |
-|---|---|---|
-| VNet, NSG, public IP, NAT writes | Role `notActions` | SR (open) |
-| Log Analytics via Portal form | Policy az-671, needs `disableLocalAuth=true` | Fixed by template, no SR |
-
-Deploy it and paste the verify output. Next is Key Vault, and I'll pre-set the properties the same logging policy set is likely to require.
+Note: the file `law.json` disappears when the session ends, which is fine, but keep a copy in the repo under `azure/infra/` so the setup is reproducible.
