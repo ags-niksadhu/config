@@ -1,55 +1,40 @@
-**What the output shows**
+Your Cloud Shell session will be ephemeral so no files or system changes will persist beyond your current session.
+nikul [ ~ ]$ az resource list -g rg-cn-stg-uaenorth --query "[].{n:name,t:type,l:location}" -o table
+(AuthorizationFailed) The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' does not have authorization to perform action 'Microsoft.Resources/subscriptions/resourcegroups/read' over scope '/subscriptions/172d4e6c-aca0-4f47-8755-878ef0bfaf87/resourcegroups/rg-cn-stg-uaenorth' or the scope is invalid. If access was recently granted, please refresh your credentials.
+Code: AuthorizationFailed
+Message: The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' does not have authorization to perform action 'Microsoft.Resources/subscriptions/resourcegroups/read' over scope '/subscriptions/172d4e6c-aca0-4f47-8755-878ef0bfaf87/resourcegroups/rg-cn-stg-uaenorth' or the scope is invalid. If access was recently granted, please refresh your credentials.
+nikul [ ~ ]$ az resource list -g  --query "[].{n:name,t:type,l:location}" -o table
+argument --resource-group/-g: expected one argument
 
-- Request path: LB `cm-staging-lb` → `ai-test-backend` (timeout **30s**) → Apache on the VM (`Timeout 60` in `ai_test.conf`) → Node (`/var/www/careernavigator-backend/dist/main.js`).
-- Any call longer than 30s will be cut by the LB first, with a 504. Apache's 60s is the next limit.
-- `ai-test-backend` is dedicated to this path, so changing it doesn't affect the other staging services.
-- I haven't confirmed that this is the failing layer. Your curl ran with the literal `<endpoint>`, so it never made a real request.
+Examples from command's help:
+az resource list --location westus
+List all resources in the West US region.
 
-**Confirm first (2 inputs)**
+az resource list --name 'resourceName'
+List all resources with the name 'resourceName'.
 
-1. Run the curl with the real path the dev calls, from Cloud Shell:
-```bash
-curl -s -o /dev/null -w "%{http_code} %{time_total}s\n" -m 120 http://136.68.140.144/ai-test/<real-path>
-```
-A 504 at about 30s confirms the LB.
+az resource list --tag test
+List all resources with the tag 'test'.
 
-2. Check how Apache proxies to Node (ProxyTimeout, if set):
-```bash
-grep -nE "Proxy|Timeout" /etc/apache2/sites-enabled/ai_test.conf
-```
-Also ask the dev how long the AI call takes and for the exact error text.
+https://aka.ms/cli_ref
+Read more about the command in reference docs
+nikul [ ~ ]$ az resource list --name
+argument --name/-n: expected one argument
 
-**Fix 1: LB timeout (GUI)**
+Examples from command's help:
+az resource list --name 'resourceName'
+List all resources with the name 'resourceName'.
 
-1. In the Console, go to Network services → Load balancing → `cm-staging-lb`.
-2. Click Edit → Backend configuration → `ai-test-backend` → Edit.
-3. Set Timeout to `300` seconds (adjust if the call takes longer), then click Update and Save.
+az resource list --location westus
+List all resources in the West US region.
 
-- It takes about 1–2 minutes to propagate. There is no downtime.
-- Rollback: set it back to 30.
+az resource list --tag test
+List all resources with the tag 'test'.
 
-**Fix 2: Apache, only needed if calls can exceed 60s**
-
-The VM has no GUI, so this is an edit over SSH:
-
-1. Open the config:
-```bash
-sudo nano /etc/apache2/sites-available/ai_test.conf
-```
-2. Change `Timeout 60` to `Timeout 300`. If a `ProxyTimeout` line exists, set it to `300` too. Keep the numbers at or below the LB value.
-3. Validate and reload (graceful, no downtime):
-```bash
-sudo apache2ctl configtest && sudo systemctl reload apache2
-```
-Rollback: restore the old values and reload again.
-
-**Verify**
-
-Re-run the timed curl. A call that previously returned 504 at 30s should now complete or fail at the new limit.
-
-**Quick patch vs long-term fix**
-
-- Quick patch: raise the timeouts as above.
-- Long-term (recommended for prod): make long AI calls async. Return a job ID right away and have the client poll, or stream the response. Long synchronous calls behind an LB are fragile and tie up Node workers.
-
-Send me the curl result and the grep output if it still times out.
+https://aka.ms/cli_ref
+Read more about the command in reference docs
+nikul [ ~ ]$ az resource list
+[]
+nikul [ ~ ]$ az keyvault show -n kv-cn-stg-uae --query "{rbac:properties.enableRbacAuthorization,purge:properties.enablePurgeProtection,soft:properties.enableSoftDelete}" -o json
+The Vault 'kv-cn-stg-uae' not found within subscription.
+nikul [ ~ ]$ 
