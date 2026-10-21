@@ -1,11 +1,36 @@
-nikul [ ~ ]$ az account set --subscription 494e3888-fedb-4a07-96a6-65408b12c0ea
-nikul [ ~ ]$ az account show --query "{name:name,id:id}" -o table
-Name
----------------------
-pzi-gxx1-rl5cr-stg001
-nikul [ ~ ]$ az group list --query "[].{n:name,loc:location,state:properties.provisioningState}" -o table
-N                       Loc         State
-----------------------  ----------  ---------
-PZI-GX-P-RGP-MDCL-P001  westeurope  Succeeded
-PZI-GX-P-RGP-MDCL-P002  uaenorth    Succeeded
+nikul [ ~ ]$ az resource list -g PZI-GX-P-RGP-MDCL-P002 --query "[].{n:name,t:type,l:location}" -o table
+
+nikul [ ~ ]$ az lock list -g PZI-GX-P-RGP-MDCL-P002 -o table
+
+nikul [ ~ ]$ az network vnet list -g PZI-GX-P-RGP-MDCL-P002 -o table
+
+nikul [ ~ ]$ az group show -n PZI-GX-P-RGP-MDCL-P002 --query "{loc:location,tags:tags}" -o json
+{
+  "loc": "uaenorth",
+  "tags": {
+    "ghs-appid": "d39e6c2c-834b-a07d-5b28-a7e7b4a08e4a",
+    "ghs-apptioid": "middleeast4908",
+    "ghs-compliance": "none",
+    "ghs-dataclassification": "confidential",
+    "ghs-deployedby": "policy",
+    "ghs-envid": "da116ebf-6fc1-45c8-be5b-c19af4afd62a",
+    "ghs-environment": "Career-Navigator-LZN",
+    "ghs-environmenttype": "staging",
+    "ghs-los": "Internal Firm Services",
+    "ghs-managed": "none",
+    "ghs-owner": "RL5CR-STG001-owner",
+    "ghs-reserved1": "none",
+    "ghs-reserved2": "",
+    "ghs-reserved3": "",
+    "ghs-reserved4": "",
+    "ghs-reserved5": "",
+    "ghs-rgcompliance": "soc2",
+    "ghs-serviceoffering": "scni_base",
+    "ghs-solution": "CI158943713 - Career Navigator",
+    "ghs-solutionexposure": "PwC Internal",
+    "ghs-srid": "PRJ0627470",
+    "ghs-tariff": "zcm",
+    "ghs-territory": "x1"
+  }
+}
 nikul [ ~ ]$ 
