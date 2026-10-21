@@ -1,60 +1,25 @@
-**Result:** Key Vault `kv-cn-stg-uae` is created. `defaultAction: Deny`, purge protection on, RBAC on, and the `ghs-*` tags are inherited. The policy read also confirmed my worry: az-207 denies any Application Gateway with a public frontend IP (the effect parameter is `Deny` in the assignment).
-
-⚠️ **Design consequence:** the gateway must be **private-only**. That changes the plan, because a private-only v2 gateway needs private frontend IP support. Check whether it needs a preview-feature registration (it did when private-only gateways were introduced, so I won't assume it's still required). Your role blocks `Microsoft.Features/.../register`. The registration check is read-only:
-```bash
-az feature list --namespace Microsoft.Network --query "[?contains(name,'EnableApplicationGatewayNetworkIsolation')].{n:name,s:properties.state}" -o table
-```
-Paste the result, even if it's empty.
-
-**Next commands (Gallery, then roles):**
-
-```bash
-az sig create -g PZI-GX-P-RGP-MDCL-P002 -r gal_cn_stg -l uaenorth
+nikul [ ~ ]$ az feature list --namespace Microsoft.Network --query "[?contains(name,'EnableApplicationGatewayNetworkIsolation')].{n:name,s:properties.state}" -o table
+N                                                           S
+----------------------------------------------------------  ----------
+Microsoft.Network/EnableApplicationGatewayNetworkIsolation  Registered
+nikul [ ~ ]$ az sig create -g PZI-GX-P-RGP-MDCL-P002 -r gal_cn_stg -l uaenorth
 for a in cn-backend cn-frontend; do
   az sig image-definition create -g PZI-GX-P-RGP-MDCL-P002 -r gal_cn_stg -i $a \
     --publisher auxano --offer $a --sku ubuntu2404 \
     --os-type Linux --os-state Generalized --hyper-v-generation V2
 done
-```
-
-```bash
-KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
-ME=$(az ad signed-in-user show --query id -o tsv)
-for i in id-cn-backend id-cn-frontend id-cn-appgw; do
-  P=$(az identity show -g PZI-GX-P-RGP-MDCL-P002 -n $i --query principalId -o tsv)
-  az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "Key Vault Secrets User" --scope $KV
-done
-P=$(az identity show -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-appgw --query principalId -o tsv)
-az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "Key Vault Certificates User" --scope $KV
-az role assignment create --assignee-object-id $ME --assignee-principal-type User --role "Key Vault Secrets Officer" --scope $KV
-```
-
-If a role assignment is denied, paste the error. It would be an `AuthorizationFailed` on `roleAssignments/write`, which goes in the SR.
-
-**Verify:**
-```bash
-az sig image-definition list -g PZI-GX-P-RGP-MDCL-P002 -r gal_cn_stg --query "[].{n:name,os:osType,gen:hyperVGeneration}" -o table
-az role assignment list --scope $KV --query "[].{role:roleDefinitionName,who:principalId}" -o table
-```
-Expect both definitions `V2` and 5 assignments.
-
-⚠️ **Key Vault data-plane warning:** with `Deny` and no IP rules, you can't create or read secrets from Cloud Shell. You'll see a `Forbidden` / network-rule error, and that is expected, not a permission problem. Don't store secrets yet.
-
-**The SR now needs a decision from PwC, not just permissions.** Questions to put in it:
-1. How does a user reach the staging app if the gateway is private-only? Via the PwC network or VPN, or is there a PwC-managed edge (hub firewall or Front Door)? How was GCP staging exposed?
-2. Is the private-only Application Gateway feature enabled for this subscription (register it if not), and does `az-218` (load balancer private-only) apply to the same plan?
-3. Key Vault: private endpoint plus `privatelink.vaultcore.azure.net` DNS zone, or a `Microsoft.KeyVault` service endpoint on `snet-app`.
-4. The earlier items: VNet, subnets, NSGs, NAT, Azure DevOps org and GitHub App, outbound path for agents.
-
-**Decision (trade-offs, since the policy forces this):**
-
-| Option | Cost | Complexity | Note |
-|---|---|---|---|
-| Private Application Gateway v2 in UAE North | Same fixed cost, no public IP cost | Medium | Matches policy and the earlier L7 choice |
-| Internal Standard Load Balancer (L4) | Lower | Low | Meets az-218, but no host routing or TLS offload, so two apps and TLS become harder |
-
-**Recommendation:** private Application Gateway, since you have two hostnames and TLS. Confirm the exposure path with PwC first, because a private gateway nobody can reach is not useful.
-
-**Denial log update:** Key Vault default-allow is fixed; public IP on App Gateway is a policy block that forces private-only, a design question for PwC.
-
-Run the Gallery and role commands, paste the output and the feature check, and say whether the SR has been raised. I'll draft the final SR with all five items.
+(RequestDisallowedByPolicy) Resource 'gal_cn_stg' was disallowed by policy. Policy identifiers: '[{"policyAssignment":{"name":"MG-02-0082-az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-02-0082/providers/Microsoft.Authorization/policyAssignments/MG-02-0082-az-014"},"policyDefinition":{"name":"az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-01-0023/providers/Microsoft.Authorization/policyDefinitions/az-014-enforce-allowed-resource-types","version":"1.0.0"}}]'.
+Code: RequestDisallowedByPolicy
+Message: Resource 'gal_cn_stg' was disallowed by policy. Policy identifiers: '[{"policyAssignment":{"name":"MG-02-0082-az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-02-0082/providers/Microsoft.Authorization/policyAssignments/MG-02-0082-az-014"},"policyDefinition":{"name":"az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-01-0023/providers/Microsoft.Authorization/policyDefinitions/az-014-enforce-allowed-resource-types","version":"1.0.0"}}]'.
+Target: gal_cn_stg
+Starting Build (May) 2024, "az sig image-definition create" command will use the new default values Hyper-V Generation: V2 and SecurityType: TrustedLaunchSupported.
+(RequestDisallowedByPolicy) Resource 'cn-backend' was disallowed by policy. Policy identifiers: '[{"policyAssignment":{"name":"MG-02-0082-az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-02-0082/providers/Microsoft.Authorization/policyAssignments/MG-02-0082-az-014"},"policyDefinition":{"name":"az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-01-0023/providers/Microsoft.Authorization/policyDefinitions/az-014-enforce-allowed-resource-types","version":"1.0.0"}}]'.
+Code: RequestDisallowedByPolicy
+Message: Resource 'cn-backend' was disallowed by policy. Policy identifiers: '[{"policyAssignment":{"name":"MG-02-0082-az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-02-0082/providers/Microsoft.Authorization/policyAssignments/MG-02-0082-az-014"},"policyDefinition":{"name":"az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-01-0023/providers/Microsoft.Authorization/policyDefinitions/az-014-enforce-allowed-resource-types","version":"1.0.0"}}]'.
+Target: cn-backend
+Starting Build (May) 2024, "az sig image-definition create" command will use the new default values Hyper-V Generation: V2 and SecurityType: TrustedLaunchSupported.
+(RequestDisallowedByPolicy) Resource 'cn-frontend' was disallowed by policy. Policy identifiers: '[{"policyAssignment":{"name":"MG-02-0082-az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-02-0082/providers/Microsoft.Authorization/policyAssignments/MG-02-0082-az-014"},"policyDefinition":{"name":"az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-01-0023/providers/Microsoft.Authorization/policyDefinitions/az-014-enforce-allowed-resource-types","version":"1.0.0"}}]'.
+Code: RequestDisallowedByPolicy
+Message: Resource 'cn-frontend' was disallowed by policy. Policy identifiers: '[{"policyAssignment":{"name":"MG-02-0082-az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-02-0082/providers/Microsoft.Authorization/policyAssignments/MG-02-0082-az-014"},"policyDefinition":{"name":"az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-01-0023/providers/Microsoft.Authorization/policyDefinitions/az-014-enforce-allowed-resource-types","version":"1.0.0"}}]'.
+Target: cn-frontend
+nikul [ ~ ]$ 
