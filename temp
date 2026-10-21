@@ -1,54 +1,91 @@
-**Diagnosis:** the 3 managed identities were created. Key Vault was denied by policy `az-024` (Deny): `networkAcls.defaultAction` must be `Deny`. My command left it at the default `Allow`. It is fixable without an SR.
-
-**Quick patch (retry with the firewall on):**
-```bash
-az keyvault create -g PZI-GX-P-RGP-MDCL-P002 -n kv-cn-stg-uae -l uaenorth \
+nikul [ ~ ]$ az keyvault create -g PZI-GX-P-RGP-MDCL-P002 -n kv-cn-stg-uae -l uaenorth \
   --enable-rbac-authorization true \
   --enable-purge-protection true \
   --retention-days 90 \
   --default-action Deny \
   --bypass AzureServices
-```
-(GUI equivalent: Key Vault → Create → Networking tab → "Enable public access from specific virtual networks and IP addresses", with no networks added.)
-
-| Part | Impact |
-|---|---|
-| `--default-action Deny` | All network access is blocked unless allowed by a rule. This satisfies az-024 |
-| `--bypass AzureServices` | Trusted Microsoft services can still reach the vault |
-
-⚠️ With Deny, **your own Cloud Shell can't read or write secrets** (data plane). Creating the vault and role assignments still works, because that is the management plane. Don't store secrets yet. To set them later, add your current IP: `az keyvault network-rule add -n kv-cn-stg-uae --ip-address <IP>/32`. The Cloud Shell IP changes per session, so this is temporary.
-
-⚠️ Purge protection is irreversible, so confirm the name `kv-cn-stg-uae` before running.
-
-**Long-term (recommended for prod):** a private endpoint, or a VNet rule with a `Microsoft.KeyVault` service endpoint on the app subnets. Both need the VNet, so add them to the networking SR.
-
-**⚠️ Bigger finding in that error output, which affects the design.** The policy assignment parameters include `az-207-enforce-applicationgateway-private-only: Deny` and `az-218-enforce-load-balancer-private-only: Deny`. If these mean what the names say, **an Application Gateway or load balancer with a public IP will be denied.** Your role also blocks public IP writes, so a public test IP was never going to work. The load balancer must be internal (private frontend IP only), reached from the PwC network.
-
-I haven't read the policy rule itself, so this is unconfirmed. Check (read-only):
-```bash
-az policy definition show --name az-207-enforce-applicationgateway-private-only --management-group MG-01-0023 --query "{rule:policyRule,desc:description}" -o json
-```
-If the command is denied, say so. It is a read, so it may need no SR.
-
-**What this changes in the plan:**
-- Application Gateway v2 is **private-only**. Check whether it needs a preview-feature registration, which your role blocks (`Microsoft.Features/.../register` is in `notActions`). Add this question to the SR.
-- Public URLs for users need a PwC-managed path: a PwC edge, VPN, or private DNS. Ask who exposes the staging hostname today and how GCP staging was reached.
-- Replace "public IP for App Gateway" in the SR with "private frontend IP on snet-appgw".
-
-**Updated SR list (the batch is growing):**
-1. VNet, subnets, NSGs, NAT (role blocks).
-2. Private-only Application Gateway: feature registration if required, and the exposure path for the app hostnames.
-3. Key Vault network access: `Microsoft.KeyVault` service endpoint on `snet-app` and `snet-appgw`, or a private endpoint plus private DNS zone.
-4. Azure DevOps org/project and GitHub App approval.
-5. Outbound path for the agents subnet (GitHub, npm, NodeSource, Packer plugin host).
-
-**Denial log:**
-
-| Item | Cause | Action |
-|---|---|---|
-| Networking writes | Role `notActions` | SR |
-| Log Analytics via Portal | az-671 | Fixed (template) |
-| Key Vault default allow | az-024 | Fixed (`--default-action Deny`) |
-| Public IP on App Gateway/LB | az-207/az-218 (Deny) + role | SR / design change |
-
-Run the Key Vault command, and paste the output of that and the policy definition command. If the vault passes, I'll give the Gallery and role assignment steps. Both are unaffected by these policies, as far as the errors so far show.
+{
+  "id": "/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae",
+  "location": "uaenorth",
+  "name": "kv-cn-stg-uae",
+  "properties": {
+    "accessPolicies": [],
+    "createMode": null,
+    "enablePurgeProtection": true,
+    "enableRbacAuthorization": true,
+    "enableSoftDelete": true,
+    "enabledForDeployment": false,
+    "enabledForDiskEncryption": false,
+    "enabledForTemplateDeployment": false,
+    "hsmPoolResourceId": null,
+    "networkAcls": {
+      "bypass": "AzureServices",
+      "defaultAction": "Deny",
+      "ipRules": [],
+      "virtualNetworkRules": []
+    },
+    "privateEndpointConnections": null,
+    "provisioningState": "Succeeded",
+    "publicNetworkAccess": "Enabled",
+    "sku": {
+      "family": "A",
+      "name": "standard"
+    },
+    "softDeleteRetentionInDays": 90,
+    "tenantId": "513294a0-3e20-41b2-a970-6d30bf1546fa",
+    "vaultUri": "https://kv-cn-stg-uae.vault.azure.net/"
+  },
+  "resourceGroup": "PZI-GX-P-RGP-MDCL-P002",
+  "systemData": {
+    "createdAt": "2026-10-21T18:02:56.898000+00:00",
+    "createdBy": "nikul.sadhu@admin.pwc.com",
+    "createdByType": "User",
+    "lastModifiedAt": "2026-10-21T18:02:56.898000+00:00",
+    "lastModifiedBy": "nikul.sadhu@admin.pwc.com",
+    "lastModifiedByType": "User"
+  },
+  "tags": {
+    "ghs-appid": "d39e6c2c-834b-a07d-5b28-a7e7b4a08e4a",
+    "ghs-apptioid": "middleeast4908",
+    "ghs-compliance": "none",
+    "ghs-dataclassification": "confidential",
+    "ghs-envid": "da116ebf-6fc1-45c8-be5b-c19af4afd62a",
+    "ghs-environment": "Career-Navigator-LZN",
+    "ghs-environmenttype": "staging",
+    "ghs-managed": "none",
+    "ghs-owner": "RL5CR-STG001-owner",
+    "ghs-serviceoffering": "scni_base",
+    "ghs-solution": "CI158943713 - Career Navigator",
+    "ghs-tariff": "zcm",
+    "ghs-territory": "x1"
+  },
+  "type": "Microsoft.KeyVault/vaults"
+}
+nikul [ ~ ]$ az policy definition show --name az-207-enforce-applicationgateway-private-only --management-group MG-01-0023 --query "{rule:policyRule,desc:description}" -o json
+{
+  "desc": "(az-207) Ensures that Application Gateways are configured without a public frontend IP address. Its purpose is to enforce the use of private-only Application Gateways, enhancing network security by preventing exposure to the public internet.",
+  "rule": {
+    "if": {
+      "allOf": [
+        {
+          "equals": "Microsoft.Network/applicationGateways",
+          "field": "type"
+        },
+        {
+          "count": {
+            "field": "Microsoft.Network/applicationGateways/frontendIPConfigurations[*]",
+            "where": {
+              "exists": true,
+              "field": "Microsoft.Network/applicationGateways/frontendIPConfigurations[*].publicIPAddress.id"
+            }
+          },
+          "greater": 0
+        }
+      ]
+    },
+    "then": {
+      "effect": "[parameters('effect')]"
+    }
+  }
+}
+nikul [ ~ ]$ 
