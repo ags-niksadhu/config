@@ -1,46 +1,41 @@
-**Result:** two denials, one leftover risk, and nothing else changed.
 
-| Command | Result | Meaning |
-|---|---|---|
-| `Key Vault Certificate User` → `id-cn-appgw` | ❌ ABAC condition not met | The name was right this time, so this is a real block. Together with the earlier Secrets User denial, neither role is allowed to you. Your RBAC Admin condition is a fixed role list. Secrets Officer is on it, and I couldn't find the Secrets User or Certificate User role IDs in it |
-| `az role assignment delete` | ❌ no authorization (not even ABAC) | You can create some assignments but can't delete them |
-| `az role assignment list` | Shows one `Key Vault Secrets Officer` row | The output dropped the `type` column. The vault should have **two** Secrets Officer rows (you and `id-cn-backend`), so re-check with the command below before assuming anything |
-
-My test command caused the leftover. ⚠️ `id-cn-backend` currently holds Secrets Officer, which breaks least privilege (read, write and delete on secrets). The risk is low today, because the identity isn't attached to any compute and the vault network default is Deny. Still, don't leave it.
-
-**Confirm the state (read-only):**
-```bash
-KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
+nikul [ ~ ]$ KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
 az role assignment list --scope $KV --query "[].{role:roleDefinitionName,principal:principalId,type:principalType,name:name}" -o table
-```
+Role                       Principal                             Name
+-------------------------  ------------------------------------  ------------------------------------
+Key Vault Secrets Officer  5975ab35-e0ec-40d4-b9e8-9a83b2e55b97  c8d2e0f6-2ca1-4dff-8764-6ac03be6e85e
+nikul [ ~ ]$ 
 
-**Cleanup options for the leftover assignment**
+Name
+Type
+Resource group
+Location
+Subscription ID
 
-| Option | Cost | Complexity | Notes |
-|---|---|---|---|
-| Quick patch: delete the identity `id-cn-backend` and recreate it | Free | Low | The assignment is tied to the old principal ID, so it becomes an orphan that grants nothing. A recreated identity gets a new principal ID. Safe now because nothing uses the identity yet. ⚠️ Irreversible, since the old principal ID is gone |
-| Long-term (recommended): ask PwC to delete assignment `c741ff54-2b4c-4a8a-9c29-c88f421c025e` | Free | Needs the SR | Cleanest, and leaves no orphan. Add it to the SR below |
+id-cn-appgw
 
-**Recommendation:** do the quick patch now, and still mention the orphan in the SR so PwC can tidy it. **GUI steps:**
-1. Portal → Managed Identities → `id-cn-backend` → **Delete** → confirm.
-2. Create it again: Managed Identities → Create → RG `PZI-GX-P-RGP-MDCL-P002`, region UAE North, name `id-cn-backend`.
+Managed Identity
+PZI-GX-P-RGP-MDCL-P002
+UAE North
+/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea
 
-If the delete is denied, paste the error. Then it goes in the SR too.
+id-cn-backend
 
-**Updated SR content (role items):**
-```
-Key Vault kv-cn-stg-uae, RG PZI-GX-P-RGP-MDCL-P002:
-1. Assign "Key Vault Secrets User" to id-cn-backend, id-cn-frontend, id-cn-appgw.
-2. Assign "Key Vault Certificate User" to id-cn-appgw.
-   (Our RBAC Admin condition does not permit these roles.)
-3. Remove the role assignment c741ff54-2b4c-4a8a-9c29-c88f421c025e
-   (Secrets Officer on id-cn-backend, created in error during testing).
-4. Confirm whether our RBAC Admin condition can be extended to include
-   Secrets User and Certificate User, so we need no SR for this next time.
-```
+Managed Identity
+PZI-GX-P-RGP-MDCL-P002
+UAE North
+/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea
 
-**Still waiting on you:** the architecture choice (A App Service, B VMSS + gallery exemption, C fixed VMs, D AKS) and the provider output:
-```bash
-for p in Microsoft.Web Microsoft.DevOpsInfrastructure Microsoft.DevCenter Microsoft.ContainerService; do echo -n "$p: "; az provider show -n $p --query registrationState -o tsv; done
-```
-Send those and I'll write the one batched SR with all items, then replace the Packer and VMSS pipeline files with the matching design.
+id-cn-frontend
+
+Managed Identity
+PZI-GX-P-RGP-MDCL-P002
+UAE North
+/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea
+
+IMGFY_provisioning_managed_identity
+
+Managed Identity
+PZI-GXUS-S-RGP-IMGP-P001
+East US
+/subscriptions/c72daa19-9a38-
