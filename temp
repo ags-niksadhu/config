@@ -1,63 +1,15 @@
-**Do this first.** My test command succeeded, so `id-cn-backend` now holds `Key Vault Secrets Officer` (read, write and delete on secrets). That is broader than the app needs. Remove it, as planned:
-
-```bash
-az role assignment delete --ids /subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae/providers/Microsoft.Authorization/roleAssignments/c741ff54-2b4c-4a8a-9c29-c88f421c025e
+nikul [ ~ ]$ P=$(az identity show -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-appgw --query principalId -o tsv)
+az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "Key Vault Certificate User" --scope $KV
+(AuthorizationFailed) The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' has an authorization with ABAC condition that is not fulfilled to perform action 'Microsoft.Authorization/roleAssignments/write' over scope '/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae/providers/Microsoft.Authorization/roleAssignments/efc37ca8-614b-47f1-b507-4dc8e5aac7b0' or the scope is invalid. If access was recently granted, please refresh your credentials.
+Code: AuthorizationFailed
+Message: The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' has an authorization with ABAC condition that is not fulfilled to perform action 'Microsoft.Authorization/roleAssignments/write' over scope '/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae/providers/Microsoft.Authorization/roleAssignments/efc37ca8-614b-47f1-b507-4dc8e5aac7b0' or the scope is invalid. If access was recently granted, please refresh your credentials.
+nikul [ ~ ]$ az role assignment delete --ids /subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae/providers/Microsoft.Authorization/roleAssignments/c741ff54-2b4c-4a8a-9c29-c88f421c025e
 KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
 az role assignment list --scope $KV --query "[].{role:roleDefinitionName,type:principalType}" -o table
-```
-Expect one row left (you, Secrets Officer). The app couldn't read secrets right now anyway, because the vault network is set to Deny.
-
-## 1. Role assignments
-
-| Finding | Meaning |
-|---|---|
-| The service principal got Secrets Officer, but Secrets User was denied | Principal type is not the issue. Your RBAC Admin role only lets you assign roles from a fixed GUID list, and the list seems not to include Secrets User |
-| Certificate User failed on the name | My typo, not a denial. Test it with the correct name below |
-
-```bash
-P=$(az identity show -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-appgw --query principalId -o tsv)
-az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "Key Vault Certificate User" --scope $KV
-```
-If it is denied again, both roles go in the SR. If it passes, only Secrets User does.
-
-## 2. ⚠️ Bigger finding in the az-014 allow-list
-
-Reading the allow-list, these are **not** on it:
-
-| Not allowed | What it breaks |
-|---|---|
-| `Microsoft.Compute/virtualMachineScaleSets` (only permitted inside AKS-managed resource groups) | The VMSS autoscaling design, plus the VMSS-based agent pool I proposed |
-| `Microsoft.Compute/galleries` | Gallery, which you already saw denied |
-| `Microsoft.Compute/images` | The managed-image fallback I offered earlier, so scrap that |
-
-This is from reading the rule text. It isn't confirmed until a VMSS create is attempted, which needs the VNet first. **Allowed** and useful: `Microsoft.Web/*` (App Service), `Microsoft.Network/*` (App Gateway, private endpoints), `Microsoft.DBforPostgreSQL/flexibleServers`, `Microsoft.Compute/virtualMachines`, `disks`, `snapshots`, `Microsoft.ContainerService/*` (AKS), `Microsoft.App/containerApps`, and `Microsoft.DevOpsInfrastructure/*` (Managed DevOps Pools, which replace the VMSS agent pool).
-
-So the GCP golden-image + MIG pattern can't be reproduced without two policy exemptions. That is an architecture decision for you.
-
-| Option | Cost | Complexity | Downtime | Policy |
-|---|---|---|---|---|
-| A. App Service (Linux, Premium v3, autoscale) | Per-instance plan cost, no VM patching | Medium: Apache, PM2 and Packer work is dropped, and the app must listen on App Service's port | None (slots) | Types allowed, no exemption |
-| B. VMSS + Gallery via exemption | Lowest | Low (the design already built) | None | ⚠️ Two exemptions, timeline unknown |
-| C. Fixed VMs, no autoscale | VM cost × N | Medium: no golden image, pipeline deploys to the VMs | Manual rolling | Allowed |
-| D. AKS | Highest | High | None | Allowed |
-
-**Recommendation: A.** It is the only option that uses already-allowed types, it has built-in autoscale and zone redundancy (verify the SKU requirements), and it removes the OS-patching CPU spikes you debugged on GCP. Trade-offs: the Packer, Apache and VMSS work so far goes unused, the dev team must confirm the apps run on an App Service Node runtime, and private access still needs the VNet and private endpoints from the SR. You can add a B exemption request to the SR at no cost, but don't wait on it.
-
-⚠️ New recurring spend: App Service plan hours per instance. Compare Premium v3 sizes in UAE North in the Pricing Calculator before choosing.
-
-Check provider readiness (read-only):
-```bash
-for p in Microsoft.Web Microsoft.DevOpsInfrastructure Microsoft.DevCenter Microsoft.ContainerService; do echo -n "$p: "; az provider show -n $p --query registrationState -o tsv; done
-```
-
-## 3. Denial log
-
-| Item | Cause | Action |
-|---|---|---|
-| Networking writes (VNet, NSG, NAT, public IP) | Role `notActions` | SR |
-| Gateway exposure path | az-207/az-218, private-only | SR question |
-| Gallery, VMSS, images | az-014 allow-list | Design decision above, or exemption |
-| Key Vault private access | az-024 | SR |
-| Secrets User (and maybe Certificate User) | RBAC Admin ABAC list | SR |
-
-Reply with your choice (A/B/C/D) and the provider output. I'll then write the final SR and replace the Packer and VMSS pipeline files with the matching design.
+(AuthorizationFailed) The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' does not have authorization to perform action 'Microsoft.Authorization/roleAssignments/delete' over scope '/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae/providers/Microsoft.Authorization/roleAssignments/c741ff54-2b4c-4a8a-9c29-c88f421c025e' or the scope is invalid. If access was recently granted, please refresh your credentials.
+Code: AuthorizationFailed
+Message: The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' does not have authorization to perform action 'Microsoft.Authorization/roleAssignments/delete' over scope '/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae/providers/Microsoft.Authorization/roleAssignments/c741ff54-2b4c-4a8a-9c29-c88f421c025e' or the scope is invalid. If access was recently granted, please refresh your credentials.
+Role
+-------------------------
+Key Vault Secrets Officer
+nikul [ ~ ]$ 
