@@ -1,7 +1,4 @@
-**Yes.** The CLI shortcut for this setting isn't reliable across `az` versions, so use a template deployment from Cloud Shell. It is the same thing as the Portal custom template, so the policy passes.
-
-```bash
-az account set --subscription 494e3888-fedb-4a07-96a6-65408b12c0ea
+nikul [ ~ ]$ az account set --subscription 494e3888-fedb-4a07-96a6-65408b12c0ea
 
 cat > law.json <<'EOF'
 {
@@ -25,22 +22,89 @@ cat > law.json <<'EOF'
 EOF
 
 az deployment group create \
-  --subscription 494e3888-fedb-4a07-96a6-65408b12c0ea \
-  -g PZI-GX-P-RGP-MDCL-P002 \
-  -n law-deploy \
-  --template-file law.json
-```
-
-`retentionInDays` (30) is a placeholder, not the GCP compliance value, so replace it before running. `dailyQuotaGb` (1) is a cost cap.
-
-**Verify:**
-```bash
-az monitor log-analytics workspace show -g PZI-GX-P-RGP-MDCL-P002 -n log-cn-stg-uaenorth --query "{loc:location,state:provisioningState,localAuthDisabled:features.disableLocalAuth,tags:tags}" -o json
-```
-Expect `uaenorth`, `Succeeded`, `true`, and `ghs-*` tags.
-
-If it fails, paste the full error, since it will name the policy.
-
-**Rollback:** `az monitor log-analytics workspace delete -g PZI-GX-P-RGP-MDCL-P002 -n log-cn-stg-uaenorth --yes` (soft-deleted for 14 days).
-
-Note: the file `law.json` disappears when the session ends, which is fine, but keep a copy in the repo under `azure/infra/` so the setup is reproducible.
+  --template-file law.json2 \b-4a07-96a6-65408b12c0ea \
+{
+  "id": "/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.Resources/deployments/law-deploy",
+  "location": null,
+  "name": "law-deploy",
+  "properties": {
+    "correlationId": "d9303cc2-e8db-4ade-9c35-51a684e1cea7",
+    "debugSetting": null,
+    "dependencies": [],
+    "diagnostics": null,
+    "duration": "PT26.6072946S",
+    "error": null,
+    "extensions": [],
+    "mode": "Incremental",
+    "onErrorDeployment": null,
+    "outputResources": [
+      {
+        "apiVersion": null,
+        "extension": null,
+        "id": "/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.OperationalInsights/workspaces/log-cn-stg-uaenorth",
+        "identifiers": null,
+        "resourceGroup": "PZI-GX-P-RGP-MDCL-P002",
+        "resourceType": "Microsoft.OperationalInsights/workspaces"
+      }
+    ],
+    "outputs": null,
+    "parameters": null,
+    "parametersLink": null,
+    "providers": [
+      {
+        "id": null,
+        "namespace": "Microsoft.OperationalInsights",
+        "providerAuthorizationConsentState": null,
+        "registrationPolicy": null,
+        "registrationState": null,
+        "resourceTypes": [
+          {
+            "aliases": null,
+            "apiProfiles": null,
+            "apiVersions": null,
+            "capabilities": null,
+            "defaultApiVersion": null,
+            "locationMappings": null,
+            "locations": [
+              "uaenorth"
+            ],
+            "properties": null,
+            "resourceType": "workspaces",
+            "zoneMappings": null
+          }
+        ]
+      }
+    ],
+    "provisioningState": "Succeeded",
+    "templateHash": "1990277977547640893",
+    "templateLink": null,
+    "timestamp": "2026-10-21T17:30:47.832883+00:00",
+    "validatedResources": null,
+    "validationLevel": null
+  },
+  "resourceGroup": "PZI-GX-P-RGP-MDCL-P002",
+  "tags": null,
+  "type": "Microsoft.Resources/deployments"
+}
+nikul [ ~ ]$ az monitor log-analytics workspace show -g PZI-GX-P-RGP-MDCL-P002 -n log-cn-stg-uaenorth --query "{loc:location,state:provisioningState,localAuthDisabled:features.disableLocalAuth,tags:tags}" -o json
+{
+  "loc": "uaenorth",
+  "localAuthDisabled": true,
+  "state": "Succeeded",
+  "tags": {
+    "ghs-appid": "d39e6c2c-834b-a07d-5b28-a7e7b4a08e4a",
+    "ghs-apptioid": "middleeast4908",
+    "ghs-compliance": "none",
+    "ghs-dataclassification": "confidential",
+    "ghs-envid": "da116ebf-6fc1-45c8-be5b-c19af4afd62a",
+    "ghs-environment": "Career-Navigator-LZN",
+    "ghs-environmenttype": "staging",
+    "ghs-managed": "none",
+    "ghs-owner": "RL5CR-STG001-owner",
+    "ghs-serviceoffering": "scni_base",
+    "ghs-solution": "CI158943713 - Career Navigator",
+    "ghs-tariff": "zcm",
+    "ghs-territory": "x1"
+  }
+}
+nikul [ ~ ]$ 
