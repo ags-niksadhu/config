@@ -1,40 +1,11 @@
-Your Cloud Shell session will be ephemeral so no files or system changes will persist beyond your current session.
-nikul [ ~ ]$ az resource list -g rg-cn-stg-uaenorth --query "[].{n:name,t:type,l:location}" -o table
-(AuthorizationFailed) The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' does not have authorization to perform action 'Microsoft.Resources/subscriptions/resourcegroups/read' over scope '/subscriptions/172d4e6c-aca0-4f47-8755-878ef0bfaf87/resourcegroups/rg-cn-stg-uaenorth' or the scope is invalid. If access was recently granted, please refresh your credentials.
-Code: AuthorizationFailed
-Message: The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' does not have authorization to perform action 'Microsoft.Resources/subscriptions/resourcegroups/read' over scope '/subscriptions/172d4e6c-aca0-4f47-8755-878ef0bfaf87/resourcegroups/rg-cn-stg-uaenorth' or the scope is invalid. If access was recently granted, please refresh your credentials.
-nikul [ ~ ]$ az resource list -g  --query "[].{n:name,t:type,l:location}" -o table
-argument --resource-group/-g: expected one argument
-
-Examples from command's help:
-az resource list --location westus
-List all resources in the West US region.
-
-az resource list --name 'resourceName'
-List all resources with the name 'resourceName'.
-
-az resource list --tag test
-List all resources with the tag 'test'.
-
-https://aka.ms/cli_ref
-Read more about the command in reference docs
-nikul [ ~ ]$ az resource list --name
-argument --name/-n: expected one argument
-
-Examples from command's help:
-az resource list --name 'resourceName'
-List all resources with the name 'resourceName'.
-
-az resource list --location westus
-List all resources in the West US region.
-
-az resource list --tag test
-List all resources with the tag 'test'.
-
-https://aka.ms/cli_ref
-Read more about the command in reference docs
-nikul [ ~ ]$ az resource list
-[]
-nikul [ ~ ]$ az keyvault show -n kv-cn-stg-uae --query "{rbac:properties.enableRbacAuthorization,purge:properties.enablePurgeProtection,soft:properties.enableSoftDelete}" -o json
-The Vault 'kv-cn-stg-uae' not found within subscription.
+nikul [ ~ ]$ az account set --subscription 494e3888-fedb-4a07-96a6-65408b12c0ea
+nikul [ ~ ]$ az account show --query "{name:name,id:id}" -o table
+Name
+---------------------
+pzi-gxx1-rl5cr-stg001
+nikul [ ~ ]$ az group list --query "[].{n:name,loc:location,state:properties.provisioningState}" -o table
+N                       Loc         State
+----------------------  ----------  ---------
+PZI-GX-P-RGP-MDCL-P001  westeurope  Succeeded
+PZI-GX-P-RGP-MDCL-P002  uaenorth    Succeeded
 nikul [ ~ ]$ 
