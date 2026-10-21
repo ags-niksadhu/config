@@ -1,43 +1,56 @@
-nikul [ ~ ]$ az policy assignment show --name MG-02-0082-az-014 --scope /providers/Microsoft.Management/managementGroups/MG-02-0082 -o json | grep -io '"microsoft\.[a-z]*/[a-z/]*"' | sort -u
-ERROR: (AuthorizationFailed) The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' does not have authorization to perform action 'Microsoft.Authorization/policyAssignments/read' over scope '/providers/Microsoft.Management/managementGroups/MG-02-0082/providers/Microsoft.Authorization/policyAssignments/MG-02-0082-az-014' or the scope is invalid. If access was recently granted, please refresh your credentials.
-Code: AuthorizationFailed
-Message: The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' does not have authorization to perform action 'Microsoft.Authorization/policyAssignments/read' over scope '/providers/Microsoft.Management/managementGroups/MG-02-0082/providers/Microsoft.Authorization/policyAssignments/MG-02-0082-az-014' or the scope is invalid. If access was recently granted, please refresh your credentials.
-nikul [ ~ ]$ KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
-ME=$(az ad signed-in-user show --query id -o tsv)
-for i in id-cn-backend id-cn-frontend id-cn-appgw; do
-  P=$(az identity show -g PZI-GX-P-RGP-MDCL-P002 -n $i --query principalId -o tsv)
-  az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "Key Vault Secrets User" --scope $KV
-done
-P=$(az identity show -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-appgw --query principalId -o tsv)
-az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "Key Vault Certificates User" --scope $KV
-az role assignment create --assignee-object-id $ME --assignee-principal-type User --role "Key Vault Secrets Officer" --scope $KV
-(AuthorizationFailed) The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' has an authorization with ABAC condition that is not fulfilled to perform action 'Microsoft.Authorization/roleAssignments/write' over scope '/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae/providers/Microsoft.Authorization/roleAssignments/c4dd69c6-7862-46f1-b6e3-b65814a31769' or the scope is invalid. If access was recently granted, please refresh your credentials.
-Code: AuthorizationFailed
-Message: The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' has an authorization with ABAC condition that is not fulfilled to perform action 'Microsoft.Authorization/roleAssignments/write' over scope '/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae/providers/Microsoft.Authorization/roleAssignments/c4dd69c6-7862-46f1-b6e3-b65814a31769' or the scope is invalid. If access was recently granted, please refresh your credentials.
-(AuthorizationFailed) The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' has an authorization with ABAC condition that is not fulfilled to perform action 'Microsoft.Authorization/roleAssignments/write' over scope '/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae/providers/Microsoft.Authorization/roleAssignments/9f4bba15-d63b-4df3-8c51-db7d40f2957b' or the scope is invalid. If access was recently granted, please refresh your credentials.
-Code: AuthorizationFailed
-Message: The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' has an authorization with ABAC condition that is not fulfilled to perform action 'Microsoft.Authorization/roleAssignments/write' over scope '/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae/providers/Microsoft.Authorization/roleAssignments/9f4bba15-d63b-4df3-8c51-db7d40f2957b' or the scope is invalid. If access was recently granted, please refresh your credentials.
-(AuthorizationFailed) The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' has an authorization with ABAC condition that is not fulfilled to perform action 'Microsoft.Authorization/roleAssignments/write' over scope '/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae/providers/Microsoft.Authorization/roleAssignments/26094242-5a74-4af6-aed1-fd3a8e37d307' or the scope is invalid. If access was recently granted, please refresh your credentials.
-Code: AuthorizationFailed
-Message: The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' has an authorization with ABAC condition that is not fulfilled to perform action 'Microsoft.Authorization/roleAssignments/write' over scope '/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae/providers/Microsoft.Authorization/roleAssignments/26094242-5a74-4af6-aed1-fd3a8e37d307' or the scope is invalid. If access was recently granted, please refresh your credentials.
-Role 'Key Vault Certificates User' doesn't exist.
-{
-  "condition": null,
-  "conditionVersion": null,
-  "createdBy": null,
-  "createdOn": "2026-10-21T18:09:51.422244+00:00",
-  "delegatedManagedIdentityResourceId": null,
-  "description": null,
-  "id": "/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae/providers/Microsoft.Authorization/roleAssignments/c8d2e0f6-2ca1-4dff-8764-6ac03be6e85e",
-  "name": "c8d2e0f6-2ca1-4dff-8764-6ac03be6e85e",
-  "principalId": "5975ab35-e0ec-40d4-b9e8-9a83b2e55b97",
-  "principalType": "User",
-  "resourceGroup": "PZI-GX-P-RGP-MDCL-P002",
-  "roleDefinitionId": "/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/providers/Microsoft.Authorization/roleDefinitions/b86a8fe4-44ce-4948-aee5-eccb2c155cd7",
-  "scope": "/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae",
-  "systemData": null,
-  "type": "Microsoft.Authorization/roleAssignments",
-  "updatedBy": "5975ab35-e0ec-40d4-b9e8-9a83b2e55b97",
-  "updatedOn": "2026-10-21T18:09:51.841277+00:00"
-}
-nikul [ ~ ]$ 
+**Diagnosis:** two separate results.
+
+**1. Policy allow-list read: denied.** `policyAssignments/read` on the management group is not in your role. This is a read-only block, so no change is needed, but we can't see the az-014 list. Try the definition instead, since you could read az-207 earlier from the same management group:
+```bash
+az policy definition show --name az-014-enforce-allowed-resource-types --management-group MG-01-0023 --query "{rule:policyRule,params:parameters}" -o json
+```
+If the list sits in the assignment parameters, you'll see only a parameter reference. Paste whatever comes back. If it doesn't show the list, Compute Gallery goes in the SR as an explicit allow request.
+
+**2. Role assignments: 1 of 5 succeeded, my command had a mistake.**
+
+| Command | Result | Cause |
+|---|---|---|
+| `Key Vault Secrets Officer` → you (User) | ✅ Created | Allowed by your RBAC Admin condition |
+| `Key Vault Secrets User` → 3 identities | ❌ ABAC condition not fulfilled | Your RBAC Admin role is conditional. The output doesn't say whether the condition blocks the role, the principal type (ServicePrincipal), or both. I won't guess |
+| `Key Vault Certificates User` → appgw | ❌ Role doesn't exist | My error. The built-in name is **Key Vault Certificate User** (singular) |
+
+**See the condition (read-only):**
+```bash
+az role assignment list --assignee 5975ab35-e0ec-40d4-b9e8-9a83b2e55b97 --all --include-groups --include-inherited --query "[?condition!=null].{role:roleDefinitionName,cond:condition}" -o json
+```
+This should show exactly which roles and principal types you may assign. It will either let me fix the command, or give you the exact wording for the SR.
+
+**Quick test of the principal-type theory**, only if the condition output isn't clear. It is harmless, as a denial changes nothing:
+```bash
+KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
+P=$(az identity show -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-backend --query principalId -o tsv)
+az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "Key Vault Secrets Officer" --scope $KV
+```
+⚠️ Don't run that last one for real use. Secrets Officer is broader than the app needs, so if it succeeds, delete it immediately:
+```bash
+az role assignment delete --assignee $P --role "Key Vault Secrets Officer" --scope $KV
+```
+It would only tell us the condition is about the role, not the principal type. Prefer reading the condition above.
+
+**Verify what exists now:**
+```bash
+az role assignment list --scope $KV --query "[].{role:roleDefinitionName,who:principalId,type:principalType}" -o table
+```
+Expect 1 row (you, Secrets Officer).
+
+**If the condition rules out your assignments:** the SR needs these roles granted by PwC on `kv-cn-stg-uae`:
+- `Key Vault Secrets User` → `id-cn-backend`, `id-cn-frontend`, `id-cn-appgw`
+- `Key Vault Certificate User` → `id-cn-appgw`
+
+**Denial log:**
+
+| Item | Cause | Action |
+|---|---|---|
+| Networking writes | Role `notActions` | SR |
+| Private-only gateway exposure path | az-207/az-218 | SR question |
+| Compute Gallery | az-014 | Pending definition read; SR if not allowed |
+| Key Vault private access | az-024 | SR (private endpoint or service endpoint) |
+| Role assignments to identities | ABAC condition | Pending condition read; SR if blocked |
+| Policy assignment read | Role gap | None, informational |
+
+Paste both read outputs. After that I'll write the full SR (7 items) in one message, ready to send.
