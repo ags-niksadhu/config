@@ -1,123 +1,54 @@
-nikul [ ~ ]$ az account set --subscription 494e3888-fedb-4a07-96a6-65408b12c0ea
-for i in id-cn-backend id-cn-frontend id-cn-appgw; do
-  az identity create -g PZI-GX-P-RGP-MDCL-P002 -n $i -l uaenorth --query "{n:name,principal:principalId,state:provisioningState}" -o table
-done
-N              Principal
--------------  ------------------------------------
-id-cn-backend  a074cedd-e5e4-4c65-8b46-6f34dd0aad4a
-N               Principal
---------------  ------------------------------------
-id-cn-frontend  078a67b9-c97f-487a-aa9b-6fbdf06bb66f
-N            Principal
------------  ------------------------------------
-id-cn-appgw  725d2f13-de33-4857-a8d8-d3194674a4ee
-nikul [ ~ ]$ az keyvault create -g PZI-GX-P-RGP-MDCL-P002 -n kv-cn-stg-uae -l uaenorth \
+**Diagnosis:** the 3 managed identities were created. Key Vault was denied by policy `az-024` (Deny): `networkAcls.defaultAction` must be `Deny`. My command left it at the default `Allow`. It is fixable without an SR.
+
+**Quick patch (retry with the firewall on):**
+```bash
+az keyvault create -g PZI-GX-P-RGP-MDCL-P002 -n kv-cn-stg-uae -l uaenorth \
   --enable-rbac-authorization true \
   --enable-purge-protection true \
   --retention-days 90 \
-  --public-network-access Enabled
-(RequestDisallowedByPolicy) Resource 'kv-cn-stg-uae' was disallowed by policy. Reasons: 'This action is non-compliant with Policy az-024-secure-KeyVault-vaults-prevent-public-access Assignment (MG-02-0082-in-1005), which KeyVault ACLs must have Default Action set to Deny. Please visit https://docs.devexportal.pwc.com/docs/user-guides/azure/service-specific-considerations/policy-remediations/az-024 for remediation instructions and resolution.'. See error details for policy resource IDs.
-Code: RequestDisallowedByPolicy
-Message: Resource 'kv-cn-stg-uae' was disallowed by policy. Reasons: 'This action is non-compliant with Policy az-024-secure-KeyVault-vaults-prevent-public-access Assignment (MG-02-0082-in-1005), which KeyVault ACLs must have Default Action set to Deny. Please visit https://docs.devexportal.pwc.com/docs/user-guides/azure/service-specific-considerations/policy-remediations/az-024 for remediation instructions and resolution.'. See error details for policy resource IDs.
-Target: kv-cn-stg-uae
-Additional Information:Type: PolicyViolation
-Info: {
-    "evaluationDetails": {
-        "evaluatedExpressions": [
-            {
-                "result": "True",
-                "expressionKind": "Field",
-                "expression": "type",
-                "path": "type",
-                "expressionValue": "Microsoft.KeyVault/vaults",
-                "targetValue": "Microsoft.KeyVault/vaults",
-                "operator": "Equals"
-            },
-            {
-                "result": "False",
-                "expressionKind": "Field",
-                "expression": "Microsoft.KeyVault/vaults/createMode",
-                "path": "properties.createMode",
-                "targetValue": "recover",
-                "operator": "Equals"
-            },
-            {
-                "result": "True",
-                "expressionKind": "Field",
-                "expression": "Microsoft.KeyVault/vaults/networkAcls.defaultAction",
-                "path": "properties.networkAcls.defaultAction",
-                "expressionValue": "Allow",
-                "targetValue": "Deny",
-                "operator": "NotEquals"
-            },
-            {
-                "result": "False",
-                "expressionKind": "Count",
-                "expression": "[\"/providers/Microsoft.KeyVault/vaults/migratekv\"]",
-                "expressionValue": 0,
-                "targetValue": 0,
-                "operator": "Greater"
-            },
-            {
-                "result": "False",
-                "expressionKind": "Field",
-                "expression": "id",
-                "path": "id",
-                "expressionValue": "/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae",
-                "targetValue": "/resourceGroups/IT_",
-                "operator": "Contains"
-            }
-        ],
-        "reason": "This action is non-compliant with Policy az-024-secure-KeyVault-vaults-prevent-public-access Assignment (MG-02-0082-in-1005), which KeyVault ACLs must have Default Action set to Deny. Please visit https://docs.devexportal.pwc.com/docs/user-guides/azure/service-specific-considerations/policy-remediations/az-024 for remediation instructions and resolution."
-    },
-    "policyDefinitionId": "/providers/Microsoft.Management/managementGroups/MG-01-0023/providers/Microsoft.Authorization/policyDefinitions/az-024-secure-KeyVault-vaults-prevent-public-access",
-    "policySetDefinitionId": "/providers/Microsoft.Management/managementGroups/MG-01-0023/providers/Microsoft.Authorization/policySetDefinitions/in-1005-enforce-Resource-Network-policies",
-    "policyDefinitionReferenceId": "az-024-secure-KeyVault-vaults-prevent-public-access",
-    "policySetDefinitionName": "in-1005-enforce-Resource-Network-policies",
-    "policySetDefinitionDisplayName": "in-enforce-Resource-Network-policies-in-1005",
-    "policySetDefinitionVersion": "1.0.0",
-    "policyDefinitionName": "az-024-secure-KeyVault-vaults-prevent-public-access",
-    "policyDefinitionDisplayName": "az-secure-KeyVault-vaults-prevent-public-access-az-024",
-    "policyDefinitionVersion": "1.0.0",
-    "policyDefinitionEffect": "Deny",
-    "policyAssignmentId": "/providers/Microsoft.Management/managementGroups/MG-02-0082/providers/Microsoft.Authorization/policyAssignments/MG-02-0082-in-1005",
-    "policyAssignmentName": "MG-02-0082-in-1005",
-    "policyAssignmentDisplayName": "MG-02-0082-in-enforce-Resource-Network-policies-in-1005",
-    "policyAssignmentScope": "/providers/Microsoft.Management/managementGroups/MG-02-0082",
-    "policyAssignmentParameters": {
-        "effect-az-376-enforce-analysis-service-prevent-firewall-bypass": "Deny",
-        "effect-az-549-enforce-iot-hub-dps-prevent-public-access": "Disabled",
-        "effect-az-515-enforce-Batch-account-prevent-public-access": "Deny",
-        "effect-az-540-enforce-iot-hub-block-public-network-access": "Disabled",
-        "effect-az-207-enforce-applicationgateway-private-only": "Deny",
-        "effect-az-115-enforce-apim-deny-public-config-endpoints": "Disabled",
-        "effect-az-614-secure-appservice-app-slots-prevent-public-network-access": "Audit",
-        "effect-az-994-enforce-notificationhubs-ns-disable-public-network-access": "Audit",
-        "effect-az-263-enforce-MachineLearning-ws-compute-prevent-public-ip": "Deny",
-        "effect-az-116-enforce-apim-disable-public-network-access": "Disabled",
-        "effect-az-630-enforce-Sql-managedInstances-prevent-public-access": "Deny",
-        "effect-az-632-modify-compute-disks-disable-public-network-access": "Disabled",
-        "effect-az-268-enforce-MachineLearning-registry-disable-public-access": "Audit",
-        "effect-az-470-enforce-AppPlatform-spring-require-network-isolation": "Audit",
-        "effect-az-042-secure-sql-prevent-firewallrules": "Disabled",
-        "isolationMode-az-267-az-enforce-MachineLearning-allow-only-approved-outbound-vnet-mode": "AllowOnlyApprovedOutbound",
-        "effect-az-800-enforce-AKS-clusters-use-overlay-mode": "Deny",
-        "effect-az-269-enforce-MachineLearning-OE-disable-public-access": "Audit",
-        "effect-az-238-enforce-MachineLearning-ws-cc-prevent-public-via-ssh": "Deny",
-        "effect-az-375-enforce-analysis-service-firewall-enable": "Deny",
-        "effect-az-118-enforce-apim-disable-developer-portal": "Disabled",
-        "effect-az-231-enforce-mysql-flexibleservers-firewallrules-update-denied": "Deny",
-        "effect-az-420-enforce-AppGwContainers-block-public-frontends": "Disabled",
-        "effect-az-874-enforce-bot-service-disable-public-network": "Deny",
-        "effect-az-117-enforce-apim-require-vnet-internal-mode": "Disabled",
-        "effect-az-237-enforce-MachineLearning-ws-cinstance-prevent-ssh": "Deny",
-        "effect-az-471-enforce-ElasticSan-vg-require-network-isolation": "Audit",
-        "effect-az-629-monitor-compute-snapshots-disable-public-network-access": "Disabled",
-        "effect-az-758-secure-EventGrid-partnerNamespaces-disable-public-access": "Audit",
-        "effect-az-039-secure-sql-prevent-public-access": "Disabled",
-        "effect-az-218-enforce-load-balancer-private-only": "Deny"
-    },
-    "policyExemptionIds": [],
-    "policyEnrollmentIds": []
-}
-nikul [ ~ ]$ 
+  --default-action Deny \
+  --bypass AzureServices
+```
+(GUI equivalent: Key Vault → Create → Networking tab → "Enable public access from specific virtual networks and IP addresses", with no networks added.)
+
+| Part | Impact |
+|---|---|
+| `--default-action Deny` | All network access is blocked unless allowed by a rule. This satisfies az-024 |
+| `--bypass AzureServices` | Trusted Microsoft services can still reach the vault |
+
+⚠️ With Deny, **your own Cloud Shell can't read or write secrets** (data plane). Creating the vault and role assignments still works, because that is the management plane. Don't store secrets yet. To set them later, add your current IP: `az keyvault network-rule add -n kv-cn-stg-uae --ip-address <IP>/32`. The Cloud Shell IP changes per session, so this is temporary.
+
+⚠️ Purge protection is irreversible, so confirm the name `kv-cn-stg-uae` before running.
+
+**Long-term (recommended for prod):** a private endpoint, or a VNet rule with a `Microsoft.KeyVault` service endpoint on the app subnets. Both need the VNet, so add them to the networking SR.
+
+**⚠️ Bigger finding in that error output, which affects the design.** The policy assignment parameters include `az-207-enforce-applicationgateway-private-only: Deny` and `az-218-enforce-load-balancer-private-only: Deny`. If these mean what the names say, **an Application Gateway or load balancer with a public IP will be denied.** Your role also blocks public IP writes, so a public test IP was never going to work. The load balancer must be internal (private frontend IP only), reached from the PwC network.
+
+I haven't read the policy rule itself, so this is unconfirmed. Check (read-only):
+```bash
+az policy definition show --name az-207-enforce-applicationgateway-private-only --management-group MG-01-0023 --query "{rule:policyRule,desc:description}" -o json
+```
+If the command is denied, say so. It is a read, so it may need no SR.
+
+**What this changes in the plan:**
+- Application Gateway v2 is **private-only**. Check whether it needs a preview-feature registration, which your role blocks (`Microsoft.Features/.../register` is in `notActions`). Add this question to the SR.
+- Public URLs for users need a PwC-managed path: a PwC edge, VPN, or private DNS. Ask who exposes the staging hostname today and how GCP staging was reached.
+- Replace "public IP for App Gateway" in the SR with "private frontend IP on snet-appgw".
+
+**Updated SR list (the batch is growing):**
+1. VNet, subnets, NSGs, NAT (role blocks).
+2. Private-only Application Gateway: feature registration if required, and the exposure path for the app hostnames.
+3. Key Vault network access: `Microsoft.KeyVault` service endpoint on `snet-app` and `snet-appgw`, or a private endpoint plus private DNS zone.
+4. Azure DevOps org/project and GitHub App approval.
+5. Outbound path for the agents subnet (GitHub, npm, NodeSource, Packer plugin host).
+
+**Denial log:**
+
+| Item | Cause | Action |
+|---|---|---|
+| Networking writes | Role `notActions` | SR |
+| Log Analytics via Portal | az-671 | Fixed (template) |
+| Key Vault default allow | az-024 | Fixed (`--default-action Deny`) |
+| Public IP on App Gateway/LB | az-207/az-218 (Deny) + role | SR / design change |
+
+Run the Key Vault command, and paste the output of that and the policy definition command. If the vault passes, I'll give the Gallery and role assignment steps. Both are unaffected by these policies, as far as the errors so far show.
