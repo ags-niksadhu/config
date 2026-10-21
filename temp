@@ -1,25 +1,43 @@
-nikul [ ~ ]$ az feature list --namespace Microsoft.Network --query "[?contains(name,'EnableApplicationGatewayNetworkIsolation')].{n:name,s:properties.state}" -o table
-N                                                           S
-----------------------------------------------------------  ----------
-Microsoft.Network/EnableApplicationGatewayNetworkIsolation  Registered
-nikul [ ~ ]$ az sig create -g PZI-GX-P-RGP-MDCL-P002 -r gal_cn_stg -l uaenorth
-for a in cn-backend cn-frontend; do
-  az sig image-definition create -g PZI-GX-P-RGP-MDCL-P002 -r gal_cn_stg -i $a \
-    --publisher auxano --offer $a --sku ubuntu2404 \
-    --os-type Linux --os-state Generalized --hyper-v-generation V2
+**Diagnosis:** this is policy `az-014` (allowed resource types, effect Deny). It rejected `Microsoft.Compute/galleries` and the image definitions, so Compute Gallery is not on PwC's allow-list for this subscription. Good news from the same output: the feature `EnableApplicationGatewayNetworkIsolation` is **Registered**, so private-only Application Gateway needs no feature registration.
+
+**Don't guess the workaround. Read the allow-list first (read-only):**
+```bash
+az policy assignment show --name MG-02-0082-az-014 --scope /providers/Microsoft.Management/managementGroups/MG-02-0082 -o json | grep -io '"microsoft\.[a-z]*/[a-z/]*"' | sort -u
+```
+Paste the output. It lists every resource type you may create (all providers), so it also pre-empts the next denials (VMSS, Application Gateway, PostgreSQL, NAT, and so on). If the grep prints nothing, run the same command without the `| grep ... | sort -u` and paste the parameters section.
+
+**Options depending on the list:**
+
+| Option | Cost | Complexity | Condition |
+|---|---|---|---|
+| Packer outputs a **managed image** (`Microsoft.Compute/images`) and the VMSS boots from it | Image storage only | Low | Only if `images` is on the list |
+| Ask PwC to allow `Microsoft.Compute/galleries` (+ `galleries/images`, `galleries/images/versions`) | Image storage | Low (one SR line) | Closest to the GCP golden image flow, with versioned rollback |
+| Skip images: VMSS from a base image plus a cloud-init install at boot | None | High, and slow scale-out | ⚠️ Drops the no-startup-download design you chose on GCP |
+
+**Recommendation (provisional):** gallery via SR if PwC will allow it, since versioned image history is what the rollback step uses. If `images` is already allowed, a managed image is a fine interim that needs no SR. Choose after seeing the list.
+
+⚠️ **Rollback weaker with managed images:** you keep previous images by name, not versions. Keep the last 3 and don't delete the current one's predecessor.
+
+**Not blocked, so run now** (role assignments don't create a resource type; if denied, paste the error):
+```bash
+KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
+ME=$(az ad signed-in-user show --query id -o tsv)
+for i in id-cn-backend id-cn-frontend id-cn-appgw; do
+  P=$(az identity show -g PZI-GX-P-RGP-MDCL-P002 -n $i --query principalId -o tsv)
+  az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "Key Vault Secrets User" --scope $KV
 done
-(RequestDisallowedByPolicy) Resource 'gal_cn_stg' was disallowed by policy. Policy identifiers: '[{"policyAssignment":{"name":"MG-02-0082-az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-02-0082/providers/Microsoft.Authorization/policyAssignments/MG-02-0082-az-014"},"policyDefinition":{"name":"az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-01-0023/providers/Microsoft.Authorization/policyDefinitions/az-014-enforce-allowed-resource-types","version":"1.0.0"}}]'.
-Code: RequestDisallowedByPolicy
-Message: Resource 'gal_cn_stg' was disallowed by policy. Policy identifiers: '[{"policyAssignment":{"name":"MG-02-0082-az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-02-0082/providers/Microsoft.Authorization/policyAssignments/MG-02-0082-az-014"},"policyDefinition":{"name":"az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-01-0023/providers/Microsoft.Authorization/policyDefinitions/az-014-enforce-allowed-resource-types","version":"1.0.0"}}]'.
-Target: gal_cn_stg
-Starting Build (May) 2024, "az sig image-definition create" command will use the new default values Hyper-V Generation: V2 and SecurityType: TrustedLaunchSupported.
-(RequestDisallowedByPolicy) Resource 'cn-backend' was disallowed by policy. Policy identifiers: '[{"policyAssignment":{"name":"MG-02-0082-az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-02-0082/providers/Microsoft.Authorization/policyAssignments/MG-02-0082-az-014"},"policyDefinition":{"name":"az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-01-0023/providers/Microsoft.Authorization/policyDefinitions/az-014-enforce-allowed-resource-types","version":"1.0.0"}}]'.
-Code: RequestDisallowedByPolicy
-Message: Resource 'cn-backend' was disallowed by policy. Policy identifiers: '[{"policyAssignment":{"name":"MG-02-0082-az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-02-0082/providers/Microsoft.Authorization/policyAssignments/MG-02-0082-az-014"},"policyDefinition":{"name":"az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-01-0023/providers/Microsoft.Authorization/policyDefinitions/az-014-enforce-allowed-resource-types","version":"1.0.0"}}]'.
-Target: cn-backend
-Starting Build (May) 2024, "az sig image-definition create" command will use the new default values Hyper-V Generation: V2 and SecurityType: TrustedLaunchSupported.
-(RequestDisallowedByPolicy) Resource 'cn-frontend' was disallowed by policy. Policy identifiers: '[{"policyAssignment":{"name":"MG-02-0082-az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-02-0082/providers/Microsoft.Authorization/policyAssignments/MG-02-0082-az-014"},"policyDefinition":{"name":"az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-01-0023/providers/Microsoft.Authorization/policyDefinitions/az-014-enforce-allowed-resource-types","version":"1.0.0"}}]'.
-Code: RequestDisallowedByPolicy
-Message: Resource 'cn-frontend' was disallowed by policy. Policy identifiers: '[{"policyAssignment":{"name":"MG-02-0082-az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-02-0082/providers/Microsoft.Authorization/policyAssignments/MG-02-0082-az-014"},"policyDefinition":{"name":"az-enforce-allowed-resource-types-az-014","id":"/providers/Microsoft.Management/managementGroups/MG-01-0023/providers/Microsoft.Authorization/policyDefinitions/az-014-enforce-allowed-resource-types","version":"1.0.0"}}]'.
-Target: cn-frontend
-nikul [ ~ ]$ 
+P=$(az identity show -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-appgw --query principalId -o tsv)
+az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "Key Vault Certificates User" --scope $KV
+az role assignment create --assignee-object-id $ME --assignee-principal-type User --role "Key Vault Secrets Officer" --scope $KV
+```
+
+**Denial log update:**
+
+| Item | Cause | Action |
+|---|---|---|
+| Networking writes | Role `notActions` | SR |
+| Private-only App Gateway exposure path | Policy az-207/az-218 | Design question in SR |
+| Compute Gallery | Policy az-014 allow-list | Pending the list: managed image or SR |
+| Key Vault network access | az-024 | Done (Deny); private endpoint or service endpoint in SR |
+
+Paste the allow-list and the role assignment output.
