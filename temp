@@ -1,110 +1,66 @@
-nikul [ ~ ]$ az account set --subscription 494e3888-fedb-4a07-96a6-65408b12c0ea
+**Result:** `log-cn-stg-uaenorth` is created, and the verify output shows `Succeeded`, `localAuthDisabled: true`, and the `ghs-*` tags inherited. So tag inheritance works and you don't need to add tags manually. ⚠️ Retention is still the placeholder 30 days. Update it when you know the PwC value:
+```bash
+az monitor log-analytics workspace update -g PZI-GX-P-RGP-MDCL-P002 -n log-cn-stg-uaenorth --retention-time <DAYS>   # REQUIRED: PwC/GCP-compliance retention
+```
 
-cat > law.json <<'EOF'
-{
-  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-  "contentVersion": "1.0.0.0",
-  "resources": [
-    {
-      "type": "Microsoft.OperationalInsights/workspaces",
-      "apiVersion": "2022-10-01",
-      "name": "log-cn-stg-uaenorth",
-      "location": "uaenorth",
-      "properties": {
-        "sku": { "name": "PerGB2018" },
-        "retentionInDays": 30,
-        "features": { "disableLocalAuth": true },
-        "workspaceCapping": { "dailyQuotaGb": 1 }
-      }
-    }
-  ]
-}
-EOF
+**Next: managed identities, Key Vault and Gallery.** Cloud Shell works for these, since the Portal form hid a required property last time. Run each block separately and paste any error.
 
-az deployment group create \
-  --template-file law.json2 \b-4a07-96a6-65408b12c0ea \
-{
-  "id": "/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.Resources/deployments/law-deploy",
-  "location": null,
-  "name": "law-deploy",
-  "properties": {
-    "correlationId": "d9303cc2-e8db-4ade-9c35-51a684e1cea7",
-    "debugSetting": null,
-    "dependencies": [],
-    "diagnostics": null,
-    "duration": "PT26.6072946S",
-    "error": null,
-    "extensions": [],
-    "mode": "Incremental",
-    "onErrorDeployment": null,
-    "outputResources": [
-      {
-        "apiVersion": null,
-        "extension": null,
-        "id": "/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.OperationalInsights/workspaces/log-cn-stg-uaenorth",
-        "identifiers": null,
-        "resourceGroup": "PZI-GX-P-RGP-MDCL-P002",
-        "resourceType": "Microsoft.OperationalInsights/workspaces"
-      }
-    ],
-    "outputs": null,
-    "parameters": null,
-    "parametersLink": null,
-    "providers": [
-      {
-        "id": null,
-        "namespace": "Microsoft.OperationalInsights",
-        "providerAuthorizationConsentState": null,
-        "registrationPolicy": null,
-        "registrationState": null,
-        "resourceTypes": [
-          {
-            "aliases": null,
-            "apiProfiles": null,
-            "apiVersions": null,
-            "capabilities": null,
-            "defaultApiVersion": null,
-            "locationMappings": null,
-            "locations": [
-              "uaenorth"
-            ],
-            "properties": null,
-            "resourceType": "workspaces",
-            "zoneMappings": null
-          }
-        ]
-      }
-    ],
-    "provisioningState": "Succeeded",
-    "templateHash": "1990277977547640893",
-    "templateLink": null,
-    "timestamp": "2026-10-21T17:30:47.832883+00:00",
-    "validatedResources": null,
-    "validationLevel": null
-  },
-  "resourceGroup": "PZI-GX-P-RGP-MDCL-P002",
-  "tags": null,
-  "type": "Microsoft.Resources/deployments"
-}
-nikul [ ~ ]$ az monitor log-analytics workspace show -g PZI-GX-P-RGP-MDCL-P002 -n log-cn-stg-uaenorth --query "{loc:location,state:provisioningState,localAuthDisabled:features.disableLocalAuth,tags:tags}" -o json
-{
-  "loc": "uaenorth",
-  "localAuthDisabled": true,
-  "state": "Succeeded",
-  "tags": {
-    "ghs-appid": "d39e6c2c-834b-a07d-5b28-a7e7b4a08e4a",
-    "ghs-apptioid": "middleeast4908",
-    "ghs-compliance": "none",
-    "ghs-dataclassification": "confidential",
-    "ghs-envid": "da116ebf-6fc1-45c8-be5b-c19af4afd62a",
-    "ghs-environment": "Career-Navigator-LZN",
-    "ghs-environmenttype": "staging",
-    "ghs-managed": "none",
-    "ghs-owner": "RL5CR-STG001-owner",
-    "ghs-serviceoffering": "scni_base",
-    "ghs-solution": "CI158943713 - Career Navigator",
-    "ghs-tariff": "zcm",
-    "ghs-territory": "x1"
-  }
-}
-nikul [ ~ ]$ 
+**1. Managed identities**
+```bash
+az account set --subscription 494e3888-fedb-4a07-96a6-65408b12c0ea
+for i in id-cn-backend id-cn-frontend id-cn-appgw; do
+  az identity create -g PZI-GX-P-RGP-MDCL-P002 -n $i -l uaenorth --query "{n:name,principal:principalId,state:provisioningState}" -o table
+done
+```
+
+**2. Key Vault** (RBAC model, soft delete default, purge protection on)
+```bash
+az keyvault create -g PZI-GX-P-RGP-MDCL-P002 -n kv-cn-stg-uae -l uaenorth \
+  --enable-rbac-authorization true \
+  --enable-purge-protection true \
+  --retention-days 90 \
+  --public-network-access Enabled
+```
+- ⚠️ Purge protection can't be undone, so confirm the name `kv-cn-stg-uae` first. If it is taken, pick another and tell me.
+- ⚠️ The vault stays on a public endpoint until the VNet exists. Don't store real secrets yet.
+- A policy may demand diagnostic settings or other properties. Paste the full error if it fails.
+
+**3. Compute Gallery**
+```bash
+az sig create -g PZI-GX-P-RGP-MDCL-P002 -r gal_cn_stg -l uaenorth
+for a in cn-backend cn-frontend; do
+  az sig image-definition create -g PZI-GX-P-RGP-MDCL-P002 -r gal_cn_stg -i $a \
+    --publisher auxano --offer $a --sku ubuntu2404 \
+    --os-type Linux --os-state Generalized --hyper-v-generation V2
+done
+```
+
+**4. Role assignments** (after 1 and 2 succeed)
+```bash
+SUB=494e3888-fedb-4a07-96a6-65408b12c0ea
+KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
+ME=$(az ad signed-in-user show --query id -o tsv)
+for i in id-cn-backend id-cn-frontend id-cn-appgw; do
+  P=$(az identity show -g PZI-GX-P-RGP-MDCL-P002 -n $i --query principalId -o tsv)
+  az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "Key Vault Secrets User" --scope $KV
+done
+P=$(az identity show -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-appgw --query principalId -o tsv)
+az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "Key Vault Certificates User" --scope $KV
+az role assignment create --assignee-object-id $ME --assignee-principal-type User --role "Key Vault Secrets Officer" --scope $KV
+```
+Role assignment may be partly denied: your RBAC Admin role has `Authorization/*/Write` in its `notActions` on the Contributor role, but the separate RBAC Admin role should cover it. If it fails, paste the error.
+
+**Verify**
+```bash
+az resource list -g PZI-GX-P-RGP-MDCL-P002 --query "[].{n:name,t:type,l:location}" -o table
+az keyvault show -n kv-cn-stg-uae --query "{rbac:properties.enableRbacAuthorization,purge:properties.enablePurgeProtection,soft:properties.enableSoftDelete}" -o json
+az sig image-definition list -g PZI-GX-P-RGP-MDCL-P002 -r gal_cn_stg --query "[].{n:name,os:osType,gen:hyperVGeneration}" -o table
+az role assignment list --scope $(az keyvault show -n kv-cn-stg-uae --query id -o tsv) --query "[].{role:roleDefinitionName,who:principalName}" -o table
+```
+Expect all `uaenorth`, `rbac: true`, `purge: true`, both definitions `V2`, and 5 role assignments.
+
+⚠️ **Recurring cost:** Log Analytics (ingestion, capped at 1 GB/day), Key Vault (small, per operation), Gallery (image storage). Managed identities are free.
+
+**Rollback:** identities, the gallery and the workspace can be deleted. Key Vault has purge protection on, so it is soft-deleted for 90 days.
+
+**SR status:** the networking SR (VNet, NSGs, public IP, NAT, plus Azure DevOps org and GitHub App approval) is still the next blocker. Has it been raised?
