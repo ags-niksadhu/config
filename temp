@@ -1,66 +1,123 @@
-**Result:** `log-cn-stg-uaenorth` is created, and the verify output shows `Succeeded`, `localAuthDisabled: true`, and the `ghs-*` tags inherited. So tag inheritance works and you don't need to add tags manually. ⚠️ Retention is still the placeholder 30 days. Update it when you know the PwC value:
-```bash
-az monitor log-analytics workspace update -g PZI-GX-P-RGP-MDCL-P002 -n log-cn-stg-uaenorth --retention-time <DAYS>   # REQUIRED: PwC/GCP-compliance retention
-```
-
-**Next: managed identities, Key Vault and Gallery.** Cloud Shell works for these, since the Portal form hid a required property last time. Run each block separately and paste any error.
-
-**1. Managed identities**
-```bash
-az account set --subscription 494e3888-fedb-4a07-96a6-65408b12c0ea
+nikul [ ~ ]$ az account set --subscription 494e3888-fedb-4a07-96a6-65408b12c0ea
 for i in id-cn-backend id-cn-frontend id-cn-appgw; do
   az identity create -g PZI-GX-P-RGP-MDCL-P002 -n $i -l uaenorth --query "{n:name,principal:principalId,state:provisioningState}" -o table
 done
-```
-
-**2. Key Vault** (RBAC model, soft delete default, purge protection on)
-```bash
-az keyvault create -g PZI-GX-P-RGP-MDCL-P002 -n kv-cn-stg-uae -l uaenorth \
+N              Principal
+-------------  ------------------------------------
+id-cn-backend  a074cedd-e5e4-4c65-8b46-6f34dd0aad4a
+N               Principal
+--------------  ------------------------------------
+id-cn-frontend  078a67b9-c97f-487a-aa9b-6fbdf06bb66f
+N            Principal
+-----------  ------------------------------------
+id-cn-appgw  725d2f13-de33-4857-a8d8-d3194674a4ee
+nikul [ ~ ]$ az keyvault create -g PZI-GX-P-RGP-MDCL-P002 -n kv-cn-stg-uae -l uaenorth \
   --enable-rbac-authorization true \
   --enable-purge-protection true \
   --retention-days 90 \
   --public-network-access Enabled
-```
-- ⚠️ Purge protection can't be undone, so confirm the name `kv-cn-stg-uae` first. If it is taken, pick another and tell me.
-- ⚠️ The vault stays on a public endpoint until the VNet exists. Don't store real secrets yet.
-- A policy may demand diagnostic settings or other properties. Paste the full error if it fails.
-
-**3. Compute Gallery**
-```bash
-az sig create -g PZI-GX-P-RGP-MDCL-P002 -r gal_cn_stg -l uaenorth
-for a in cn-backend cn-frontend; do
-  az sig image-definition create -g PZI-GX-P-RGP-MDCL-P002 -r gal_cn_stg -i $a \
-    --publisher auxano --offer $a --sku ubuntu2404 \
-    --os-type Linux --os-state Generalized --hyper-v-generation V2
-done
-```
-
-**4. Role assignments** (after 1 and 2 succeed)
-```bash
-SUB=494e3888-fedb-4a07-96a6-65408b12c0ea
-KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
-ME=$(az ad signed-in-user show --query id -o tsv)
-for i in id-cn-backend id-cn-frontend id-cn-appgw; do
-  P=$(az identity show -g PZI-GX-P-RGP-MDCL-P002 -n $i --query principalId -o tsv)
-  az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "Key Vault Secrets User" --scope $KV
-done
-P=$(az identity show -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-appgw --query principalId -o tsv)
-az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "Key Vault Certificates User" --scope $KV
-az role assignment create --assignee-object-id $ME --assignee-principal-type User --role "Key Vault Secrets Officer" --scope $KV
-```
-Role assignment may be partly denied: your RBAC Admin role has `Authorization/*/Write` in its `notActions` on the Contributor role, but the separate RBAC Admin role should cover it. If it fails, paste the error.
-
-**Verify**
-```bash
-az resource list -g PZI-GX-P-RGP-MDCL-P002 --query "[].{n:name,t:type,l:location}" -o table
-az keyvault show -n kv-cn-stg-uae --query "{rbac:properties.enableRbacAuthorization,purge:properties.enablePurgeProtection,soft:properties.enableSoftDelete}" -o json
-az sig image-definition list -g PZI-GX-P-RGP-MDCL-P002 -r gal_cn_stg --query "[].{n:name,os:osType,gen:hyperVGeneration}" -o table
-az role assignment list --scope $(az keyvault show -n kv-cn-stg-uae --query id -o tsv) --query "[].{role:roleDefinitionName,who:principalName}" -o table
-```
-Expect all `uaenorth`, `rbac: true`, `purge: true`, both definitions `V2`, and 5 role assignments.
-
-⚠️ **Recurring cost:** Log Analytics (ingestion, capped at 1 GB/day), Key Vault (small, per operation), Gallery (image storage). Managed identities are free.
-
-**Rollback:** identities, the gallery and the workspace can be deleted. Key Vault has purge protection on, so it is soft-deleted for 90 days.
-
-**SR status:** the networking SR (VNet, NSGs, public IP, NAT, plus Azure DevOps org and GitHub App approval) is still the next blocker. Has it been raised?
+(RequestDisallowedByPolicy) Resource 'kv-cn-stg-uae' was disallowed by policy. Reasons: 'This action is non-compliant with Policy az-024-secure-KeyVault-vaults-prevent-public-access Assignment (MG-02-0082-in-1005), which KeyVault ACLs must have Default Action set to Deny. Please visit https://docs.devexportal.pwc.com/docs/user-guides/azure/service-specific-considerations/policy-remediations/az-024 for remediation instructions and resolution.'. See error details for policy resource IDs.
+Code: RequestDisallowedByPolicy
+Message: Resource 'kv-cn-stg-uae' was disallowed by policy. Reasons: 'This action is non-compliant with Policy az-024-secure-KeyVault-vaults-prevent-public-access Assignment (MG-02-0082-in-1005), which KeyVault ACLs must have Default Action set to Deny. Please visit https://docs.devexportal.pwc.com/docs/user-guides/azure/service-specific-considerations/policy-remediations/az-024 for remediation instructions and resolution.'. See error details for policy resource IDs.
+Target: kv-cn-stg-uae
+Additional Information:Type: PolicyViolation
+Info: {
+    "evaluationDetails": {
+        "evaluatedExpressions": [
+            {
+                "result": "True",
+                "expressionKind": "Field",
+                "expression": "type",
+                "path": "type",
+                "expressionValue": "Microsoft.KeyVault/vaults",
+                "targetValue": "Microsoft.KeyVault/vaults",
+                "operator": "Equals"
+            },
+            {
+                "result": "False",
+                "expressionKind": "Field",
+                "expression": "Microsoft.KeyVault/vaults/createMode",
+                "path": "properties.createMode",
+                "targetValue": "recover",
+                "operator": "Equals"
+            },
+            {
+                "result": "True",
+                "expressionKind": "Field",
+                "expression": "Microsoft.KeyVault/vaults/networkAcls.defaultAction",
+                "path": "properties.networkAcls.defaultAction",
+                "expressionValue": "Allow",
+                "targetValue": "Deny",
+                "operator": "NotEquals"
+            },
+            {
+                "result": "False",
+                "expressionKind": "Count",
+                "expression": "[\"/providers/Microsoft.KeyVault/vaults/migratekv\"]",
+                "expressionValue": 0,
+                "targetValue": 0,
+                "operator": "Greater"
+            },
+            {
+                "result": "False",
+                "expressionKind": "Field",
+                "expression": "id",
+                "path": "id",
+                "expressionValue": "/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.KeyVault/vaults/kv-cn-stg-uae",
+                "targetValue": "/resourceGroups/IT_",
+                "operator": "Contains"
+            }
+        ],
+        "reason": "This action is non-compliant with Policy az-024-secure-KeyVault-vaults-prevent-public-access Assignment (MG-02-0082-in-1005), which KeyVault ACLs must have Default Action set to Deny. Please visit https://docs.devexportal.pwc.com/docs/user-guides/azure/service-specific-considerations/policy-remediations/az-024 for remediation instructions and resolution."
+    },
+    "policyDefinitionId": "/providers/Microsoft.Management/managementGroups/MG-01-0023/providers/Microsoft.Authorization/policyDefinitions/az-024-secure-KeyVault-vaults-prevent-public-access",
+    "policySetDefinitionId": "/providers/Microsoft.Management/managementGroups/MG-01-0023/providers/Microsoft.Authorization/policySetDefinitions/in-1005-enforce-Resource-Network-policies",
+    "policyDefinitionReferenceId": "az-024-secure-KeyVault-vaults-prevent-public-access",
+    "policySetDefinitionName": "in-1005-enforce-Resource-Network-policies",
+    "policySetDefinitionDisplayName": "in-enforce-Resource-Network-policies-in-1005",
+    "policySetDefinitionVersion": "1.0.0",
+    "policyDefinitionName": "az-024-secure-KeyVault-vaults-prevent-public-access",
+    "policyDefinitionDisplayName": "az-secure-KeyVault-vaults-prevent-public-access-az-024",
+    "policyDefinitionVersion": "1.0.0",
+    "policyDefinitionEffect": "Deny",
+    "policyAssignmentId": "/providers/Microsoft.Management/managementGroups/MG-02-0082/providers/Microsoft.Authorization/policyAssignments/MG-02-0082-in-1005",
+    "policyAssignmentName": "MG-02-0082-in-1005",
+    "policyAssignmentDisplayName": "MG-02-0082-in-enforce-Resource-Network-policies-in-1005",
+    "policyAssignmentScope": "/providers/Microsoft.Management/managementGroups/MG-02-0082",
+    "policyAssignmentParameters": {
+        "effect-az-376-enforce-analysis-service-prevent-firewall-bypass": "Deny",
+        "effect-az-549-enforce-iot-hub-dps-prevent-public-access": "Disabled",
+        "effect-az-515-enforce-Batch-account-prevent-public-access": "Deny",
+        "effect-az-540-enforce-iot-hub-block-public-network-access": "Disabled",
+        "effect-az-207-enforce-applicationgateway-private-only": "Deny",
+        "effect-az-115-enforce-apim-deny-public-config-endpoints": "Disabled",
+        "effect-az-614-secure-appservice-app-slots-prevent-public-network-access": "Audit",
+        "effect-az-994-enforce-notificationhubs-ns-disable-public-network-access": "Audit",
+        "effect-az-263-enforce-MachineLearning-ws-compute-prevent-public-ip": "Deny",
+        "effect-az-116-enforce-apim-disable-public-network-access": "Disabled",
+        "effect-az-630-enforce-Sql-managedInstances-prevent-public-access": "Deny",
+        "effect-az-632-modify-compute-disks-disable-public-network-access": "Disabled",
+        "effect-az-268-enforce-MachineLearning-registry-disable-public-access": "Audit",
+        "effect-az-470-enforce-AppPlatform-spring-require-network-isolation": "Audit",
+        "effect-az-042-secure-sql-prevent-firewallrules": "Disabled",
+        "isolationMode-az-267-az-enforce-MachineLearning-allow-only-approved-outbound-vnet-mode": "AllowOnlyApprovedOutbound",
+        "effect-az-800-enforce-AKS-clusters-use-overlay-mode": "Deny",
+        "effect-az-269-enforce-MachineLearning-OE-disable-public-access": "Audit",
+        "effect-az-238-enforce-MachineLearning-ws-cc-prevent-public-via-ssh": "Deny",
+        "effect-az-375-enforce-analysis-service-firewall-enable": "Deny",
+        "effect-az-118-enforce-apim-disable-developer-portal": "Disabled",
+        "effect-az-231-enforce-mysql-flexibleservers-firewallrules-update-denied": "Deny",
+        "effect-az-420-enforce-AppGwContainers-block-public-frontends": "Disabled",
+        "effect-az-874-enforce-bot-service-disable-public-network": "Deny",
+        "effect-az-117-enforce-apim-require-vnet-internal-mode": "Disabled",
+        "effect-az-237-enforce-MachineLearning-ws-cinstance-prevent-ssh": "Deny",
+        "effect-az-471-enforce-ElasticSan-vg-require-network-isolation": "Audit",
+        "effect-az-629-monitor-compute-snapshots-disable-public-network-access": "Disabled",
+        "effect-az-758-secure-EventGrid-partnerNamespaces-disable-public-access": "Audit",
+        "effect-az-039-secure-sql-prevent-public-access": "Disabled",
+        "effect-az-218-enforce-load-balancer-private-only": "Deny"
+    },
+    "policyExemptionIds": [],
+    "policyEnrollmentIds": []
+}
+nikul [ ~ ]$ 
