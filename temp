@@ -1,41 +1,24 @@
+**Diagnosis:** the vault now lists only your own `Key Vault Secrets Officer` assignment. The `id-cn-backend` one (`c741ff54...`) no longer appears, which is what we wanted. But I can't tell from this output whether it was removed or the list is just hiding an orphan, and the Portal shows `id-cn-backend` still exists. Check whether you recreated it, by comparing its principal ID with the old one (`a074cedd-e5e4-4c65-8b46-6f34dd0aad4a`):
 
-nikul [ ~ ]$ KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
-az role assignment list --scope $KV --query "[].{role:roleDefinitionName,principal:principalId,type:principalType,name:name}" -o table
-Role                       Principal                             Name
--------------------------  ------------------------------------  ------------------------------------
-Key Vault Secrets Officer  5975ab35-e0ec-40d4-b9e8-9a83b2e55b97  c8d2e0f6-2ca1-4dff-8764-6ac03be6e85e
-nikul [ ~ ]$ 
+```bash
+az identity show -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-backend --query "{principal:principalId,created:systemData.createdAt}" -o json
+KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
+az role assignment list --scope $KV --all --query "[].{role:roleDefinitionName,principal:principalId,type:principalType}" -o table
+```
 
-Name
-Type
-Resource group
-Location
-Subscription ID
+| Result | Meaning |
+|---|---|
+| Principal differs from `a074cedd...` | You recreated it, so the old assignment points at a dead principal and grants nothing. Drop the removal item (3) from the SR, or keep it as a tidy-up |
+| Principal is still `a074cedd...` and the assignment is missing | Something else removed it. Tell me, and no SR item is needed |
+| Principal is still `a074cedd...` and the assignment shows with `--all` | The earlier list hid it. Keep SR item 3 |
 
-id-cn-appgw
+Ignore `IMGFY_provisioning_managed_identity` in the Portal list. It sits in a different subscription (`c72daa19...`), a different RG and East US, so it's a PwC image-provisioning resource, not ours.
 
-Managed Identity
-PZI-GX-P-RGP-MDCL-P002
-UAE North
-/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea
+**Still open, and these decide what I write next:**
+1. **Architecture choice** (from the az-014 allow-list result): A App Service, B VMSS + gallery via policy exemption, C fixed VMs, D AKS. My recommendation is **A**, because it uses only allowed resource types.
+2. **Provider check:**
+```bash
+for p in Microsoft.Web Microsoft.DevOpsInfrastructure Microsoft.DevCenter Microsoft.ContainerService; do echo -n "$p: "; az provider show -n $p --query registrationState -o tsv; done
+```
 
-id-cn-backend
-
-Managed Identity
-PZI-GX-P-RGP-MDCL-P002
-UAE North
-/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea
-
-id-cn-frontend
-
-Managed Identity
-PZI-GX-P-RGP-MDCL-P002
-UAE North
-/subscriptions/494e3888-fedb-4a07-96a6-65408b12c0ea
-
-IMGFY_provisioning_managed_identity
-
-Managed Identity
-PZI-GXUS-S-RGP-IMGP-P001
-East US
-/subscriptions/c72daa19-9a38-
+Send the identity check, your choice, and the provider output. I'll then write the single batched SR (networking, private gateway exposure, Key Vault private access and roles, Azure DevOps org, outbound path), and replace the Packer and VMSS pipeline files to match.
