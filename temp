@@ -1,10 +1,18 @@
-nikul [ ~ ]$ az identity create -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-backend -l uaenorth --query "{n:name,principal:principalId}" -o table
-N              Principal
--------------  ------------------------------------
-id-cn-backend  6e07332a-764d-445d-a377-b545605e6363
-nikul [ ~ ]$ KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
-az role assignment list --scope $KV --query "[].{role:roleDefinitionName,principal:principalId,type:principalType,name:name}" -o table
-Role                       Principal                             Name
--------------------------  ------------------------------------  ------------------------------------
-Key Vault Secrets Officer  5975ab35-e0ec-40d4-b9e8-9a83b2e55b97  c8d2e0f6-2ca1-4dff-8764-6ac03be6e85e
-nikul [ ~ ]$ 
+az account set --subscription 494e3888-fedb-4a07-96a6-65408b12c0ea
+RG=PZI-GX-P-RGP-MDCL-P002
+
+mk() { # $1=file $2=resource JSON
+cat > $1 <<EOF
+{"\$schema":"https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#","contentVersion":"1.0.0.0","resources":[$2]}
+EOF
+}
+
+mk t-vnet.json '{"type":"Microsoft.Network/virtualNetworks","apiVersion":"2023-09-01","name":"vnet-cn-stg-uaenorth","location":"uaenorth","properties":{"addressSpace":{"addressPrefixes":["10.250.0.0/22"]}}}'
+mk t-nsg.json  '{"type":"Microsoft.Network/networkSecurityGroups","apiVersion":"2023-09-01","name":"nsg-cn-stg-test","location":"uaenorth","properties":{}}'
+mk t-nat.json  '{"type":"Microsoft.Network/natGateways","apiVersion":"2023-09-01","name":"nat-cn-stg-test","location":"uaenorth","sku":{"name":"Standard"},"properties":{}}'
+mk t-vmss.json '{"type":"Microsoft.Compute/virtualMachineScaleSets","apiVersion":"2023-09-01","name":"vmss-cn-stg-test","location":"uaenorth","sku":{"name":"Standard_B2s_v2","capacity":0},"properties":{"orchestrationMode":"Flexible","platformFaultDomainCount":1}}'
+
+for t in vnet nsg nat vmss; do
+  echo "=== $t ==="
+  az deployment group validate -g $RG --template-file t-$t.json --query "{state:properties.provisioningState,err:error.code}" -o json 2>&1 | head -8
+done
