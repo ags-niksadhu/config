@@ -1,18 +1,31 @@
-nikul [ ~ ]$ az account set --subscription 494e3888-fedb-4a07-96a6-65408b12c0ea
-az account show --query "{name:name,id:id}" -o table
-az identity show -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-backend --query "{principal:principalId,created:systemData.createdAt}" -o json
+**Diagnosis:** the subscription is now correct, and the output answers three questions.
+
+| Finding | Meaning |
+|---|---|
+| `id-cn-backend` → ResourceNotFound | It is deleted and not recreated yet. The old principal ID `a074cedd...` is gone, so the Secrets Officer assignment on it is now an orphan that grants nothing. |
+| `--all` error | My mistake. `--all` can't be combined with `--scope`. Use the command below. |
+| All 4 providers Registered | Valid now, since this ran in the right subscription. `Microsoft.Web` (App Service) and `Microsoft.DevOpsInfrastructure` (Managed DevOps Pools) need no registration request. |
+
+**Recreate the identity** (it is needed in every architecture option, and creation worked in the CLI before):
+```bash
+az identity create -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-backend -l uaenorth --query "{n:name,principal:principalId}" -o table
+```
+The new principal ID will differ from `a074cedd...`.
+
+**Check for the orphan assignment** (read-only):
+```bash
 KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
-az role assignment list --scope $KV --all --query "[].{role:roleDefinitionName,principal:principalId,type:principalType}" -o table
-for p in Microsoft.Web Microsoft.DevOpsInfrastructure Microsoft.DevCenter Microsoft.ContainerService; do echo -n "$p: "; az provider show -n $p --query registrationState -o tsv; done
-Name
----------------------
-pzi-gxx1-rl5cr-stg001
-(ResourceNotFound) The Resource 'Microsoft.ManagedIdentity/userAssignedIdentities/id-cn-backend' under resource group 'PZI-GX-P-RGP-MDCL-P002' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
-Code: ResourceNotFound
-Message: The Resource 'Microsoft.ManagedIdentity/userAssignedIdentities/id-cn-backend' under resource group 'PZI-GX-P-RGP-MDCL-P002' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
-group or scope are not required when --all is used
-Microsoft.Web: Registered
-Microsoft.DevOpsInfrastructure: Registered
-Microsoft.DevCenter: Registered
-Microsoft.ContainerService: Registered
-nikul [ ~ ]$ 
+az role assignment list --scope $KV --query "[].{role:roleDefinitionName,principal:principalId,type:principalType,name:name}" -o table
+```
+If a row with `c741ff54-...` appears (the old principal, shown as `Unknown` or blank), keep SR item 3 so PwC removes it. If it doesn't appear, drop item 3.
+
+**I still need one decision** before I write the SR and the pipeline files. The az-014 allow-list blocks VMSS and Compute Gallery:
+
+| Option | Policy | Cost | Complexity |
+|---|---|---|---|
+| A. App Service (Linux, Premium v3, autoscale) | Allowed, no exemption | Per-instance plan cost | Medium |
+| B. VMSS + Gallery | ⚠️ Needs two exemptions | Lowest | Low (already built) |
+| C. Fixed VMs, no autoscale | Allowed | VM cost × N | Medium |
+| D. AKS | Allowed | Highest | High |
+
+**Recommendation: A.** Reply with A, B, C or D. If you choose A, also tell me whether the dev team confirms the NestJS and Next.js apps run on an App Service Node runtime without the Apache layer.
