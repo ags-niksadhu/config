@@ -1,31 +1,10 @@
-**Diagnosis:** the subscription is now correct, and the output answers three questions.
-
-| Finding | Meaning |
-|---|---|
-| `id-cn-backend` → ResourceNotFound | It is deleted and not recreated yet. The old principal ID `a074cedd...` is gone, so the Secrets Officer assignment on it is now an orphan that grants nothing. |
-| `--all` error | My mistake. `--all` can't be combined with `--scope`. Use the command below. |
-| All 4 providers Registered | Valid now, since this ran in the right subscription. `Microsoft.Web` (App Service) and `Microsoft.DevOpsInfrastructure` (Managed DevOps Pools) need no registration request. |
-
-**Recreate the identity** (it is needed in every architecture option, and creation worked in the CLI before):
-```bash
-az identity create -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-backend -l uaenorth --query "{n:name,principal:principalId}" -o table
-```
-The new principal ID will differ from `a074cedd...`.
-
-**Check for the orphan assignment** (read-only):
-```bash
-KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
+nikul [ ~ ]$ az identity create -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-backend -l uaenorth --query "{n:name,principal:principalId}" -o table
+N              Principal
+-------------  ------------------------------------
+id-cn-backend  6e07332a-764d-445d-a377-b545605e6363
+nikul [ ~ ]$ KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
 az role assignment list --scope $KV --query "[].{role:roleDefinitionName,principal:principalId,type:principalType,name:name}" -o table
-```
-If a row with `c741ff54-...` appears (the old principal, shown as `Unknown` or blank), keep SR item 3 so PwC removes it. If it doesn't appear, drop item 3.
-
-**I still need one decision** before I write the SR and the pipeline files. The az-014 allow-list blocks VMSS and Compute Gallery:
-
-| Option | Policy | Cost | Complexity |
-|---|---|---|---|
-| A. App Service (Linux, Premium v3, autoscale) | Allowed, no exemption | Per-instance plan cost | Medium |
-| B. VMSS + Gallery | ⚠️ Needs two exemptions | Lowest | Low (already built) |
-| C. Fixed VMs, no autoscale | Allowed | VM cost × N | Medium |
-| D. AKS | Allowed | Highest | High |
-
-**Recommendation: A.** Reply with A, B, C or D. If you choose A, also tell me whether the dev team confirms the NestJS and Next.js apps run on an App Service Node runtime without the Apache layer.
+Role                       Principal                             Name
+-------------------------  ------------------------------------  ------------------------------------
+Key Vault Secrets Officer  5975ab35-e0ec-40d4-b9e8-9a83b2e55b97  c8d2e0f6-2ca1-4dff-8764-6ac03be6e85e
+nikul [ ~ ]$ 
