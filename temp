@@ -1,25 +1,16 @@
-nikul [ ~ ]$ az identity show -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-backend --query "{principal:principalId,created:systemData.createdAt}" -o json
+nikul [ ~ ]$ az account set --subscription 494e3888-fedb-4a07-96a6-65408b12c0ea
+az account show --query "{name:name,id:id}" -o table
+az identity show -g PZI-GX-P-RGP-MDCL-P002 -n id-cn-backend --query "{principal:principalId,created:systemData.createdAt}" -o json
 KV=$(az keyvault show -n kv-cn-stg-uae --query id -o tsv)
 az role assignment list --scope $KV --all --query "[].{role:roleDefinitionName,principal:principalId,type:principalType}" -o table
-(AuthorizationFailed) The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' does not have authorization to perform action 'Microsoft.ManagedIdentity/userAssignedIdentities/read' over scope '/subscriptions/172d4e6c-aca0-4f47-8755-878ef0bfaf87/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-cn-backend' or the scope is invalid. If access was recently granted, please refresh your credentials.
-Code: AuthorizationFailed
-Message: The client 'nikul.sadhu@admin.pwc.com' with object id '5975ab35-e0ec-40d4-b9e8-9a83b2e55b97' does not have authorization to perform action 'Microsoft.ManagedIdentity/userAssignedIdentities/read' over scope '/subscriptions/172d4e6c-aca0-4f47-8755-878ef0bfaf87/resourceGroups/PZI-GX-P-RGP-MDCL-P002/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-cn-backend' or the scope is invalid. If access was recently granted, please refresh your credentials.
-ERROR: The Vault 'kv-cn-stg-uae' not found within subscription.
-argument --scope: expected one argument
-
-Examples from command's help:
-az role assignment list --scope /subscriptions/00000000-0000-0000-0000-000000000000
-List role assignments at the subscription scope.
-
-az role assignment list --scope /subscriptions/00000000-0000-0000-0000-000000000000 --fill-role-definition-name false
-List role assignments at the subscription scope, without filling roleDefinitionName property.
-
-az role assignment list --role Reader --scope /subscriptions/00000000-0000-0000-0000-000000000000
-List role assignments with "Reader" role at the subscription scope.
-
-https://aka.ms/cli_ref
-Read more about the command in reference docs
-nikul [ ~ ]$ for p in Microsoft.Web Microsoft.DevOpsInfrastructure Microsoft.DevCenter Microsoft.ContainerService; do echo -n "$p: "; az provider show -n $p --query registrationState -o tsv; done
+for p in Microsoft.Web Microsoft.DevOpsInfrastructure Microsoft.DevCenter Microsoft.ContainerService; do echo -n "$p: "; az provider show -n $p --query registrationState -o tsv; done
+Name
+---------------------
+pzi-gxx1-rl5cr-stg001
+(ResourceNotFound) The Resource 'Microsoft.ManagedIdentity/userAssignedIdentities/id-cn-backend' under resource group 'PZI-GX-P-RGP-MDCL-P002' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+Code: ResourceNotFound
+Message: The Resource 'Microsoft.ManagedIdentity/userAssignedIdentities/id-cn-backend' under resource group 'PZI-GX-P-RGP-MDCL-P002' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+group or scope are not required when --all is used
 Microsoft.Web: Registered
 Microsoft.DevOpsInfrastructure: Registered
 Microsoft.DevCenter: Registered
